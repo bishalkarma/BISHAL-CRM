@@ -18,6 +18,7 @@ import {
   type LeadSource,
 } from "@/lib/companies";
 import { DEAL_OWNERS } from "@/lib/deals";
+import type { GeocodeResult } from "@/lib/geocode";
 import { ClusterCombobox } from "./cluster-combobox";
 import {
   Dialog,
@@ -81,6 +82,7 @@ export function NewCompanyDialog({
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [touched, setTouched] = React.useState(false);
   const [locating, setLocating] = React.useState(false);
+  const [geoError, setGeoError] = React.useState<string | null>(null);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -158,19 +160,60 @@ export function NewCompanyDialog({
     onOpenChange(false);
   };
 
-  /** Explicit, user-initiated only — never captured in the background. */
+  /**
+   * Explicit, user-initiated only. Resolves the pin to a place NAME and
+   * writes it straight into the Location field; coordinates are kept
+   * silently on the record for map links.
+   */
   const pinCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setGeoError("Location isn't available on this device.");
+      return;
+    }
+    setGeoError(null);
     setLocating(true);
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        set("coordinates", {
+      async (pos) => {
+        const coords = {
           lat: Number(pos.coords.latitude.toFixed(6)),
           lng: Number(pos.coords.longitude.toFixed(6)),
-        });
-        setLocating(false);
+        };
+        try {
+          const res = await fetch(
+            `/api/reverse-geocode?lat=${coords.lat}&lng=${coords.lng}`,
+          );
+          const data: GeocodeResult = await res.json();
+
+          setForm((f) => ({
+            ...f,
+            coordinates: coords,
+            // The resolved name goes INTO the field, replacing any placeholder.
+            area: data.area ?? f.area,
+            // Only auto-fill the emirate while it is still empty.
+            emirate: f.emirate || (data.emirate ?? ""),
+          }));
+
+          if (!data.area) {
+            setGeoError(
+              "Pinned, but the area name couldn't be resolved — type it in.",
+            );
+          }
+        } catch {
+          setForm((f) => ({ ...f, coordinates: coords }));
+          setGeoError("Pinned, but the area name couldn't be resolved.");
+        } finally {
+          setLocating(false);
+        }
       },
-      () => setLocating(false),
+      (err) => {
+        setLocating(false);
+        setGeoError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location permission denied — type the area instead."
+            : "Couldn't get your location — type the area instead.",
+        );
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
@@ -229,7 +272,8 @@ export function NewCompanyDialog({
                 <Input
                   value={form.area}
                   onChange={(e) => set("area", e.target.value)}
-                  placeholder="Palm Jumeirah"
+                  placeholder={locating ? "Finding your location…" : "Palm Jumeirah"}
+                  disabled={locating}
                 />
                 <Button
                   type="button"
@@ -237,29 +281,38 @@ export function NewCompanyDialog({
                   size="icon"
                   onClick={pinCurrentLocation}
                   disabled={locating}
-                  title="Pin my current location"
-                  aria-label="Pin my current location"
+                  title="Use my current location"
+                  aria-label="Use my current location"
                   className={cn(form.coordinates && "border-accent text-accent")}
                 >
-                  {locating ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <MapPin />
-                  )}
+                  {locating ? <Loader2 className="animate-spin" /> : <MapPin />}
                 </Button>
               </div>
-              {form.coordinates && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-accent">
-                  <MapPin className="size-3" />
-                  Pinned {form.coordinates.lat}, {form.coordinates.lng}
+              {form.coordinates && !geoError && (
+                <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="size-3 text-accent" />
+                  <span className="font-mono">
+                    {form.coordinates.lat}, {form.coordinates.lng}
+                  </span>
+                  <a
+                    href={`https://www.google.com/maps?q=${form.coordinates.lat},${form.coordinates.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent underline hover:no-underline"
+                  >
+                    view
+                  </a>
                   <button
                     type="button"
                     onClick={() => set("coordinates", null)}
-                    className="ml-1 underline hover:no-underline"
+                    className="underline hover:no-underline"
                   >
                     remove
                   </button>
                 </p>
+              )}
+              {geoError && (
+                <p className="mt-1 text-xs text-warning">{geoError}</p>
               )}
             </Field>
           </Section>
