@@ -1,16 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { DEALS, STAGE_META, type DealStage } from "@/lib/demo-data";
+import { DEALS } from "@/lib/deals";
+import { PIPELINE_STAGES, STAGE_MAP, type DealStage } from "@/lib/pipeline";
 import { formatCompactCurrency } from "@/lib/utils";
 
-const FUNNEL_STAGES: DealStage[] = [
-  "lead",
-  "qualified",
-  "samples",
-  "quotation",
-  "negotiation",
-];
+const FUNNEL_STAGES: DealStage[] = PIPELINE_STAGES.map((stage) => stage.id);
 
 export function PipelineFunnel() {
   const rows = FUNNEL_STAGES.map((stage) => {
@@ -31,9 +26,9 @@ export function PipelineFunnel() {
           <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
             <span className="flex items-center gap-2 font-medium">
               <span
-                className={`size-2 rounded-full ${STAGE_META[row.stage].color}`}
+                className={`size-2 rounded-full ${STAGE_MAP[row.stage].color}`}
               />
-              {STAGE_META[row.stage].label}
+              {STAGE_MAP[row.stage].label}
               <span className="text-xs font-normal text-muted-foreground">
                 {row.count} {row.count === 1 ? "deal" : "deals"}
               </span>
@@ -52,7 +47,7 @@ export function PipelineFunnel() {
                 delay: index * 0.08,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className={`h-full rounded-full ${STAGE_META[row.stage].color}`}
+              className={`h-full rounded-full ${STAGE_MAP[row.stage].color}`}
             />
           </div>
         </div>

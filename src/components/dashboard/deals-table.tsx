@@ -2,10 +2,16 @@
 
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { DEALS, STAGE_META } from "@/lib/demo-data";
+import { DEALS } from "@/lib/deals";
+import { STAGE_MAP } from "@/lib/pipeline";
+import type { Deal } from "@/lib/deals";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency, relativeTime } from "@/lib/utils";
+
+/** Manual probability wins; otherwise use the stage default. */
+const probabilityOf = (deal: Deal) =>
+  deal.probability ?? STAGE_MAP[deal.stage].probability;
 
 const OPEN_DEALS = DEALS.filter(
   (deal) => deal.stage !== "won" && deal.stage !== "lost",
@@ -40,12 +46,12 @@ export function DealsTable() {
             <div className="mt-2.5 flex items-center justify-between gap-2">
               <Badge variant="outline" className="gap-1.5">
                 <span
-                  className={`size-1.5 rounded-full ${STAGE_META[deal.stage].color}`}
+                  className={`size-1.5 rounded-full ${STAGE_MAP[deal.stage].color}`}
                 />
-                {STAGE_META[deal.stage].label}
+                {STAGE_MAP[deal.stage].label}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                Closes {relativeTime(deal.closeDate)}
+                Closes {relativeTime(deal.expectedCloseDate)}
               </span>
             </div>
           </motion.div>
@@ -89,9 +95,9 @@ export function DealsTable() {
                 <td className="py-3 pr-3">
                   <Badge variant="outline" className="gap-1.5 whitespace-nowrap">
                     <span
-                      className={`size-1.5 rounded-full ${STAGE_META[deal.stage].color}`}
+                      className={`size-1.5 rounded-full ${STAGE_MAP[deal.stage].color}`}
                     />
-                    {STAGE_META[deal.stage].label}
+                    {STAGE_MAP[deal.stage].label}
                   </Badge>
                 </td>
                 <td className="py-3 pr-3 text-right font-semibold tabular-nums">
@@ -100,16 +106,16 @@ export function DealsTable() {
                 <td className="hidden py-3 pr-3 lg:table-cell">
                   <div className="flex items-center gap-2">
                     <Progress
-                      value={deal.probability}
+                      value={probabilityOf(deal)}
                       className="h-1.5 w-20"
                     />
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {deal.probability}%
+                      {probabilityOf(deal)}%
                     </span>
                   </div>
                 </td>
                 <td className="hidden py-3 text-right text-xs text-muted-foreground md:table-cell">
-                  {relativeTime(deal.closeDate)}
+                  {relativeTime(deal.expectedCloseDate)}
                 </td>
               </motion.tr>
             ))}

@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Target } from "lucide-react";
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export const metadata: Metadata = { title: "Pipeline" };
 
 export default function PipelinePage() {
   return (
-    <ComingSoon
-      title="Deal Pipeline"
-      description="A drag-and-drop Kanban board built for B2B trading cycles — from first enquiry through sampling, quotation and negotiation to a signed supply contract."
-      icon={Target}
-      part="Part 2"
-      features={[
-        "Drag-and-drop Kanban with custom stages",
-        "Deal value, probability and weighted forecast",
-        "Multi-currency deals (AED, USD, SAR)",
-        "Rotting-deal alerts and stage SLAs",
-        "Split by owner, segment or territory",
-        "Bulk actions and inline editing",
-      ]}
-    />
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader
+        title="Pipeline"
+        description="Drag deals between stages. Totals and forecasts update instantly."
+        actions={
+          <Button size="sm">
+            <Plus />
+            New Deal
+          </Button>
+        }
+      />
+      <PipelineBoard />
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
+import { CurrencySettings } from "@/components/settings/currency-settings";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -12,6 +13,7 @@ export default function SettingsPage() {
         description="Personalise how the CRM looks and behaves."
       />
       <AppearanceSettings />
+      <CurrencySettings />
     </div>
   );
 }
