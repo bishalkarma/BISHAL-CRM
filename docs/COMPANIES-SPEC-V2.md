@@ -120,20 +120,23 @@ close to buying, one going nowhere. SPANCOP can't separate them; Lead Status can
 
 *Recommendation: **(b)**, or (a) if your team already thinks in Hot/Warm/Cold.*
 
-### 7.2 · What happens after cash is collected? ⚠️ *new gap*
+### 7.2 · After cash is collected — RESOLVED ✅
 
-You defined **Payment** as *delivered, cash not yet collected*. So what is the
-company's stage once they pay? Falling back to Approach would look like a demotion.
+**Payment collected → roll back to Approach.** The relationship is known and
+warm, there is simply no live opportunity. A new query creates a new deal, which
+moves the company to Negotiate and the cycle runs again.
 
-- **(a) Stay at Payment as the resting state** — with a sub-flag
-  `Awaiting collection` 🔴 → `Settled` ✅. A new deal starts a fresh cycle.
-- **(b) Add an eighth stage** (e.g. *Repeat / Active customer*)
-- **(c) Fall back to Approach**
+So SPANCOP is a **repeating loop**, not a one-way ladder:
 
-*Recommendation: **(a)**. It keeps SPANCOP at seven stages, gives you a live
-"who owes me money" list, and a company resting at Payment is self-evidently an
-existing customer — which recovers most of what the dropped Customer Type badge
-would have told you.*
+```
+Suspect → Prospect → Approach → Negotiate → Close → Order → Payment
+                        ↑                                      │
+                        └──────── cash collected ──────────────┘
+                        ↑                                      
+                        └──────── deal lost ────────────────────
+```
+
+**Approach is the resting state** for every known customer between deals.
 
 ### 7.3 · Email — optional, correct?
 
@@ -144,6 +147,46 @@ Read as: field present, **not required**, validated only when filled.
 Agreed it isn't needed for the Companies module. Flagging once for the record: a
 UAE tax invoice is not compliant without the customer TRN, so it will be needed
 when **Quotations** are built in Part 4. Proposal: add it then, as a single field.
+
+---
+
+## 7A · Consequences of the roll-back loop
+
+Because a company returns to **Approach** after payment, two things follow.
+
+### A. A live snapshot is not enough for periodic review ⚠️
+
+You asked to review stages weekly / monthly / quarterly / yearly. But if a
+company completes a full cycle in January and rolls back, today's snapshot just
+shows **Approach** — the whole won-and-collected cycle becomes invisible.
+
+**Fix — log every stage transition** (date, from, to, trigger, user). That gives
+two different and equally necessary reports:
+
+| Report | Question | Example |
+| --- | --- | --- |
+| **Snapshot** (live) | Where is everyone *right now*? | 42 Suspect · 18 Approach · 7 Negotiate |
+| **Period flow** (history) | What *happened* in this period? | In Q1: 14 companies reached Order, 9 collected payment |
+
+The flow report is the one that proves performance. Without stored history it
+cannot be produced retrospectively — so the log must exist from day one, even
+though the reports themselves are built in Part 5.
+
+### B. The Approach alert needs splitting ⚠️
+
+Approach is now the resting state for **every** known customer between deals. A
+flat "30 days in Approach" alert would fire constantly for perfectly healthy
+repeat customers — pure noise.
+
+**Fix — branch on order history (already known, no new field):**
+
+| Situation | Alert | Meaning |
+| --- | --- | --- |
+| Approach · **never** ordered · 30 days | "Not converting" | Talked, never bought |
+| Approach · **has** ordered · 60+ days since last order | "Reorder gap" | Existing customer going quiet 🚩 |
+
+Same stage, two very different problems — and the second is the one that
+protects revenue.
 
 ---
 
