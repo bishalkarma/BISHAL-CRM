@@ -159,15 +159,28 @@ export function usePipeline() {
       (sum, deal) => sum + toDisplay(deal.value, deal.currency),
       0,
     );
+    const lostValue = lost.reduce(
+      (sum, deal) => sum + toDisplay(deal.value, deal.currency),
+      0,
+    );
+
+    // Win and loss rates are shares of *closed* deals, so they always sum
+    // to 100% (rounding aside) and stay consistent with each other.
     const closed = won.length + lost.length;
+    const winRate = closed ? Math.round((won.length / closed) * 100) : 0;
+
     return {
       openCount: open.length,
       openValue,
       weighted,
       wonValue,
       wonCount: won.length,
+      lostValue,
       lostCount: lost.length,
-      winRate: closed ? Math.round((won.length / closed) * 100) : 0,
+      closedCount: closed,
+      winRate,
+      // Derived from winRate so the two tiles can never disagree.
+      lossRate: closed ? 100 - winRate : 0,
     };
   }, [filtered, toDisplay]);
 

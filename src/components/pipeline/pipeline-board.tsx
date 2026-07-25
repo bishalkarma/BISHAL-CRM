@@ -26,6 +26,7 @@ import { PipelineToolbar } from "./pipeline-toolbar";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function PipelineBoard() {
   const {
@@ -87,11 +88,49 @@ export function PipelineBoard() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryTile label="Open pipeline" value={format(stats.openValue, { compact: true })} hint={`${stats.openCount} deals`} />
-        <SummaryTile label="Weighted forecast" value={format(stats.weighted, { compact: true })} hint="Probability adjusted" />
-        <SummaryTile label="Closed won" value={format(stats.wonValue, { compact: true })} hint={`${stats.wonCount} deals`} />
-        <SummaryTile label="Win rate" value={`${stats.winRate}%`} hint={`${stats.wonCount}W / ${stats.lostCount}L`} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <SummaryTile
+          label="Open pipeline"
+          value={format(stats.openValue, { compact: true })}
+          hint={`${stats.openCount} ${stats.openCount === 1 ? "deal" : "deals"}`}
+        />
+        <SummaryTile
+          label="Weighted forecast"
+          value={format(stats.weighted, { compact: true })}
+          hint="Probability adjusted"
+        />
+        <SummaryTile
+          label="Closed won"
+          value={format(stats.wonValue, { compact: true })}
+          hint={`${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"}`}
+          tone="positive"
+        />
+        <SummaryTile
+          label="Deal lost"
+          value={format(stats.lostValue, { compact: true })}
+          hint={`${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"}`}
+          tone="negative"
+        />
+        <SummaryTile
+          label="Win rate"
+          value={`${stats.winRate}%`}
+          hint={
+            stats.closedCount
+              ? `${stats.wonCount}W / ${stats.lostCount}L`
+              : "No closed deals"
+          }
+          tone="positive"
+        />
+        <SummaryTile
+          label="Loss rate"
+          value={`${stats.lossRate}%`}
+          hint={
+            stats.closedCount
+              ? `${stats.lostCount} of ${stats.closedCount} closed`
+              : "No closed deals"
+          }
+          tone="negative"
+        />
       </div>
 
       <PipelineToolbar
@@ -184,17 +223,26 @@ function SummaryTile({
   label,
   value,
   hint,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
   hint: string;
+  /** Tints the value so won/lost metrics are scannable at a glance. */
+  tone?: "neutral" | "positive" | "negative";
 }) {
   return (
     <Card className="p-3.5">
       <div className="truncate text-xs font-medium text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold tabular-nums sm:text-xl">
+      <div
+        className={cn(
+          "mt-1 text-lg font-semibold tabular-nums sm:text-xl",
+          tone === "positive" && "text-success",
+          tone === "negative" && "text-destructive",
+        )}
+      >
         {value}
       </div>
       <div className="truncate text-[11px] text-muted-foreground">{hint}</div>
