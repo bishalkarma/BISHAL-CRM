@@ -87,8 +87,8 @@ export function PipelineBoard() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      {/* Summary — two headline tiles, then a 2×2 block of closed-deal metrics */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <SummaryTile
           label="Open pipeline"
           value={format(stats.openValue, { compact: true })}
@@ -99,38 +99,50 @@ export function PipelineBoard() {
           value={format(stats.weighted, { compact: true })}
           hint="Probability adjusted"
         />
-        <SummaryTile
-          label="Closed won"
-          value={format(stats.wonValue, { compact: true })}
-          hint={`${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"}`}
-          tone="positive"
-        />
-        <SummaryTile
-          label="Deal lost"
-          value={format(stats.lostValue, { compact: true })}
-          hint={`${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"}`}
-          tone="negative"
-        />
-        <SummaryTile
-          label="Win rate"
-          value={`${stats.winRate}%`}
-          hint={
-            stats.closedCount
-              ? `${stats.wonCount}W / ${stats.lostCount}L`
-              : "No closed deals"
-          }
-          tone="positive"
-        />
-        <SummaryTile
-          label="Loss rate"
-          value={`${stats.lossRate}%`}
-          hint={
-            stats.closedCount
-              ? `${stats.lostCount} of ${stats.closedCount} closed`
-              : "No closed deals"
-          }
-          tone="negative"
-        />
+
+        {/*
+          Closed-deal metrics, paired so value sits above its rate:
+            Closed won | Win rate
+            Deal lost  | Loss rate
+        */}
+        <div className="col-span-2 grid grid-cols-2 gap-3">
+          <SummaryTile
+            compact
+            label="Closed won"
+            value={format(stats.wonValue, { compact: true })}
+            hint={`${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"}`}
+            tone="positive"
+          />
+          <SummaryTile
+            compact
+            label="Win rate"
+            value={`${stats.winRate}%`}
+            hint={
+              stats.closedCount
+                ? `${stats.wonCount}W / ${stats.lostCount}L`
+                : "No closed deals"
+            }
+            tone="positive"
+          />
+          <SummaryTile
+            compact
+            label="Deal lost"
+            value={format(stats.lostValue, { compact: true })}
+            hint={`${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"}`}
+            tone="negative"
+          />
+          <SummaryTile
+            compact
+            label="Loss rate"
+            value={`${stats.lossRate}%`}
+            hint={
+              stats.closedCount
+                ? `${stats.lostCount} of ${stats.closedCount} closed`
+                : "No closed deals"
+            }
+            tone="negative"
+          />
+        </div>
       </div>
 
       <PipelineToolbar
@@ -224,28 +236,44 @@ function SummaryTile({
   value,
   hint,
   tone = "neutral",
+  compact = false,
 }: {
   label: string;
   value: string;
   hint: string;
   /** Tints the value so won/lost metrics are scannable at a glance. */
   tone?: "neutral" | "positive" | "negative";
+  /** Denser padding/type for the 2×2 block so it matches the tall tiles. */
+  compact?: boolean;
 }) {
   return (
-    <Card className="p-3.5">
-      <div className="truncate text-xs font-medium text-muted-foreground">
+    <Card className={cn("flex flex-col justify-center", compact ? "p-3" : "p-3.5")}>
+      <div
+        className={cn(
+          "truncate font-medium text-muted-foreground",
+          compact ? "text-[11px]" : "text-xs",
+        )}
+      >
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 text-lg font-semibold tabular-nums sm:text-xl",
+          "mt-0.5 font-semibold tabular-nums",
+          compact ? "text-base sm:text-lg" : "mt-1 text-lg sm:text-xl",
           tone === "positive" && "text-success",
           tone === "negative" && "text-destructive",
         )}
       >
         {value}
       </div>
-      <div className="truncate text-[11px] text-muted-foreground">{hint}</div>
+      <div
+        className={cn(
+          "truncate text-muted-foreground",
+          compact ? "text-[10px]" : "text-[11px]",
+        )}
+      >
+        {hint}
+      </div>
     </Card>
   );
 }
