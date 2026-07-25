@@ -92,33 +92,49 @@ fewer are unaffected.
 
 ---
 
-## D. Navigation — "Pipeline" → "Deals Pipeline", plus a SPANCOP page
+## D. Navigation — rename only. SPANCOP lives on the Dashboard 🔄
+
+**Revised.** No SPANCOP nav item.
 
 ```
 SELL
-  Dashboard
-  Deals Pipeline      ← renamed
-  SPANCOP             ← new
+  Dashboard          ← SPANCOP funnel widget lives here
+  Deals Pipeline     ← renamed from "Pipeline"
   Companies
   Contacts
   Activities
 ```
 
-**Yes, this is a good idea.** SPANCOP is company-level and deserves its own
-page rather than living as a strip on the Companies list.
+### SPANCOP as a dashboard funnel
 
-The new page would hold:
+A funnel widget on the Dashboard, with a period filter:
 
-- **The 7-stage board** — companies as cards in S/P/A/N/C/O/P columns
-- **Snapshot counts** per stage
-- **Pending suggestions** with reasons, approve or keep
-- **Stalled alerts** — split into *Not converting* vs *Reorder gap*
-- **Stage history** — the period-flow data we have been logging
+`This week · This month · This quarter · This year`
 
-**Question:** should the Companies page keep its SPANCOP snapshot strip, or is
-that now duplicated?
-*Recommendation: keep the small strip on Companies for context, move the full
-board and suggestions to the SPANCOP page.*
+Clicking through opens a **separate detail page** for the chosen period —
+the funnel stays a summary, the depth lives one click away.
+
+### ⚠️ What does "SPANCOP this month" actually mean?
+
+This is the snapshot-vs-flow distinction from the SPANCOP spec, and the period
+filter forces the question. Two different readings:
+
+| Reading | Question answered | Example |
+| --- | --- | --- |
+| **Snapshot** | Where is everyone *right now*? | 5 sit in Approach today |
+| **Period flow** | What *happened* in this period? | 9 entered Approach this month; 4 moved on |
+
+A snapshot has no timeframe, so "this month" cannot change it — the filter would
+do nothing. **The filter only makes sense against the flow.**
+
+**Recommendation — show both in one widget:**
+
+- **The funnel bars** = the live snapshot, always current
+- **The movement figures** = flow for the chosen period, e.g. `+9 in · 4 out`
+- **Stage-to-stage conversion %** for that period
+
+That way the filter is meaningful, and you still see today's position at a
+glance. This is exactly what the transition log was built for.
 
 ---
 
