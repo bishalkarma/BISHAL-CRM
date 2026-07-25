@@ -6,6 +6,23 @@ distributors and hospitality suppliers (Hotels, Restaurants, Cafés, Hotel proje
 Designed to compete with Salesforce, HubSpot, Zoho, Monday CRM and Pipedrive —
 while staying simple, modern and fast.
 
+> **New here? → [RUN-ON-WINDOWS.md](./RUN-ON-WINDOWS.md)** for a step-by-step
+> Windows 11 setup and a guided hands-on test drive.
+
+## Preview
+
+### Dashboard — light mode
+![Dashboard light](docs/mockups/01-dashboard-light.png)
+
+### Dashboard — dark mode
+![Dashboard dark](docs/mockups/02-dashboard-dark.png)
+
+### Mobile-first
+![Mobile](docs/mockups/03-mobile.png)
+
+### Six themes
+![Themes](docs/mockups/04-themes.png)
+
 ---
 
 ## Status: Part 1 complete — Design System, App Shell & Dashboard
