@@ -1,0 +1,465 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Bishal Sales CRM — Design System
+   Tailwind v4 · token driven · 6 accent themes × light/dark
+   ============================================================ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --radius-xs: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-3xl: calc(var(--radius) + 18px);
+
+  --shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  --shadow-float: 0 4px 12px -2px rgb(0 0 0 / 0.08),
+    0 20px 40px -16px rgb(0 0 0 / 0.22);
+  --shadow-glow: 0 0 0 1px hsl(var(--accent) / 0.16),
+    0 8px 28px -8px hsl(var(--accent) / 0.42);
+
+  --animate-fade-in: fade-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-rise: rise 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-scale-in: scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.18);
+  }
+}
+
+/* ------------------------------------------------------------
+   Base neutrals (shared by every theme)
+   ------------------------------------------------------------ */
+:root {
+  --radius: 0.875rem;
+
+  --background: 0 0% 100%;
+  --foreground: 222 24% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 24% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 24% 11%;
+
+  --secondary: 220 16% 96%;
+  --secondary-foreground: 222 24% 16%;
+
+  --muted: 220 16% 96%;
+  --muted-foreground: 220 9% 46%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 152 62% 36%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 30 40% 12%;
+
+  --info: 205 90% 46%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 220 16% 90%;
+  --input: 220 16% 90%;
+
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222 24% 11%;
+  --sidebar-border: 220 16% 92%;
+}
+
+.dark {
+  --background: 224 24% 7%;
+  --foreground: 220 20% 96%;
+
+  --card: 224 22% 10%;
+  --card-foreground: 220 20% 96%;
+
+  --popover: 224 22% 11%;
+  --popover-foreground: 220 20% 96%;
+
+  --secondary: 223 18% 16%;
+  --secondary-foreground: 220 20% 94%;
+
+  --muted: 223 18% 15%;
+  --muted-foreground: 220 12% 64%;
+
+  --destructive: 0 72% 58%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 152 55% 46%;
+  --success-foreground: 150 40% 8%;
+
+  --warning: 38 92% 56%;
+  --warning-foreground: 30 40% 10%;
+
+  --info: 205 90% 58%;
+  --info-foreground: 205 60% 10%;
+
+  --border: 223 16% 20%;
+  --input: 223 16% 22%;
+
+  --sidebar: 224 24% 9%;
+  --sidebar-foreground: 220 20% 94%;
+  --sidebar-border: 223 16% 18%;
+}
+
+/* ------------------------------------------------------------
+   Theme 1 — Modern Corporate Blue  #1E3A8A / #3B82F6
+   ------------------------------------------------------------ */
+[data-theme="corporate-blue"] {
+  --primary: 226 64% 33%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 217 91% 60%;
+  --sidebar-accent: 217 91% 60%;
+  --chart-1: 217 91% 60%;
+  --chart-2: 226 64% 43%;
+  --chart-3: 199 89% 55%;
+  --chart-4: 262 70% 62%;
+  --chart-5: 172 66% 44%;
+}
+.dark[data-theme="corporate-blue"] {
+  --primary: 217 84% 62%;
+  --primary-foreground: 226 64% 12%;
+  --accent: 217 91% 62%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* ------------------------------------------------------------
+   Theme 2 — Vibrant Tech Teal  #0F172A / #06B6D4
+   ------------------------------------------------------------ */
+[data-theme="tech-teal"] {
+  --primary: 222 47% 11%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 189 94% 43%;
+  --accent-foreground: 195 100% 8%;
+  --ring: 189 94% 43%;
+  --sidebar-accent: 189 94% 43%;
+  --chart-1: 189 94% 43%;
+  --chart-2: 199 89% 48%;
+  --chart-3: 168 76% 42%;
+  --chart-4: 222 47% 34%;
+  --chart-5: 262 70% 60%;
+}
+.dark[data-theme="tech-teal"] {
+  --primary: 189 90% 52%;
+  --primary-foreground: 195 100% 8%;
+  --accent: 189 94% 50%;
+  --accent-foreground: 195 100% 8%;
+}
+
+/* ------------------------------------------------------------
+   Theme 3 — Warm Executive Amber  #18181B / #F59E0B
+   ------------------------------------------------------------ */
+[data-theme="executive-amber"] {
+  --primary: 240 6% 10%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 38 92% 50%;
+  --accent-foreground: 30 60% 10%;
+  --ring: 38 92% 50%;
+  --sidebar-accent: 38 92% 50%;
+  --chart-1: 38 92% 50%;
+  --chart-2: 25 95% 53%;
+  --chart-3: 48 96% 53%;
+  --chart-4: 240 6% 34%;
+  --chart-5: 12 76% 55%;
+}
+.dark[data-theme="executive-amber"] {
+  --primary: 38 92% 56%;
+  --primary-foreground: 30 60% 10%;
+  --accent: 38 92% 56%;
+  --accent-foreground: 30 60% 10%;
+}
+
+/* ------------------------------------------------------------
+   Theme 4 — Signature Indigo  #312E81 / #6366F1
+   ------------------------------------------------------------ */
+[data-theme="signature-indigo"] {
+  --primary: 244 47% 34%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 239 84% 67%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 239 84% 67%;
+  --sidebar-accent: 239 84% 67%;
+  --chart-1: 239 84% 67%;
+  --chart-2: 262 83% 66%;
+  --chart-3: 217 91% 60%;
+  --chart-4: 291 64% 62%;
+  --chart-5: 172 66% 44%;
+}
+.dark[data-theme="signature-indigo"] {
+  --primary: 239 84% 70%;
+  --primary-foreground: 244 47% 12%;
+  --accent: 239 84% 70%;
+  --accent-foreground: 244 47% 12%;
+}
+
+/* ------------------------------------------------------------
+   Theme 5 — Fresh Growth Emerald  #064E3B / #10B981
+   ------------------------------------------------------------ */
+[data-theme="growth-emerald"] {
+  --primary: 164 86% 16%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 160 84% 39%;
+  --sidebar-accent: 160 84% 39%;
+  --chart-1: 160 84% 39%;
+  --chart-2: 173 80% 36%;
+  --chart-3: 142 71% 45%;
+  --chart-4: 164 86% 26%;
+  --chart-5: 199 89% 48%;
+}
+.dark[data-theme="growth-emerald"] {
+  --primary: 160 84% 45%;
+  --primary-foreground: 164 86% 8%;
+  --accent: 160 84% 45%;
+  --accent-foreground: 164 86% 8%;
+}
+
+/* ------------------------------------------------------------
+   Theme 6 — Boutique Rose  #4C0519 / #F43F5E
+   ------------------------------------------------------------ */
+[data-theme="boutique-rose"] {
+  --primary: 343 88% 16%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 350 89% 60%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 350 89% 60%;
+  --sidebar-accent: 350 89% 60%;
+  --chart-1: 350 89% 60%;
+  --chart-2: 330 81% 60%;
+  --chart-3: 25 95% 60%;
+  --chart-4: 343 88% 30%;
+  --chart-5: 262 70% 62%;
+}
+.dark[data-theme="boutique-rose"] {
+  --primary: 350 89% 64%;
+  --primary-foreground: 343 88% 10%;
+  --accent: 350 89% 64%;
+  --accent-foreground: 343 88% 10%;
+}
+
+/* ------------------------------------------------------------
+   Base layer
+   ------------------------------------------------------------ */
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Premium typographic rhythm */
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: hsl(var(--accent) / 0.24);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Frosted panel used by top bar + mobile tab bar */
+  .glass {
+    background-color: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground)),
+      hsl(var(--accent))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--muted-foreground) / 0.12) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
