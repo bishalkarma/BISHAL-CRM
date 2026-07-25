@@ -21,7 +21,6 @@ import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/span
 import { alertFor, suggestionFor } from "./use-companies";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
-import { usePrioritisation } from "@/components/providers/prioritisation-provider";
 import {
   Sheet,
   SheetContent,
@@ -54,7 +53,6 @@ export function CompanyDrawer({
   ) => void;
   onDismissSuggestion: (id: string, stage: SpancopStage) => void;
 }) {
-  const { mode } = usePrioritisation();
   if (!company) return null;
 
   const suggestion = suggestionFor(company);
@@ -189,7 +187,7 @@ export function CompanyDrawer({
 
           {/* Prioritisation — both models shown for comparison */}
           <div className="grid grid-cols-2 gap-3">
-            {(mode === "lead-status" || mode === "both") && (
+            {(
               <div>
                 <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                   Lead status
@@ -205,7 +203,7 @@ export function CompanyDrawer({
                 </span>
               </div>
             )}
-            {(mode === "follow-up" || mode === "both") && (
+            {(
               <div>
                 <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                   Next follow-up

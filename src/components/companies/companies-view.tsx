@@ -19,7 +19,6 @@ import { useCompanies } from "./use-companies";
 import { CompanyTable } from "./company-table";
 import { CompanyDrawer } from "./company-drawer";
 import { SpancopFunnel } from "./spancop-funnel";
-import { PrioritisationSwitch } from "./prioritisation-switch";
 import { SuggestionsDialog } from "./suggestions-dialog";
 import { NewCompanyDialog } from "./new-company-dialog";
 import { Button } from "@/components/ui/button";
@@ -105,8 +104,6 @@ export function CompaniesView() {
           onToggleStage={toggleStage}
         />
       </div>
-
-      <PrioritisationSwitch />
 
       {/* Suggestions — count only; the list opens in a dialog */}
       <AnimatePresence initial={false}>

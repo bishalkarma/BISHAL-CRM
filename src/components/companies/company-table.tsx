@@ -8,7 +8,6 @@ import { SPANCOP_MAP } from "@/lib/spancop";
 import { alertFor } from "./use-companies";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
-import { usePrioritisation } from "@/components/providers/prioritisation-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn, initials } from "@/lib/utils";
@@ -20,9 +19,6 @@ export function CompanyTable({
   companies: Company[];
   onOpen: (company: Company) => void;
 }) {
-  const { mode } = usePrioritisation();
-  const showLead = mode === "lead-status" || mode === "both";
-  const showFollowUp = mode === "follow-up" || mode === "both";
 
   if (companies.length === 0) {
     return (
@@ -40,8 +36,8 @@ export function CompanyTable({
         <span className="w-[96px] shrink-0">Business</span>
         <span className="w-[84px] shrink-0">Type</span>
         <span className="w-[168px] shrink-0">SPANCOP</span>
-        {showLead && <span className="w-[86px] shrink-0">Lead</span>}
-        {showFollowUp && <span className="w-[118px] shrink-0">Follow-up</span>}
+        {<span className="w-[86px] shrink-0">Lead</span>}
+        {<span className="w-[118px] shrink-0">Follow-up</span>}
         <span className="w-[104px] shrink-0">Alert</span>
         <span className="w-[52px] shrink-0 text-right">Owner</span>
       </div>
@@ -108,7 +104,7 @@ export function CompanyTable({
 
                 {/* Prioritisation columns */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 xl:mt-0 xl:contents">
-                  {showLead && (
+                  {(
                     <div className="xl:w-[86px] xl:shrink-0">
                       <span
                         className={cn(
@@ -121,7 +117,7 @@ export function CompanyTable({
                       </span>
                     </div>
                   )}
-                  {showFollowUp && (
+                  {(
                     <div className="xl:w-[118px] xl:shrink-0">
                       <FollowUpCell date={company.nextFollowUp} />
                     </div>
