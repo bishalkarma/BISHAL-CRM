@@ -23,14 +23,20 @@ while staying simple, modern and fast.
 ### Six themes
 ![Themes](docs/mockups/04-themes.png)
 
+### Deals pipeline — drag & drop Kanban
+![Pipeline](docs/mockups/05-pipeline-board.png)
+
+### Mobile pipeline + multi-currency settings
+![Mobile pipeline and currency](docs/mockups/06-mobile-currency.png)
+
 ---
 
-## Status: Part 1 complete — Design System, App Shell & Dashboard
+## Status: Part 2 complete — Pipeline, Drag & Drop, Multi-Currency
 
 | Part | Scope | Status |
 | --- | --- | --- |
 | **1** | Design system, theming, app shell, command palette, dashboard | ✅ Done |
-| 2 | Deals pipeline (Kanban, drag & drop, forecasting) | Planned |
+| **2** | Deals pipeline (Kanban, drag & drop, forecasting, multi-currency) | ✅ Done |
 | 3 | Companies & Contacts (accounts, outlets, decision makers) | Planned |
 | 4 | Activities, Quotations, Orders, Products | Planned |
 | 5 | Reports, AI assistant, automations | Planned |
@@ -89,6 +95,46 @@ Each theme defines its tokens in `src/app/globals.css` under
 
 **To add a theme:** append an entry to `THEMES` and add the matching CSS block —
 nothing else needs to change.
+
+---
+
+## Pipeline stages
+
+The board follows the business's own sales motion:
+
+```
+Lead → Qualified → Quotation → Negotiation → Sampling → Won / Lost
+```
+
+Sampling sits **after** negotiation on purpose: commercial terms are agreed
+first, then samples go to the chef / F&B manager for final sign-off before the
+contract is awarded.
+
+Each stage carries a default win probability and a "stale" SLA — a deal with no
+activity beyond its stage SLA is flagged with an amber warning. Defined in
+`src/lib/pipeline.ts`.
+
+| Stage | Default probability | Stale after |
+| --- | --- | --- |
+| Lead | 10% | 14 days |
+| Qualified | 25% | 14 days |
+| Quotation | 45% | 10 days |
+| Negotiation | 65% | 10 days |
+| Sampling | 80% | 7 days |
+
+---
+
+## Multi-currency
+
+**AED is the base currency** and cannot be switched off — every deal is reported
+against it. Users enable any additional currencies they trade in from
+**Settings → Currencies**, and choose which one totals are displayed in.
+
+Ten currencies ship in: AED, USD, SAR, EUR, GBP, QAR, OMR, KWD, BHD, INR.
+
+Each deal stores its **own** currency and value, so a deal booked in USD stays
+in USD while board totals convert on the fly. Live FX rates arrive with the
+Supabase backend; rates are currently static in `src/lib/currency.ts`.
 
 ---
 
