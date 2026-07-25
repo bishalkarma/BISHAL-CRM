@@ -37,7 +37,8 @@ export function CompanyTable({
       {/* Desktop header */}
       <div className="hidden border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground xl:flex xl:items-center xl:gap-3">
         <span className="min-w-0 flex-[2.4]">Company</span>
-        <span className="w-[104px] shrink-0">Business</span>
+        <span className="w-[96px] shrink-0">Business</span>
+        <span className="w-[84px] shrink-0">Type</span>
         <span className="w-[168px] shrink-0">SPANCOP</span>
         {showLead && <span className="w-[86px] shrink-0">Lead</span>}
         {showFollowUp && <span className="w-[118px] shrink-0">Follow-up</span>}
@@ -82,15 +83,19 @@ export function CompanyTable({
                   </span>
                 </div>
 
-                {/* Business + type */}
-                <div className="mt-2 flex items-center gap-1.5 xl:mt-0 xl:w-[104px] xl:shrink-0">
+                {/* Business and Type are separate columns */}
+                <div className="mt-2 flex items-center gap-1.5 xl:mt-0 xl:w-[96px] xl:shrink-0">
                   <Badge variant="outline" className="gap-1">
                     <Building2 />
                     {company.business}
                   </Badge>
-                  <span className="text-[11px] font-medium text-muted-foreground">
+                </div>
+                <div className="mt-1.5 xl:mt-0 xl:w-[84px] xl:shrink-0">
+                  <Badge
+                    variant={company.business === "Hotel" ? "warning" : "default"}
+                  >
                     {company.type}
-                  </span>
+                  </Badge>
                 </div>
 
                 {/* SPANCOP */}

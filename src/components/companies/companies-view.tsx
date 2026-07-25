@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Check, Filter, Search, Sparkles, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Filter,
+  Plus,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import type { Company } from "@/lib/companies";
 import { BUSINESS_TYPES, EMIRATES } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage } from "@/lib/spancop";
@@ -12,10 +20,12 @@ import { CompanyTable } from "./company-table";
 import { CompanyDrawer } from "./company-drawer";
 import { SpancopFunnel } from "./spancop-funnel";
 import { PrioritisationSwitch } from "./prioritisation-switch";
+import { SuggestionsDialog } from "./suggestions-dialog";
+import { NewCompanyDialog } from "./new-company-dialog";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +38,7 @@ import { cn } from "@/lib/utils";
 
 export function CompaniesView() {
   const {
+    companies,
     filtered,
     transitions,
     filters,
@@ -39,11 +50,13 @@ export function CompaniesView() {
     alerts,
     moveStage,
     dismissSuggestion,
+    addCompany,
   } = useCompanies();
 
   const [selected, setSelected] = React.useState<Company | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [showSuggestions, setShowSuggestions] = React.useState(true);
+  const [suggestionsOpen, setSuggestionsOpen] = React.useState(false);
+  const [newOpen, setNewOpen] = React.useState(false);
 
   const openCompany = React.useCallback((company: Company) => {
     setSelected(company);
@@ -67,6 +80,17 @@ export function CompaniesView() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        title="Companies"
+        description="Customer relationships tracked through the SPANCOP cycle."
+        actions={
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            <Plus />
+            New Company
+          </Button>
+        }
+      />
+
       {/* SPANCOP snapshot */}
       <div>
         <div className="flex items-baseline justify-between pb-2">
@@ -84,78 +108,30 @@ export function CompaniesView() {
 
       <PrioritisationSwitch />
 
-      {/* Pending suggestions */}
+      {/* Suggestions — count only; the list opens in a dialog */}
       <AnimatePresence initial={false}>
-        {showSuggestions && pendingSuggestions.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+        {pendingSuggestions.length > 0 && (
+          <motion.button
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            onClick={() => setSuggestionsOpen(true)}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-accent/40 bg-accent/[0.06] p-3 text-left transition-colors hover:bg-accent/[0.1]"
           >
-            <Card className="border-accent/40 bg-accent/[0.05] p-3.5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="size-4 shrink-0 text-accent" />
-                <span className="text-sm font-medium">
-                  {pendingSuggestions.length} stage{" "}
-                  {pendingSuggestions.length === 1 ? "change" : "changes"}{" "}
-                  suggested
-                </span>
-                <button
-                  onClick={() => setShowSuggestions(false)}
-                  aria-label="Hide suggestions"
-                  className="ml-auto flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
-                >
-                  <X className="size-3.5" />
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Nothing changes until you approve it.
-              </p>
-              <ul className="mt-2.5 space-y-1.5">
-                {pendingSuggestions.slice(0, 4).map(({ company, suggestion }) => (
-                  <li
-                    key={company.id}
-                    className="flex flex-wrap items-center gap-2 rounded-lg bg-background/60 p-2 text-xs"
-                  >
-                    <span className="min-w-0 flex-1 truncate font-medium">
-                      {company.name}
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      {SPANCOP_MAP[company.spancop].label}
-                      <span aria-hidden>→</span>
-                      <span className="font-semibold text-accent">
-                        {SPANCOP_MAP[suggestion.stage].label}
-                      </span>
-                    </span>
-                    <Button
-                      size="xs"
-                      onClick={() =>
-                        moveStage(
-                          company.id,
-                          suggestion.stage,
-                          suggestion.reason,
-                          "accepted-suggestion",
-                        )
-                      }
-                    >
-                      <Check />
-                      Approve
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() =>
-                        dismissSuggestion(company.id, suggestion.stage)
-                      }
-                    >
-                      Keep
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </motion.div>
+            <Sparkles className="size-4 shrink-0 text-accent" />
+            <span className="min-w-0 flex-1 text-sm">
+              <span className="font-medium">
+                {pendingSuggestions.length} stage{" "}
+                {pendingSuggestions.length === 1 ? "change" : "changes"} suggested
+              </span>
+              <span className="ml-1.5 text-muted-foreground">
+                · nothing moves until you approve
+              </span>
+            </span>
+            <span className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
+              Review
+            </span>
+          </motion.button>
         )}
       </AnimatePresence>
 
@@ -282,6 +258,23 @@ export function CompaniesView() {
       </div>
 
       <CompanyTable companies={filtered} onOpen={openCompany} />
+
+      <SuggestionsDialog
+        open={suggestionsOpen}
+        onOpenChange={setSuggestionsOpen}
+        suggestions={pendingSuggestions}
+        onApprove={(id, stage, reason) =>
+          moveStage(id, stage, reason, "accepted-suggestion")
+        }
+        onDismiss={dismissSuggestion}
+      />
+
+      <NewCompanyDialog
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        onCreate={addCompany}
+        existingNames={companies.map((c) => c.name)}
+      />
 
       <CompanyDrawer
         company={live}
