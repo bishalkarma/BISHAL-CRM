@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Building2, CheckCircle2, Plus, XCircle } from "lucide-react";
 import type { Deal } from "@/lib/deals";
 import { STAGE_MAP, type StageDefinition } from "@/lib/pipeline";
+import type { OutcomeView } from "./use-pipeline";
 import { SortableDealCard } from "./deal-card";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,7 +24,7 @@ import {
 export function BoardColumn({
   stage,
   deals,
-  closedDeals = [],
+  outcomeView = "open",
   total,
   weighted,
   onOpenDeal,
@@ -31,17 +32,19 @@ export function BoardColumn({
 }: {
   stage: StageDefinition;
   deals: Deal[];
-  /** Won/lost deals that closed from this stage, shown when revealed. */
-  closedDeals?: Deal[];
+  /** When "won"/"lost" the column lists closed deals instead of live ones. */
+  outcomeView?: OutcomeView;
   total: number;
   weighted: number;
   onOpenDeal: (deal: Deal) => void;
   onAddDeal: (stage: StageDefinition) => void;
 }) {
+  const isOutcome = outcomeView !== "open";
   const { format } = useCurrency();
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
     data: { stageId: stage.id },
+    disabled: isOutcome,
   });
 
   return (
@@ -59,28 +62,41 @@ export function BoardColumn({
           <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
             {deals.length}
           </span>
-          <button
-            onClick={() => onAddDeal(stage)}
-            aria-label={`Add deal to ${stage.label}`}
-            className="ml-auto flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover/col:opacity-100"
-          >
-            <Plus className="size-3.5" />
-          </button>
+          {!isOutcome && (
+            <button
+              onClick={() => onAddDeal(stage)}
+              aria-label={`Add deal to ${stage.label}`}
+              className="ml-auto flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover/col:opacity-100"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          )}
         </div>
         <div className="mt-1 flex items-baseline gap-1.5 pl-4">
           <span className="text-sm font-semibold tabular-nums">
             {format(total, { compact: true })}
           </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-[11px] tabular-nums text-muted-foreground">
-                · {format(weighted, { compact: true })} wtd
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              Weighted forecast at {stage.probability}% stage probability
-            </TooltipContent>
-          </Tooltip>
+          {isOutcome ? (
+            <span
+              className={cn(
+                "text-[11px] font-medium",
+                outcomeView === "won" ? "text-success" : "text-destructive",
+              )}
+            >
+              · {outcomeView === "won" ? "won" : "lost"} here
+            </span>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  · {format(weighted, { compact: true })} wtd
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Weighted forecast at {stage.probability}% stage probability
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
@@ -89,69 +105,61 @@ export function BoardColumn({
         ref={setNodeRef}
         className={cn(
           "flex-1 space-y-2 rounded-xl border border-dashed p-2 transition-colors duration-200",
-          isOver
+          isOver && !isOutcome
             ? "border-accent bg-accent/[0.06]"
             : "border-transparent bg-secondary/40",
         )}
       >
-        <SortableContext
-          items={deals.map((deal) => deal.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {deals.map((deal) => (
-            <SortableDealCard key={deal.id} deal={deal} onOpen={onOpenDeal} />
-          ))}
-        </SortableContext>
-
-        {deals.length === 0 && closedDeals.length === 0 && (
-          <button
-            onClick={() => onAddDeal(stage)}
-            className={cn(
-              "flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-8 text-xs text-muted-foreground transition-colors hover:border-accent/50 hover:text-foreground",
-              isOver && "border-accent text-accent",
-            )}
+        {isOutcome ? (
+          // Outcome view: read-only closed deals, no drag targets.
+          <AnimatePresence initial={false} mode="popLayout">
+            {deals.map((deal, index) => (
+              <motion.div
+                key={deal.id}
+                layout
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{
+                  duration: 0.26,
+                  delay: Math.min(index * 0.04, 0.2),
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+              >
+                <ClosedDealCard deal={deal} onOpen={onOpenDeal} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        ) : (
+          <SortableContext
+            items={deals.map((deal) => deal.id)}
+            strategy={verticalListSortingStrategy}
           >
-            <Plus className="size-4" />
-            {isOver ? "Drop here" : "No deals"}
-          </button>
+            {deals.map((deal) => (
+              <SortableDealCard key={deal.id} deal={deal} onOpen={onOpenDeal} />
+            ))}
+          </SortableContext>
         )}
 
-        {/* Revealed closed deals — read-only, excluded from column totals */}
-        <AnimatePresence initial={false}>
-          {closedDeals.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="overflow-hidden"
+        {deals.length === 0 &&
+          (isOutcome ? (
+            <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border py-8 text-xs text-muted-foreground">
+              <span className="text-[11px]">
+                No {outcomeView} deals from this stage
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={() => onAddDeal(stage)}
+              className={cn(
+                "flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-8 text-xs text-muted-foreground transition-colors hover:border-accent/50 hover:text-foreground",
+                isOver && "border-accent text-accent",
+              )}
             >
-              <div className="flex items-center gap-2 pb-1.5 pt-2">
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Closed here · {closedDeals.length}
-                </span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              <div className="space-y-2">
-                {closedDeals.map((deal, index) => (
-                  <motion.div
-                    key={deal.id}
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.26,
-                      delay: index * 0.05,
-                      ease: [0.16, 1, 0.3, 1],
-                    }}
-                  >
-                    <ClosedDealCard deal={deal} onOpen={onOpenDeal} />
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Plus className="size-4" />
+              {isOver ? "Drop here" : "No deals"}
+            </button>
+          ))}
       </div>
     </div>
   );

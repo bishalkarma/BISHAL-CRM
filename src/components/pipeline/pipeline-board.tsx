@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Undo2, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Undo2, X, XCircle } from "lucide-react";
 import type { Deal } from "@/lib/deals";
 import { STAGE_MAP, type DealStage } from "@/lib/pipeline";
 import { usePipeline } from "./use-pipeline";
@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 export function PipelineBoard() {
   const {
     filtered,
+    visibleDeals,
     columns,
     stats,
     filters,
@@ -41,8 +42,8 @@ export function PipelineBoard() {
     undo,
     undoMove,
     dismissUndo,
-    revealed,
-    toggleRevealed,
+    outcomeView,
+    toggleOutcomeView,
   } = usePipeline();
   const { format } = useCurrency();
 
@@ -114,14 +115,16 @@ export function PipelineBoard() {
             value={format(stats.wonValue, { compact: true })}
             hint={
               stats.wonCount
-                ? revealed.won
-                  ? "Showing on board · tap to hide"
+                ? outcomeView === "won"
+                  ? "Viewing won deals · tap to exit"
                   : `${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"} · tap to view`
                 : "No won deals"
             }
             tone="positive"
-            onClick={stats.wonCount ? () => toggleRevealed("won") : undefined}
-            active={revealed.won}
+            onClick={
+              stats.wonCount ? () => toggleOutcomeView("won") : undefined
+            }
+            active={outcomeView === "won"}
           />
           <SummaryTile
             compact
@@ -140,14 +143,16 @@ export function PipelineBoard() {
             value={format(stats.lostValue, { compact: true })}
             hint={
               stats.lostCount
-                ? revealed.lost
-                  ? "Showing on board · tap to hide"
+                ? outcomeView === "lost"
+                  ? "Viewing lost deals · tap to exit"
                   : `${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"} · tap to view`
                 : "No lost deals"
             }
             tone="negative"
-            onClick={stats.lostCount ? () => toggleRevealed("lost") : undefined}
-            active={revealed.lost}
+            onClick={
+              stats.lostCount ? () => toggleOutcomeView("lost") : undefined
+            }
+            active={outcomeView === "lost"}
           />
           <SummaryTile
             compact
@@ -172,6 +177,52 @@ export function PipelineBoard() {
         setView={setView}
       />
 
+      {/* Outcome-view banner — makes it unmistakable the board is filtered */}
+      <AnimatePresence initial={false}>
+        {outcomeView !== "open" && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div
+              className={cn(
+                "flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5",
+                outcomeView === "won"
+                  ? "border-success/40 bg-success/[0.07]"
+                  : "border-destructive/40 bg-destructive/[0.07]",
+              )}
+            >
+              {outcomeView === "won" ? (
+                <CheckCircle2 className="size-4 shrink-0 text-success" />
+              ) : (
+                <XCircle className="size-4 shrink-0 text-destructive" />
+              )}
+              <div className="min-w-0 flex-1 text-sm">
+                <span className="font-medium">
+                  Showing {outcomeView === "won" ? "won" : "lost"} deals only
+                </span>
+                <span className="ml-1.5 text-muted-foreground">
+                  · placed in the stage each deal was{" "}
+                  {outcomeView === "won" ? "won" : "lost"} from
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggleOutcomeView(outcomeView)}
+                className="shrink-0"
+              >
+                <X />
+                Back to pipeline
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {view === "board" ? (
         <DndContext
           sensors={sensors}
@@ -187,7 +238,7 @@ export function PipelineBoard() {
                   key={column.stage.id}
                   stage={column.stage}
                   deals={column.deals}
-                  closedDeals={column.closedDeals}
+                  outcomeView={outcomeView}
                   total={column.total}
                   weighted={column.weighted}
                   onOpenDeal={openDeal}
@@ -206,7 +257,7 @@ export function PipelineBoard() {
           </DragOverlay>
         </DndContext>
       ) : (
-        <DealList deals={filtered} onOpenDeal={openDeal} />
+        <DealList deals={visibleDeals} onOpenDeal={openDeal} />
       )}
 
       <DealDrawer

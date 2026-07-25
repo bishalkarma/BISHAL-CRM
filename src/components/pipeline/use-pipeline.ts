@@ -24,6 +24,9 @@ const EMPTY_FILTERS: PipelineFilters = {
   rottingOnly: false,
 };
 
+/** Which set of deals the board is displaying. */
+export type OutcomeView = "open" | "won" | "lost";
+
 export type UndoState = {
   dealId: string;
   dealTitle: string;
@@ -133,52 +136,59 @@ export function usePipeline() {
   }, [deals, filters]);
 
   /**
-   * Which closed outcome is currently revealed on the board.
-   * Tapping the "Closed won" / "Deal lost" tiles toggles these, which folds
-   * those deals back into the stage column they closed from.
+   * Which set of deals the board is currently showing.
+   *
+   *  "open" — the live pipeline (default)
+   *  "won"  — ONLY won deals, placed in the stage they were won from
+   *  "lost" — ONLY lost deals, placed in the stage they were lost from
+   *
+   * Tapping the "Closed won" / "Deal lost" tiles switches into that view;
+   * tapping the active tile again returns to the open pipeline.
    */
-  const [revealed, setRevealed] = React.useState<{
-    won: boolean;
-    lost: boolean;
-  }>({ won: false, lost: false });
+  const [outcomeView, setOutcomeView] = React.useState<OutcomeView>("open");
 
-  const toggleRevealed = React.useCallback((outcome: "won" | "lost") => {
-    setRevealed((current) => ({ ...current, [outcome]: !current[outcome] }));
+  const toggleOutcomeView = React.useCallback((outcome: "won" | "lost") => {
+    setOutcomeView((current) => (current === outcome ? "open" : outcome));
   }, []);
 
   /** Deals grouped into board columns, in stage order. */
   const columns = React.useMemo(
     () =>
       PIPELINE_STAGES.map((stage) => {
-        const openDeals = filtered.filter((deal) => deal.stage === stage.id);
+        // In an outcome view the board shows only closed deals of that
+        // outcome, positioned in the stage they closed from. Otherwise it
+        // shows the live pipeline for this stage.
+        const stageDeals =
+          outcomeView === "open"
+            ? filtered.filter((deal) => deal.stage === stage.id)
+            : filtered.filter(
+                (deal) =>
+                  deal.stage === outcomeView &&
+                  (deal.closedFromStage ?? "lead") === stage.id,
+              );
 
-        // Closed deals are surfaced in the column they closed from, but only
-        // while that outcome is revealed — and they never affect the totals.
-        const closedDeals = filtered.filter(
-          (deal) =>
-            !isOpenStage(deal.stage) &&
-            revealed[deal.stage as "won" | "lost"] &&
-            (deal.closedFromStage ?? "lead") === stage.id,
-        );
-
-        const total = openDeals.reduce(
+        const total = stageDeals.reduce(
           (sum, deal) => sum + toDisplay(deal.value, deal.currency),
           0,
         );
-        const weighted = openDeals.reduce((sum, deal) => {
-          const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
-          return sum + toDisplay(deal.value, deal.currency) * (probability / 100);
-        }, 0);
 
-        return {
-          stage,
-          deals: openDeals,
-          closedDeals,
-          total,
-          weighted,
-        };
+        // Weighting only means something for open deals; a closed deal's
+        // value is already realised, so the weighted figure mirrors the total.
+        const weighted =
+          outcomeView === "open"
+            ? stageDeals.reduce((sum, deal) => {
+                const probability =
+                  deal.probability ?? STAGE_MAP[deal.stage].probability;
+                return (
+                  sum +
+                  toDisplay(deal.value, deal.currency) * (probability / 100)
+                );
+              }, 0)
+            : total;
+
+        return { stage, deals: stageDeals, total, weighted };
       }),
-    [filtered, toDisplay, revealed],
+    [filtered, toDisplay, outcomeView],
   );
 
   const stats = React.useMemo(() => {
@@ -222,6 +232,15 @@ export function usePipeline() {
     };
   }, [filtered, toDisplay]);
 
+  /** Deals for the list view, honouring the current outcome view. */
+  const visibleDeals = React.useMemo(
+    () =>
+      outcomeView === "open"
+        ? filtered
+        : filtered.filter((deal) => deal.stage === outcomeView),
+    [filtered, outcomeView],
+  );
+
   const activeFilterCount =
     (filters.query ? 1 : 0) +
     filters.owners.length +
@@ -231,6 +250,7 @@ export function usePipeline() {
   return {
     deals,
     filtered,
+    visibleDeals,
     columns,
     stats,
     filters,
@@ -241,8 +261,8 @@ export function usePipeline() {
     undo,
     undoMove,
     dismissUndo,
-    revealed,
-    toggleRevealed,
+    outcomeView,
+    toggleOutcomeView,
     displayCurrency: display,
   };
 }
