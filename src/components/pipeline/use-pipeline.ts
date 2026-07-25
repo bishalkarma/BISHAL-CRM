@@ -61,6 +61,13 @@ export function usePipeline() {
             ? {
                 ...d,
                 stage: toStage,
+                // Remember where a deal closed from so it can still be shown
+                // in that column. Reopening a deal clears the marker.
+                closedFromStage: isOpenStage(toStage)
+                  ? undefined
+                  : isOpenStage(d.stage)
+                    ? d.stage
+                    : d.closedFromStage,
                 // Manual overrides are dropped so the new stage default applies.
                 probability: isOpenStage(toStage)
                   ? null
@@ -125,22 +132,53 @@ export function usePipeline() {
     });
   }, [deals, filters]);
 
+  /**
+   * Which closed outcome is currently revealed on the board.
+   * Tapping the "Closed won" / "Deal lost" tiles toggles these, which folds
+   * those deals back into the stage column they closed from.
+   */
+  const [revealed, setRevealed] = React.useState<{
+    won: boolean;
+    lost: boolean;
+  }>({ won: false, lost: false });
+
+  const toggleRevealed = React.useCallback((outcome: "won" | "lost") => {
+    setRevealed((current) => ({ ...current, [outcome]: !current[outcome] }));
+  }, []);
+
   /** Deals grouped into board columns, in stage order. */
   const columns = React.useMemo(
     () =>
       PIPELINE_STAGES.map((stage) => {
-        const stageDeals = filtered.filter((deal) => deal.stage === stage.id);
-        const total = stageDeals.reduce(
+        const openDeals = filtered.filter((deal) => deal.stage === stage.id);
+
+        // Closed deals are surfaced in the column they closed from, but only
+        // while that outcome is revealed — and they never affect the totals.
+        const closedDeals = filtered.filter(
+          (deal) =>
+            !isOpenStage(deal.stage) &&
+            revealed[deal.stage as "won" | "lost"] &&
+            (deal.closedFromStage ?? "lead") === stage.id,
+        );
+
+        const total = openDeals.reduce(
           (sum, deal) => sum + toDisplay(deal.value, deal.currency),
           0,
         );
-        const weighted = stageDeals.reduce((sum, deal) => {
+        const weighted = openDeals.reduce((sum, deal) => {
           const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
           return sum + toDisplay(deal.value, deal.currency) * (probability / 100);
         }, 0);
-        return { stage, deals: stageDeals, total, weighted };
+
+        return {
+          stage,
+          deals: openDeals,
+          closedDeals,
+          total,
+          weighted,
+        };
       }),
-    [filtered, toDisplay],
+    [filtered, toDisplay, revealed],
   );
 
   const stats = React.useMemo(() => {
@@ -203,6 +241,8 @@ export function usePipeline() {
     undo,
     undoMove,
     dismissUndo,
+    revealed,
+    toggleRevealed,
     displayCurrency: display,
   };
 }

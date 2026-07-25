@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import { Undo2, X } from "lucide-react";
+import { ChevronDown, Undo2, X } from "lucide-react";
 import type { Deal } from "@/lib/deals";
 import { STAGE_MAP, type DealStage } from "@/lib/pipeline";
 import { usePipeline } from "./use-pipeline";
@@ -41,6 +41,8 @@ export function PipelineBoard() {
     undo,
     undoMove,
     dismissUndo,
+    revealed,
+    toggleRevealed,
   } = usePipeline();
   const { format } = useCurrency();
 
@@ -110,8 +112,16 @@ export function PipelineBoard() {
             compact
             label="Closed won"
             value={format(stats.wonValue, { compact: true })}
-            hint={`${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"}`}
+            hint={
+              stats.wonCount
+                ? revealed.won
+                  ? "Showing on board · tap to hide"
+                  : `${stats.wonCount} ${stats.wonCount === 1 ? "deal" : "deals"} · tap to view`
+                : "No won deals"
+            }
             tone="positive"
+            onClick={stats.wonCount ? () => toggleRevealed("won") : undefined}
+            active={revealed.won}
           />
           <SummaryTile
             compact
@@ -128,8 +138,16 @@ export function PipelineBoard() {
             compact
             label="Deal lost"
             value={format(stats.lostValue, { compact: true })}
-            hint={`${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"}`}
+            hint={
+              stats.lostCount
+                ? revealed.lost
+                  ? "Showing on board · tap to hide"
+                  : `${stats.lostCount} ${stats.lostCount === 1 ? "deal" : "deals"} · tap to view`
+                : "No lost deals"
+            }
             tone="negative"
+            onClick={stats.lostCount ? () => toggleRevealed("lost") : undefined}
+            active={revealed.lost}
           />
           <SummaryTile
             compact
@@ -169,6 +187,7 @@ export function PipelineBoard() {
                   key={column.stage.id}
                   stage={column.stage}
                   deals={column.deals}
+                  closedDeals={column.closedDeals}
                   total={column.total}
                   weighted={column.weighted}
                   onOpenDeal={openDeal}
@@ -237,6 +256,8 @@ function SummaryTile({
   hint,
   tone = "neutral",
   compact = false,
+  onClick,
+  active = false,
 }: {
   label: string;
   value: string;
@@ -245,16 +266,58 @@ function SummaryTile({
   tone?: "neutral" | "positive" | "negative";
   /** Denser padding/type for the 2×2 block so it matches the tall tiles. */
   compact?: boolean;
+  /** Makes the tile a toggle that reveals its deals on the board. */
+  onClick?: () => void;
+  active?: boolean;
 }) {
+  const interactive = Boolean(onClick);
+
   return (
-    <Card className={cn("flex flex-col justify-center", compact ? "p-3" : "p-3.5")}>
+    <Card
+      {...(interactive
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            "aria-pressed": active,
+            onClick,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            },
+          }
+        : {})}
+      className={cn(
+        "flex flex-col justify-center",
+        compact ? "p-3" : "p-3.5",
+        interactive &&
+          "cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]",
+        active &&
+          tone === "positive" &&
+          "border-success/60 bg-success/[0.06] shadow-[var(--shadow-soft)]",
+        active &&
+          tone === "negative" &&
+          "border-destructive/60 bg-destructive/[0.06] shadow-[var(--shadow-soft)]",
+      )}
+    >
       <div
         className={cn(
-          "truncate font-medium text-muted-foreground",
+          "flex items-center gap-1 font-medium text-muted-foreground",
           compact ? "text-[11px]" : "text-xs",
         )}
       >
-        {label}
+        <span className="truncate">{label}</span>
+        {interactive && (
+          <ChevronDown
+            className={cn(
+              "size-3 shrink-0 transition-transform duration-200",
+              active && "rotate-180",
+              tone === "positive" && active && "text-success",
+              tone === "negative" && active && "text-destructive",
+            )}
+          />
+        )}
       </div>
       <div
         className={cn(

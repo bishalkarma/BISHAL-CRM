@@ -29,6 +29,12 @@ export type Deal = {
   value: number;
   currency: CurrencyCode;
   stage: DealStage;
+  /**
+   * The open stage a deal sat in immediately before it was closed.
+   * Lets won/lost deals be shown back in the column they closed from.
+   * Undefined while the deal is still open.
+   */
+  closedFromStage?: DealStage;
   /** Manual override; falls back to the stage default when null. */
   probability: number | null;
   owner: string;
@@ -214,6 +220,7 @@ export const DEALS: Deal[] = [
     value: 268_000,
     currency: "AED",
     stage: "won",
+    closedFromStage: "negotiation",
     probability: 100,
     owner: "Priya Nair",
     city: "Dubai",
@@ -232,6 +239,7 @@ export const DEALS: Deal[] = [
     value: 54_600,
     currency: "AED",
     stage: "won",
+    closedFromStage: "sampling",
     probability: 100,
     owner: "Ahmed Faris",
     city: "Dubai",
@@ -250,6 +258,7 @@ export const DEALS: Deal[] = [
     value: 132_000,
     currency: "AED",
     stage: "lost",
+    closedFromStage: "quotation",
     probability: 0,
     owner: "Bishal Karma",
     city: "Dubai",
