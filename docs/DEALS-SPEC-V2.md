@@ -16,8 +16,10 @@
 | Lost reasons | Budget Constraint · Item not in scope · Lead time · Query Cancelled |
 | Brand | Entered **per line at creation** — records what we quoted |
 | Extra fields | Live in the **deal detail view**, not the list |
-| Sample tracking | Unlocks **only** at Sampling stage |
-| Lost reason | Hidden until Lost, then **prompted and required** |
+| Sample tracking | **Hidden** until Sampling stage, then appears |
+| Lost reason | **Hidden** until Lost; then required, and **editable** after |
+| Current contact | Updates **automatically** — no prompt |
+| Reopening a lost deal | Supported — drag back to any open stage |
 
 ---
 
@@ -57,17 +59,14 @@ Over a year you can ask: *"who actually feeds us business?"*
 Without this field that insight is invisible, because the Purchasing Manager
 gets the credit for every deal.
 
-### How the current contact moves — a question for you
+### How the current contact moves — DECIDED ✅
 
-When an activity is logged against a different contact at the same company:
+**Automatic.** Logging an activity against a different contact at the same
+company moves the current contact to that person and appends to the trail.
+No prompt.
 
-- **(a)** Update the current contact **automatically**, and record it in the trail
-- **(b)** **Suggest** it — *"You logged a call with Mr. Ankit. Make him the
-  current contact?"* — same pattern as SPANCOP, nothing changes silently ⭐
-- **(c)** Manual only — the user changes it themselves
-
-*Recommendation: **(b)**, for consistency with the SPANCOP suggestion engine
-you already approved.*
+`Enquiry from` is never touched — it stays as the original requester so the
+"who feeds us business" report stays accurate.
 
 ---
 
@@ -75,17 +74,17 @@ you already approved.*
 
 The deal form stays short. The **detail view** grows as the deal advances.
 
-| Stage | What becomes visible |
+Stage-specific blocks are **hidden entirely** until the stage is reached — no
+greyed-out placeholders, no padlocks. The panel simply grows.
+
+| Stage | What appears |
 | --- | --- |
 | Lead → Quotation | Line items, brand, unit price, ageing, next action, task |
 | Negotiation | *(unchanged)* |
-| **Sampling** | 🔓 **Sample tracking** — sent date, feedback, days to respond |
-| **Won** | Won date, PO reference |
-| **Lost** | 🔓 **Lost reason** — prompted and required |
+| **Sampling** | **Sample tracking** appears — sent date, feedback, days to respond |
+| **Won** | Won details |
+| **Lost** | **Lost reason** appears — required before the move is allowed |
 | Any stage | **On hold** toggle |
-
-Nothing irrelevant is ever on screen. A deal at Lead shows no sample block and
-no lost reason.
 
 ---
 
@@ -111,8 +110,41 @@ Why was this deal lost?
 the deal, the activity log, and becomes reportable: *"37% of losses were lead
 time."*
 
-**Question:** should **Won** also ask something — e.g. a PO reference or the
-confirmed value? Or should Won be a single click with no friction?
+### Editable, and reversible
+
+- The lost reason can be **edited** afterwards — a wrong selection is fixable.
+- A lost deal can be **reopened** by dragging it back to any open stage
+  (Quotation, Sampling, …). This already works in the pipeline board.
+
+**Reopening happens.** A competitor fails to deliver and the enquiry comes back.
+
+### What reopening does
+
+| Effect | Behaviour |
+| --- | --- |
+| Deal stage | Returns to whichever open stage you drop it on |
+| Lost reason | **Kept in history**, cleared from the active record |
+| SPANCOP | Company returns to **Negotiate** automatically — the "any open deal wins" rule already covers this |
+| Loss reporting | The original loss stays counted for the period it happened in |
+
+### ⚠️ One consequence — deal ageing
+
+Ageing is `today − created`. A deal created 120 days ago, lost at day 60 and
+reopened today would read **"120 days"** and be flagged as badly rotten, even
+though it is a fresh opportunity.
+
+Options:
+
+- **(a)** Keep total ageing from original creation — honest, but flags every
+  reopened deal as stale
+- **(b)** Show both — *"Reopened 2 days ago · 120 days total"* ⭐
+- **(c)** Reset ageing on reopen — clean, but hides real history
+
+*Recommendation: **(b)**. Rotting alerts use the reopened date so a revived deal
+isn't instantly red, while the full history stays visible.*
+
+**Still open:** should **Won** ask for anything (PO reference / confirmed
+value), or be a single click?
 
 ---
 
@@ -135,6 +167,5 @@ Activity timeline for this deal
 
 ## 5. Still open
 
-1. **Current contact** — auto (a), suggest (b) ⭐, or manual (c)?
+1. **Reopened deal ageing** — total (a), both (b) ⭐, or reset (c)?
 2. **Won** — ask for a PO reference, or one click?
-3. Is my read of the contact journey right?
