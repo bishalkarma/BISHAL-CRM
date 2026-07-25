@@ -29,15 +29,22 @@ while staying simple, modern and fast.
 ### Mobile pipeline + multi-currency settings
 ![Mobile pipeline and currency](docs/mockups/06-mobile-currency.png)
 
+### Companies + SPANCOP
+![Companies](docs/mockups/16-companies-spancop.png)
+
+### SPANCOP is a repeating loop
+![SPANCOP loop](docs/mockups/15-spancop-loop.png)
+
 ---
 
-## Status: Part 2 complete — Pipeline, Drag & Drop, Multi-Currency
+## Status: Part 3 complete — Companies & SPANCOP
 
 | Part | Scope | Status |
 | --- | --- | --- |
 | **1** | Design system, theming, app shell, command palette, dashboard | ✅ Done |
 | **2** | Deals pipeline (Kanban, drag & drop, forecasting, multi-currency) | ✅ Done |
-| 3 | Companies & Contacts (accounts, outlets, decision makers) | Planned |
+| **3** | Companies + SPANCOP relationship engine | ✅ Done |
+| 3b | Contacts (multiple per company, decision makers) | Planned |
 | 4 | Activities, Quotations, Orders, Products | Planned |
 | 5 | Reports, AI assistant, automations | Planned |
 | 6 | Supabase auth, multi-tenancy & row-level security | Planned |
