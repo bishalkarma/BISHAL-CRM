@@ -2,6 +2,18 @@
 
 **Discussion document. Nothing built yet.**
 
+## ✅ Decided so far
+
+| Decision | Outcome |
+| --- | --- |
+| Deal structure | **Option B** — one deal per enquiry, products as line items |
+| `78 days` | **Deal ageing** = today − created date (auto, corrected below) |
+| Next action / Task | Separate, **and logged to the customer activity log** |
+| Units | **Pcs** primary |
+| Lost reasons | Budget Constraint · Item not in scope · Lead time · Query Cancelled |
+| Deal → customer | Must attach to an existing customer, with create-first guard |
+
+
 ---
 
 ## 1. What your sheet tells me
@@ -22,8 +34,8 @@ Two other things I noticed:
 
 - **`CLIENT NAME (↓ Select)`** — already a dropdown. Confirms your rule that a
   deal must attach to an existing customer.
-- **`DUE DATE = 78 days`** is a *duration*, not a date. It should be computed
-  and count down on its own, not be typed and go stale.
+- **`DUE DATE = 78 days`** — corrected: this is **deal ageing**, i.e.
+  `today − deal created date`. Auto-computed, counts **up**, never typed.
 
 ---
 
@@ -45,14 +57,16 @@ Two other things I noticed:
 | TASK STATUS | Our next task | ❌ **missing** |
 | REMARKS | Remarks | ❌ **missing** |
 
-### ⚠️ REQ DATE is not the same as expected close date
+### Three different dates — all auto where possible
 
-- **REQ DATE** — when the customer needs the goods *delivered*
-- **Expected close** — when you expect to *win* the deal
+| Field | Meaning | Source |
+| --- | --- | --- |
+| **Created date** | When the deal was opened | Auto |
+| **Deal ageing** | `today − created` → *"78 days"* | **Auto, counts up** |
+| **REQ DATE** | When the customer needs delivery | Typed |
 
-For a trading company REQ DATE is arguably the more important of the two: it
-drives procurement lead time. I'd keep **both**, and warn when REQ DATE is
-sooner than your supplier lead time allows.
+Ageing drives the rotting-deal warning already in the pipeline: an 78-day-old
+deal still at Quotation is a red flag.
 
 ### ⚠️ NEXT ACTION and TASK STATUS are two different things
 
@@ -76,7 +90,7 @@ module and can be marked done.
 | --- | --- |
 | **Unit price** | You have qty and total; `38,930 ÷ 455 = AED 85.56/pc`. Auto-computed, and the number customers actually argue about |
 | **Brand / competitor** | Straight from your own note: *"won't go for Prestige, looking for lightweight stainless steel."* That's competitive intel worth a field |
-| **Lost reason** (picklist) | Price · Brand preference · Lead time · Quality · Budget frozen · Competitor · No response. Gives you *"37% lost on price"*; free text gives you nothing |
+| **Lost reason** (picklist) | **Budget Constraint · Item not in scope · Lead time · Query Cancelled** — your list. Gives you *"37% lost on lead time"* |
 | **On hold** status | *"Budget locked until next quarter"* is not lost — but it shouldn't sit in your live forecast either |
 | **Sample tracking** | Your notes mention samples constantly. Sent date + feedback, tied to the Sampling stage |
 | **Cost & margin** | Optional. Lets you see margin per deal, and flag discounting below a floor |
@@ -158,14 +172,12 @@ hold) · `Lost reason` (shown only when Lost) · `Priority`
 
 ---
 
-## 7. Questions for you
+## 7. Open — see the mockups
 
-1. **Option A, B or C?** *(the important one)*
-2. **Quantity units** — Pcs, Kg, Ltr, Box, Carton, Set… what else do you use?
-3. **Cost & margin** — include now, or leave until later?
-4. **Lost reasons** — is my list right? What would you add?
-5. **Deal contact** — always the company's primary, or pick per deal?
-6. **Anything in your sheet I've misread?**
+1. **Cost & margin** — explained in mockup 21. Decide: skip / optional / required.
+2. **Deal contact** — explained in mockup 22. It is *always the same company*;
+   the only question is *which person at that company*.
+3. **Sample tracking, brand/competitor, On hold** — shown in mockup 20.
 
 ---
 
