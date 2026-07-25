@@ -52,7 +52,6 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Building2,
         shortcut: "G C",
         mobile: true,
-        soon: true,
       },
       {
         label: "Contacts",

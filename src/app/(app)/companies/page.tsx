@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Building2 } from "lucide-react";
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { Plus } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { CompaniesView } from "@/components/companies/companies-view";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Companies" };
 
 export default function CompaniesPage() {
   return (
-    <ComingSoon
-      title="Companies"
-      description="Every hotel, restaurant, café, catering kitchen and distributor you sell to — with outlets, credit terms and buying history in one record."
-      icon={Building2}
-      part="Part 3"
-      features={[
-        "Account types: Hotel, Restaurant, Café, Project",
-        "Parent groups with multiple outlets",
-        "Credit limit, payment terms and trade licence",
-        "Assigned sales rep and territory",
-        "Order history and reorder patterns",
-        "Smart filters and saved views",
-      ]}
-    />
+    <div className="mx-auto w-full max-w-[1500px] space-y-4 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader
+        title="Companies"
+        description="Customer relationships tracked through the SPANCOP cycle."
+        actions={
+          <Button size="sm">
+            <Plus />
+            New Company
+          </Button>
+        }
+      />
+      <CompaniesView />
+    </div>
   );
 }

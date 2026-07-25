@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
+import { PrioritisationProvider } from "@/components/providers/prioritisation-provider";
 import {
   DEFAULT_THEME,
   THEME_STORAGE_KEY,
@@ -61,7 +62,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <AccentThemeContext.Provider value={value}>
-        <CurrencyProvider>{children}</CurrencyProvider>
+        <CurrencyProvider>
+          <PrioritisationProvider>{children}</PrioritisationProvider>
+        </CurrencyProvider>
       </AccentThemeContext.Provider>
     </NextThemesProvider>
   );
