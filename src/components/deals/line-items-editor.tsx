@@ -46,7 +46,7 @@ export function LineItemsEditor({
   return (
     <div className="space-y-2">
       {/* Desktop column labels */}
-      <div className="hidden gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 sm:grid sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1.1fr)_74px_86px_96px_32px]">
+      <div className="hidden gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_128px_96px_110px_32px]">
         <span>Product</span>
         <span>Brand</span>
         <span>Qty</span>
@@ -58,7 +58,7 @@ export function LineItemsEditor({
       {lines.map((line, index) => (
         <div
           key={line.id}
-          className="grid gap-2 rounded-xl border border-border p-2 sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1.1fr)_74px_86px_96px_32px] sm:items-center sm:border-0 sm:p-0"
+          className="grid gap-2 rounded-xl border border-border p-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_128px_96px_110px_32px] sm:items-center sm:border-0 sm:p-0"
         >
           <Input
             value={line.product}
@@ -77,19 +77,25 @@ export function LineItemsEditor({
           <div className="flex gap-1">
             <Input
               type="number"
-              min={1}
-              value={line.quantity}
+              min={0}
+              inputMode="numeric"
+              // Empty rather than a literal 0, so there is nothing to delete
+              // before typing. Empty is treated as 0 in the total.
+              value={line.quantity === 0 ? "" : line.quantity}
               onChange={(e) =>
-                update(line.id, { quantity: Math.max(0, +e.target.value) })
+                update(line.id, {
+                  quantity: e.target.value === "" ? 0 : Math.max(0, +e.target.value),
+                })
               }
-              className="h-9 w-full px-2"
+              placeholder="0"
+              className="h-9 min-w-0 flex-1 px-2"
               aria-label={`Quantity for line ${index + 1}`}
             />
             <select
               value={line.unit}
               onChange={(e) => update(line.id, { unit: e.target.value as Unit })}
               aria-label={`Unit for line ${index + 1}`}
-              className="h-9 rounded-lg border border-input bg-background px-1 text-xs outline-none focus-visible:border-accent"
+              className="h-9 w-[62px] shrink-0 rounded-lg border border-input bg-background px-1.5 text-xs outline-none focus-visible:border-accent"
             >
               {UNITS.map((u) => (
                 <option key={u} value={u}>
@@ -102,10 +108,14 @@ export function LineItemsEditor({
             type="number"
             min={0}
             step="0.01"
-            value={line.unitPrice}
+            inputMode="decimal"
+            value={line.unitPrice === 0 ? "" : line.unitPrice}
             onChange={(e) =>
-              update(line.id, { unitPrice: Math.max(0, +e.target.value) })
+              update(line.id, {
+                unitPrice: e.target.value === "" ? 0 : Math.max(0, +e.target.value),
+              })
             }
+            placeholder="0.00"
             className="h-9 px-2"
             aria-label={`Unit price for line ${index + 1}`}
           />
@@ -114,9 +124,18 @@ export function LineItemsEditor({
               Line total
             </span>
             <span className="text-sm font-semibold tabular-nums">
-              {lineTotal(line).toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}
+              {lineTotal(line) > 0 ? (
+                <>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    {currencySymbol}{" "}
+                  </span>
+                  {lineTotal(line).toLocaleString("en-US", {
+                    maximumFractionDigits: 0,
+                  })}
+                </>
+              ) : (
+                <span className="text-muted-foreground/50">—</span>
+              )}
             </span>
           </div>
           <button

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, PanelLeft, Search } from "lucide-react";
+import { Bell, Menu, PanelLeft, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModeToggle, ThemeSwitcher } from "@/components/theme/theme-switcher";
@@ -108,6 +109,12 @@ export function Topbar({
 
         <ThemeSwitcher />
         <ModeToggle />
+
+        <Button variant="ghost" size="icon-sm" asChild aria-label="Settings">
+          <Link href="/settings" title="Settings">
+            <Settings />
+          </Link>
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
