@@ -133,18 +133,31 @@ Ageing is `today − created`. A deal created 120 days ago, lost at day 60 and
 reopened today would read **"120 days"** and be flagged as badly rotten, even
 though it is a fresh opportunity.
 
-Options:
+### DECIDED ✅ — badge + continuous total
 
-- **(a)** Keep total ageing from original creation — honest, but flags every
-  reopened deal as stale
-- **(b)** Show both — *"Reopened 2 days ago · 120 days total"* ⭐
-- **(c)** Reset ageing on reopen — clean, but hides real history
+- Badge reads simply **`Reopened`** — no day count on it
+- **Total days runs continuously** from creation to close, dormant period
+  included, so it answers *"how long did this deal really take?"*
+- **Rotting alerts use the reopened date**, so a revived deal is not instantly
+  flagged red
 
-*Recommendation: **(b)**. Rotting alerts use the reopened date so a revived deal
-isn't instantly red, while the full history stays visible.*
+```
+Day 0    created
+Day 120  lost                  ← 120 days pursued
+Day 122  reopened              ← 2 dormant days, still counted
+Day 137  won                   ← TOTAL CYCLE 137 days
+```
 
-**Still open:** should **Won** ask for anything (PO reference / confirmed
-value), or be a single click?
+While open after a reopen the card shows:
+
+> `Reopened`  ·  **122 days total**
+
+This feeds two report metrics that were not previously possible: **average days
+to win** and **average days to lose**.
+
+### Won — single click, DECIDED ✅
+
+No prompt. The value is already the sum of the line items.
 
 ---
 
@@ -165,7 +178,45 @@ Activity timeline for this deal
 
 ---
 
-## 5. Still open
+## 5. ⚠️ New question — what is a deal worth when it is Won?
 
-1. **Reopened deal ageing** — total (a), both (b) ⭐, or reset (c)?
-2. **Won** — ask for a PO reference, or one click?
+Option B introduced line items with their own status, and that creates a case
+the old one-deal-one-product model never had.
+
+Golden Sands, quoted **AED 53,930**:
+
+| Line | Value | Status |
+| --- | --- | --- |
+| Cloth Dryer Stand | AED 38,930 | ✅ Approved |
+| SS Frying Pan 26cm | AED 15,000 | ❌ Rejected — wrong brand |
+
+Mark the deal **Won**. Is it worth **53,930** or **38,930**?
+
+Counting the full 53,930 overstates Closed Won by AED 15,000 on a single deal —
+and that number flows into the dashboard, the win rate and the forecast.
+
+### Recommendation
+
+**Won value = sum of the approved lines.** Rejected lines are excluded from
+revenue but kept on the deal for per-product loss analysis.
+
+The card then reads:
+
+> **AED 38,930 won** · AED 15,000 not taken
+
+**This keeps Won a single click.** Lines left as *Quoted* — i.e. you never
+bothered to reject anything — are treated as approved. Marking lines is
+entirely optional; it only changes the total if you actually use it.
+
+### A small bonus
+
+If a rejected line reuses the same four lost reasons, you get per-product loss
+analysis for free:
+
+> *"62% of rejected cookware lines were Item not in scope."*
+
+---
+
+## 6. Still open
+
+1. **Won value** — approved lines only ⭐, or the full quoted value?
