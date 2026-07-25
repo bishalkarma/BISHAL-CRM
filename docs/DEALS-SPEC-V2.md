@@ -133,31 +133,34 @@ Ageing is `today − created`. A deal created 120 days ago, lost at day 60 and
 reopened today would read **"120 days"** and be flagged as badly rotten, even
 though it is a fresh opportunity.
 
-### DECIDED ✅ — badge + continuous total
+### DECIDED ✅ — dormant time is excluded
 
-- Badge reads simply **`Reopened`** — no day count on it
-- **Total days runs continuously** from creation to close, dormant period
-  included, so it answers *"how long did this deal really take?"*
-- **Rotting alerts use the reopened date**, so a revived deal is not instantly
-  flagged red
+The dormant period is **not** counted. How long a lost deal sat idle is outside
+our control and says nothing about sales effort — including it would inflate
+every revived deal's cycle time and make the averages meaningless.
+
+**Active days only:** the clock stops at Lost and restarts at Reopened.
 
 ```
 Day 0    created
-Day 120  lost                  ← 120 days pursued
-Day 122  reopened              ← 2 dormant days, still counted
-Day 137  won                   ← TOTAL CYCLE 137 days
+Day 120  lost         → active 120 days
+Day 300  reopened     → 180 dormant days, EXCLUDED
+Day 317  won          → active +17 days
+                         ACTIVE TOTAL 137 days   (not 317)
 ```
 
-While open after a reopen the card shows:
+- Badge reads simply **`Reopened`**
+- The card shows **active days**, and the rotting alert uses the current
+  active run — so a revived deal is never instantly red
+- Dormant days are still stored, so *"how long was it dead?"* can be answered
+  later if ever needed
 
-> `Reopened`  ·  **122 days total**
-
-This feeds two report metrics that were not previously possible: **average days
-to win** and **average days to lose**.
+This keeps **average days to win / lose** honest: it measures selling time, not
+calendar time.
 
 ### Won — single click, DECIDED ✅
 
-No prompt. The value is already the sum of the line items.
+No prompt. The value is the sum of the **approved** line items.
 
 ---
 
@@ -178,10 +181,7 @@ Activity timeline for this deal
 
 ---
 
-## 5. ⚠️ New question — what is a deal worth when it is Won?
-
-Option B introduced line items with their own status, and that creates a case
-the old one-deal-one-product model never had.
+## 5. Deal value follows the line items — CONFIRMED ✅
 
 Golden Sands, quoted **AED 53,930**:
 
@@ -190,33 +190,29 @@ Golden Sands, quoted **AED 53,930**:
 | Cloth Dryer Stand | AED 38,930 | ✅ Approved |
 | SS Frying Pan 26cm | AED 15,000 | ❌ Rejected — wrong brand |
 
-Mark the deal **Won**. Is it worth **53,930** or **38,930**?
+Won value = **AED 38,930** — approved lines only. The rejected AED 15,000 is
+excluded from revenue but stays on the deal for per-product analysis.
 
-Counting the full 53,930 overstates Closed Won by AED 15,000 on a single deal —
-and that number flows into the dashboard, the win rate and the forecast.
-
-### Recommendation
-
-**Won value = sum of the approved lines.** Rejected lines are excluded from
-revenue but kept on the deal for per-product loss analysis.
-
-The card then reads:
+The card reads:
 
 > **AED 38,930 won** · AED 15,000 not taken
 
-**This keeps Won a single click.** Lines left as *Quoted* — i.e. you never
-bothered to reject anything — are treated as approved. Marking lines is
-entirely optional; it only changes the total if you actually use it.
+**Won stays a single click.** Lines left as *Quoted* — i.e. nothing was ever
+rejected — count as approved, so the common case needs no extra work. Marking
+lines only matters when a customer actually drops something.
 
-### A small bonus
-
-If a rejected line reuses the same four lost reasons, you get per-product loss
+Rejected lines reuse the same four lost reasons, which gives per-product loss
 analysis for free:
 
 > *"62% of rejected cookware lines were Item not in scope."*
 
 ---
 
-## 6. Still open
+## 6. Deals design is complete
 
-1. **Won value** — approved lines only ⭐, or the full quoted value?
+Ready to build on your word. Proposed order:
+
+1. Line items on the deal model + value from approved lines
+2. New Deal form with the create-customer-first guard
+3. Deal detail view with stage-gated blocks
+4. Lost-reason prompt, reopening, active-days ageing
