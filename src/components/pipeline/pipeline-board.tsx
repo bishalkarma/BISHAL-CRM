@@ -35,7 +35,8 @@ import { LostReasonDialog } from "@/components/deals/lost-reason-dialog";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { NewCompanyDialog } from "@/components/companies/new-company-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { COMPANIES, type Company } from "@/lib/companies";
+import type { Company } from "@/lib/companies";
+import { useData } from "@/components/providers/data-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export function PipelineBoard() {
     toggleOutcomeView,
   } = usePipeline();
   const { format } = useCurrency();
+  const { companies, addCompany } = useData();
 
   const [view, setView] = React.useState<"board" | "list">("board");
   const [activeDeal, setActiveDeal] = React.useState<Deal | null>(null);
@@ -366,10 +368,11 @@ export function PipelineBoard() {
       <NewCompanyDialog
         open={newCompanyOpen}
         onOpenChange={setNewCompanyOpen}
-        existingNames={COMPANIES.map((c) => c.name)}
+        existingNames={companies.map((c) => c.name)}
         prefillName={companyPrefill}
         onCreate={(company) => {
-          COMPANIES.unshift(company);
+          // Shared store also creates the primary contact.
+          addCompany(company);
           setCreatedCompany(company);
           setNewCompanyOpen(false);
           // Straight back to the deal, customer already selected.

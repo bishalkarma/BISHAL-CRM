@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { ArrowRight, Building2, Search, UserPlus } from "lucide-react";
-import { COMPANIES, type Company } from "@/lib/companies";
+import type { Company } from "@/lib/companies";
+import { useData } from "@/components/providers/data-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,18 +21,19 @@ export function CompanyPicker({
   onSelect: (company: Company) => void;
   onCreateCompany: (prefillName: string) => void;
 }) {
+  const { companies } = useData();
   const [query, setQuery] = React.useState("");
   const trimmed = query.trim();
 
   const results = React.useMemo(() => {
-    if (!trimmed) return COMPANIES.slice(0, 6);
+    if (!trimmed) return companies.slice(0, 6);
     const q = trimmed.toLowerCase();
-    return COMPANIES.filter((c) =>
+    return companies.filter((c) =>
       `${c.name} ${c.area} ${c.emirate} ${c.contactName} ${c.cluster ?? ""}`
         .toLowerCase()
         .includes(q),
     ).slice(0, 8);
-  }, [trimmed]);
+  }, [trimmed, companies]);
 
   return (
     <div className="space-y-3">

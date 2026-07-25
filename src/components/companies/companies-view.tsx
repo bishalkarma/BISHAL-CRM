@@ -9,7 +9,6 @@ import {
   Plus,
   Search,
   Sparkles,
-  Upload,
   X,
 } from "lucide-react";
 import type { Company } from "@/lib/companies";
@@ -22,7 +21,6 @@ import { CompanyDrawer } from "./company-drawer";
 import { SpancopFunnel } from "./spancop-funnel";
 import { SuggestionsDialog } from "./suggestions-dialog";
 import { NewCompanyDialog } from "./new-company-dialog";
-import { ImportDialog } from "./import-dialog";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Input } from "@/components/ui/input";
@@ -58,7 +56,6 @@ export function CompaniesView() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false);
   const [newOpen, setNewOpen] = React.useState(false);
-  const [importOpen, setImportOpen] = React.useState(false);
 
   const openCompany = React.useCallback((company: Company) => {
     setSelected(company);
@@ -86,20 +83,10 @@ export function CompaniesView() {
         title="Companies"
         description="Customer relationships tracked through the SPANCOP cycle."
         actions={
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setImportOpen(true)}
-            >
-              <Upload />
-              Import
-            </Button>
-            <Button size="sm" onClick={() => setNewOpen(true)}>
-              <Plus />
-              New Company
-            </Button>
-          </>
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            <Plus />
+            New Company
+          </Button>
         }
       />
 
@@ -277,13 +264,6 @@ export function CompaniesView() {
           moveStage(id, stage, reason, "accepted-suggestion")
         }
         onDismiss={dismissSuggestion}
-      />
-
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        existingNames={companies.map((c) => c.name)}
-        onImport={(list) => list.forEach(addCompany)}
       />
 
       <NewCompanyDialog

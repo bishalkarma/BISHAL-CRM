@@ -25,6 +25,18 @@ export const LOST_REASONS: LostReason[] = [
   "Query Cancelled",
 ];
 
+/**
+ * Deal category — mandatory, so dashboard analysis of "which category brings
+ * the most enquiries" is reliable. Deal-level, not line-level: a mixed
+ * enquiry becomes two deals, which keeps the analysis clean.
+ */
+export const DEAL_CATEGORIES = [
+  "OS&E — Operating Supplies and Equipment",
+  "FF&E — Furniture, Fixtures and Equipment",
+  "FOH — Front of House",
+  "BOH — Back of House",
+] as const;
+
 export const UNITS = ["Pcs", "Kg", "Ltr", "Box", "Carton", "Set"] as const;
 export type Unit = (typeof UNITS)[number];
 

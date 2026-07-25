@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import {
   Building2,
+  ChevronRight,
   Crown,
   Mail,
   MessageCircle,
@@ -11,9 +12,8 @@ import {
   Search,
   Star,
 } from "lucide-react";
-import { CONTACTS, type Contact } from "@/lib/contacts";
-import { COMPANIES } from "@/lib/companies";
-import { DEALS } from "@/lib/deals";
+import type { Contact } from "@/lib/contacts";
+import { useData } from "@/components/providers/data-provider";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,35 +22,42 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { cn, initials } from "@/lib/utils";
 
-const companyName = (id: string) =>
-  COMPANIES.find((c) => c.id === id)?.name ?? "—";
-
-/** How many enquiries this person has originated. */
-function enquiryStats(contactId: string) {
-  const originated = DEALS.filter((d) => d.enquiryFromId === contactId);
-  return {
-    count: originated.length,
-    won: originated.filter((d) => d.stage === "won").length,
-    value: originated
-      .filter((d) => d.stage === "won")
-      .reduce((sum, d) => sum + d.value, 0),
-  };
-}
+/** Companies with more than this many contacts collapse the remainder. */
+const VISIBLE_LIMIT = 3;
 
 export function ContactsView() {
+  const { companies, contacts: allContacts, deals } = useData();
   const [query, setQuery] = React.useState("");
   const [decisionMakersOnly, setDecisionMakersOnly] = React.useState(false);
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+
+  const companyName = React.useCallback(
+    (id: string) => companies.find((c) => c.id === id)?.name ?? "—",
+    [companies],
+  );
+
+  /** How many enquiries this person has originated. */
+  const enquiryStats = React.useCallback(
+    (contactId: string) => {
+      const originated = deals.filter((d) => d.enquiryFromId === contactId);
+      return {
+        count: originated.length,
+        won: originated.filter((d) => d.stage === "won").length,
+      };
+    },
+    [deals],
+  );
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return CONTACTS.filter((c) => {
+    return allContacts.filter((c) => {
       if (decisionMakersOnly && !c.isDecisionMaker) return false;
       if (!q) return true;
       return `${c.name} ${c.role} ${companyName(c.companyId)} ${c.phone} ${c.email ?? ""}`
         .toLowerCase()
         .includes(q);
     });
-  }, [query, decisionMakersOnly]);
+  }, [query, decisionMakersOnly, allContacts, companyName]);
 
   /** Group by company so multiple contacts read as one relationship. */
   const grouped = React.useMemo(() => {
@@ -72,7 +79,7 @@ export function ContactsView() {
     <div className="space-y-4">
       <PageHeader
         title="Contacts"
-        description={`${CONTACTS.length} people across ${COMPANIES.length} customers.`}
+        description={`${allContacts.length} people across ${companies.length} customers.`}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -126,7 +133,10 @@ export function ContactsView() {
                 </div>
 
                 <ul className="divide-y divide-border">
-                  {contacts.map((contact) => {
+                  {(expanded[companyId]
+                    ? contacts
+                    : contacts.slice(0, VISIBLE_LIMIT)
+                  ).map((contact) => {
                     const stats = enquiryStats(contact.id);
                     return (
                       <li
@@ -230,6 +240,28 @@ export function ContactsView() {
                     );
                   })}
                 </ul>
+
+                {/* Expands in place — never a dialog */}
+                {contacts.length > VISIBLE_LIMIT && (
+                  <button
+                    onClick={() =>
+                      setExpanded((e) => ({ ...e, [companyId]: !e[companyId] }))
+                    }
+                    className="flex w-full items-center justify-center gap-1.5 border-t border-border py-2 text-xs font-medium text-accent transition-colors hover:bg-secondary/50"
+                  >
+                    <ChevronRight
+                      className={cn(
+                        "size-3.5 transition-transform duration-200",
+                        expanded[companyId] && "rotate-90",
+                      )}
+                    />
+                    {expanded[companyId]
+                      ? "Show less"
+                      : `Show ${contacts.length - VISIBLE_LIMIT} more contact${
+                          contacts.length - VISIBLE_LIMIT === 1 ? "" : "s"
+                        }`}
+                  </button>
+                )}
               </Card>
             </motion.div>
           ))}

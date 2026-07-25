@@ -40,7 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
         mobile: true,
       },
       {
-        label: "Pipeline",
+        label: "Deals Pipeline",
         href: "/pipeline",
         icon: Target,
         shortcut: "G P",

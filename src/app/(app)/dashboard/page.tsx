@@ -6,6 +6,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SegmentChart } from "@/components/dashboard/segment-chart";
 import { PipelineFunnel } from "@/components/dashboard/pipeline-funnel";
+import { SpancopFunnelWidget } from "@/components/dashboard/spancop-funnel-widget";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Leaderboard } from "@/components/dashboard/leaderboard";
 import { DealsTable } from "@/components/dashboard/deals-table";
@@ -178,6 +179,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* SPANCOP — customer relationship funnel */}
+      <SpancopFunnelWidget />
 
       {/* Segments + team */}
       <div className="grid gap-4 lg:grid-cols-2">

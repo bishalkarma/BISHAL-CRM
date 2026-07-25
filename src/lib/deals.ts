@@ -39,6 +39,8 @@ export type Deal = {
   /** Who we are dealing with now. Moves automatically with activity. */
   currentContactId: string;
   contactTrail: ContactTrailEntry[];
+  /** Mandatory — powers category analysis on the dashboard. */
+  category: string;
   /** Products on this enquiry. Deal value is the sum of non-rejected lines. */
   lines: LineItem[];
   /** Derived from `lines` — kept for sorting and quick reads. */
@@ -120,6 +122,7 @@ export const ACCOUNT_TYPES: AccountType[] = [
 export const DEALS: Deal[] = [
   {
     id: "D-1041",
+    category: "BOH — Back of House",
     title: "Annual dry goods supply contract",
     company: "Atlantis The Palm",
     companyId: "C-001",
@@ -157,6 +160,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1038",
+    category: "FF&E — Furniture, Fixtures and Equipment",
     title: "Pre-opening F&B tableware package",
     company: "Rixos Marina Residences",
     companyId: "C-002",
@@ -192,6 +196,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1035",
+    category: "BOH — Back of House",
     title: "Specialty coffee beans — 12 outlets",
     company: "Nero Coffee Group",
     companyId: "C-004",
@@ -230,6 +235,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1031",
+    category: "BOH — Back of House",
     title: "Frozen seafood quarterly rate contract",
     company: "Zuma Restaurant Group",
     companyId: "C-003",
@@ -264,6 +270,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1029",
+    category: "OS&E — Operating Supplies and Equipment",
     title: "Housekeeping amenities restock",
     company: "Jumeirah Beach Hotel",
     companyId: "C-005",
@@ -302,6 +309,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1026",
+    category: "OS&E — Operating Supplies and Equipment",
     title: "Banquet catering disposables",
     company: "Emirates Palace Catering",
     companyId: "C-006",
@@ -337,6 +345,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1022",
+    category: "OS&E — Operating Supplies and Equipment",
     title: "Regional distribution partnership",
     company: "Gulf Horeca Distributors",
     companyId: "C-011",
@@ -368,6 +377,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1019",
+    category: "BOH — Back of House",
     title: "Organic produce weekly supply",
     company: "The Farmhouse Bistro",
     companyId: "C-007",
@@ -402,6 +412,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1018",
+    category: "BOH — Back of House",
     title: "Bakery ingredients annual tender",
     company: "Marriott Cluster Kitchens",
     companyId: "C-008",
@@ -438,6 +449,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1015",
+    category: "FOH — Front of House",
     title: "Cold-pressed juice supply",
     company: "Bloom Café Chain",
     companyId: "C-009",
@@ -477,6 +489,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1012",
+    category: "FF&E — Furniture, Fixtures and Equipment",
     title: "Kitchen equipment refresh",
     company: "Radisson Blu Deira",
     companyId: "C-010",
@@ -514,6 +527,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1009",
+    category: "FOH — Front of House",
     title: "Premium olive oil range listing",
     company: "Zuma Restaurant Group",
     companyId: "C-003",
@@ -549,6 +563,7 @@ export const DEALS: Deal[] = [
   },
   {
     id: "D-1007",
+    category: "BOH — Back of House",
     title: "Staff canteen bulk grocery",
     company: "Gulf Horeca Distributors",
     companyId: "C-011",

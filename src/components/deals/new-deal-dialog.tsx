@@ -3,12 +3,13 @@
 import * as React from "react";
 import { ArrowLeft, Building2, CheckCircle2, PartyPopper } from "lucide-react";
 import type { Company } from "@/lib/companies";
-import { contactsForCompany, primaryContact } from "@/lib/contacts";
-import { dealValue, type LineItem } from "@/lib/deal-model";
+import { useData } from "@/components/providers/data-provider";
+import { DEAL_CATEGORIES, dealValue, type LineItem } from "@/lib/deal-model";
 import type { Deal, DealPriority } from "@/lib/deals";
 import { DEAL_OWNERS } from "@/lib/deals";
 import { LineItemsEditor } from "./line-items-editor";
 import { CompanyPicker } from "./company-picker";
+import { ClusterCombobox } from "@/components/companies/cluster-combobox";
 import {
   Dialog,
   DialogContent,
@@ -48,8 +49,13 @@ export function NewDealDialog({
   preselectedCompany?: Company | null;
   justCreatedCompany?: boolean;
 }) {
+  const { contactsFor, primaryFor } = useData();
   const [company, setCompany] = React.useState<Company | null>(null);
   const [title, setTitle] = React.useState("");
+  const [category, setCategory] = React.useState("");
+  const [categories, setCategories] = React.useState<string[]>([
+    ...DEAL_CATEGORIES,
+  ]);
   const [enquiryFromId, setEnquiryFromId] = React.useState("");
   const [reqDate, setReqDate] = React.useState("");
   const [owner, setOwner] = React.useState<string>(DEAL_OWNERS[0]);
@@ -61,20 +67,21 @@ export function NewDealDialog({
   React.useEffect(() => {
     if (preselectedCompany) {
       setCompany(preselectedCompany);
-      setEnquiryFromId(primaryContact(preselectedCompany.id)?.id ?? "");
+      setEnquiryFromId(primaryFor(preselectedCompany.id)?.id ?? "");
     }
-  }, [preselectedCompany]);
+  }, [preselectedCompany, primaryFor]);
 
-  const contacts = company ? contactsForCompany(company.id) : [];
+  const contacts = company ? contactsFor(company.id) : [];
 
   const chooseCompany = (c: Company) => {
     setCompany(c);
-    setEnquiryFromId(primaryContact(c.id)?.id ?? "");
+    setEnquiryFromId(primaryFor(c.id)?.id ?? "");
   };
 
   const reset = () => {
     setCompany(null);
     setTitle("");
+    setCategory("");
     setEnquiryFromId("");
     setReqDate("");
     setPriority("medium");
@@ -84,7 +91,11 @@ export function NewDealDialog({
 
   const validLines = lines.filter((l) => l.product.trim() && l.quantity > 0);
   const valid = Boolean(
-    company && title.trim() && enquiryFromId && validLines.length > 0,
+    company &&
+      title.trim() &&
+      category &&
+      enquiryFromId &&
+      validLines.length > 0,
   );
 
   const submit = () => {
@@ -95,6 +106,7 @@ export function NewDealDialog({
     onCreate({
       id: `D-${Date.now().toString().slice(-4)}`,
       title: title.trim(),
+      category,
       company: company.name,
       companyId: company.id,
       accountType: "Hotel",
@@ -205,6 +217,23 @@ export function NewDealDialog({
                     touched && !title.trim() && "border-destructive",
                   )}
                 />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label required>Category</Label>
+                <ClusterCombobox
+                  value={category}
+                  options={categories}
+                  onChange={(v) => {
+                    if (!categories.includes(v)) setCategories((c) => [...c, v]);
+                    setCategory(v);
+                  }}
+                />
+                {touched && !category && (
+                  <p className="mt-1 text-xs font-medium text-destructive">
+                    Category is required — it drives dashboard analysis.
+                  </p>
+                )}
               </div>
 
               <div>

@@ -24,7 +24,7 @@ import {
   type DealStage,
 } from "@/lib/pipeline";
 import { CURRENCIES } from "@/lib/currency";
-import { contactById } from "@/lib/contacts";
+
 import {
   LINE_STATUS_META,
   activeDays,
@@ -37,6 +37,7 @@ import {
   rejectedValue,
 } from "@/lib/deal-model";
 import { useCurrency } from "@/components/providers/currency-provider";
+import { useData } from "@/components/providers/data-provider";
 import {
   Sheet,
   SheetContent,
@@ -63,6 +64,7 @@ export function DealDrawer({
   onEditLostReason?: (deal: Deal) => void;
 }) {
   const { display, toDisplay, format } = useCurrency();
+  const { contactById } = useData();
   if (!deal) return null;
 
   const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;

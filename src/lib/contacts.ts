@@ -66,6 +66,19 @@ export const CONTACTS: Contact[] = [
     notes: "Handles final commercial negotiation and PO issuance.",
     createdAt: days(-290),
   },
+  {
+    id: "P-021",
+    companyId: "C-001",
+    name: "Grace Fernandes",
+    role: "Other",
+    email: null,
+    phone: "+971 55 660 4412",
+    whatsappSameAsPhone: true,
+    isPrimary: false,
+    isDecisionMaker: false,
+    notes: "Housekeeping supervisor — raises amenity requirements.",
+    createdAt: days(-260),
+  },
   // C-002 Rixos Marina
   {
     id: "P-004",

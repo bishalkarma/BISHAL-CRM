@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import {
-  COMPANIES,
-  STAGE_TRANSITIONS,
   daysInStage,
   daysSinceLastOrder,
   type BusinessType,
@@ -15,8 +13,8 @@ import {
   isStalled,
   suggestSpancopStage,
   type SpancopStage,
-  type StageTransition,
 } from "@/lib/spancop";
+import { useData } from "@/components/providers/data-provider";
 
 export type CompanyFilters = {
   query: string;
@@ -81,9 +79,13 @@ export function suggestionFor(company: Company) {
 }
 
 export function useCompanies() {
-  const [companies, setCompanies] = React.useState<Company[]>(COMPANIES);
-  const [transitions, setTransitions] =
-    React.useState<StageTransition[]>(STAGE_TRANSITIONS);
+  const {
+    companies,
+    transitions,
+    moveStage: moveStageShared,
+    addCompany,
+    addCompanies,
+  } = useData();
   const [filters, setFilters] = React.useState<CompanyFilters>(EMPTY);
   /** Suggestions the user chose to ignore, so they stop nagging. */
   const [dismissed, setDismissed] = React.useState<Record<string, SpancopStage>>(
@@ -96,33 +98,9 @@ export function useCompanies() {
       companyId: string,
       to: SpancopStage,
       reason: string,
-      trigger: StageTransition["trigger"] = "manual",
-    ) => {
-      setCompanies((current) =>
-        current.map((c) =>
-          c.id === companyId
-            ? { ...c, spancop: to, spancopSince: new Date().toISOString() }
-            : c,
-        ),
-      );
-      setTransitions((current) => {
-        const company = companies.find((c) => c.id === companyId);
-        return [
-          {
-            id: `T-${Date.now()}`,
-            companyId,
-            from: company?.spancop ?? null,
-            to,
-            trigger,
-            reason,
-            at: new Date().toISOString(),
-            by: "Bishal Karma",
-          },
-          ...current,
-        ];
-      });
-    },
-    [companies],
+      trigger: "manual" | "accepted-suggestion" | "seed" = "manual",
+    ) => moveStageShared(companyId, to, reason, trigger),
+    [moveStageShared],
   );
 
   const dismissSuggestion = React.useCallback(
@@ -130,23 +108,6 @@ export function useCompanies() {
       setDismissed((current) => ({ ...current, [companyId]: stage })),
     [],
   );
-
-  const addCompany = React.useCallback((company: Company) => {
-    setCompanies((current) => [company, ...current]);
-    setTransitions((current) => [
-      {
-        id: `T-${Date.now()}`,
-        companyId: company.id,
-        from: null,
-        to: company.spancop,
-        trigger: "seed",
-        reason: "Company created",
-        at: new Date().toISOString(),
-        by: "Bishal Karma",
-      },
-      ...current,
-    ]);
-  }, []);
 
   const filtered = React.useMemo(() => {
     const q = filters.query.trim().toLowerCase();
@@ -231,5 +192,6 @@ export function useCompanies() {
     moveStage,
     dismissSuggestion,
     addCompany,
+    addCompanies,
   };
 }
