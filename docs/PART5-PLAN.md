@@ -157,9 +157,29 @@ category.
 
 ---
 
-## Confirm before I build
+## Decisions — all confirmed ✅
 
-1. Import — block everything (a), or import valid and skip invalid (b) ⭐?
-2. SPANCOP page — keep the small strip on Companies too?
-3. Category — required or optional?
-4. Category — on the deal ⭐ or per line item?
+| # | Decision |
+| --- | --- |
+| Import | Import the valid rows; list invalid ones with the exact field to fix |
+| SPANCOP page | Full board on its own page; small snapshot strip stays on Companies |
+| Category | **Mandatory** — a deal cannot be saved without one |
+| Category level | On the **deal**, not the line item |
+
+**Why category is mandatory:** it feeds dashboard analysis — which category
+generates the most enquiries. Optional data makes that report unreliable.
+
+**Consequence of deal-level category:** an enquiry mixing FF&E and OS&E becomes
+two deals. That is intentional — it keeps category analysis clean and each deal
+tracked against a single requirement type.
+
+---
+
+## Build order
+
+1. 🐛 Contact created with company + import
+2. 🐛 Single shared store
+3. Deals Pipeline rename + SPANCOP page, each wired to its own data
+4. Category (mandatory) on the deal form
+5. Contacts collapse past 3
+6. Import/Export into Settings → Data
