@@ -173,6 +173,74 @@ category.
 
 ---
 
+## F. Period stage records — good idea, with one catch ⚠️
+
+Your proposal: at the close of every week / month / quarter / year, record where
+each customer stood, so any period can be reported on later.
+
+**Agreed — this is the right pattern.** But recording only the *closing stage*
+breaks against our own roll-back rule.
+
+### The problem
+
+SPANCOP is a **loop**: collecting cash sends a customer back to Approach.
+So a customer can complete an entire cycle inside one month and still finish
+that month sitting in Approach.
+
+```
+CUSTOMER A — July
+  03 Jul  Suspect      07 Jul  Prospect     11 Jul  Approach
+  15 Jul  Negotiate    22 Jul  Close        25 Jul  Order
+  28 Jul  Payment      30 Jul  Approach   ← cash collected, rolled back
+
+  Closing stage : APPROACH
+  Reality       : reached Payment and PAID
+
+CUSTOMER B — July
+  no movement at all
+  Closing stage : APPROACH
+```
+
+Both report **Approach**. One paid you; the other ignored you all month.
+
+### The fix — record four values, not one
+
+Per customer, per period:
+
+| Field | Customer A (July) | Customer B (July) |
+| --- | --- | --- |
+| **Opening stage** | Suspect | Approach |
+| **Closing stage** | Approach | Approach |
+| **Furthest reached** ⭐ | **Payment** | Approach |
+| **Movements** | 7 | 0 |
+
+**Furthest reached** is the field that carries the meaning. It is the one that
+survives the loop, and it is what makes "how many customers reached Order in
+Q2?" answerable.
+
+All four are derived from the transition log already being written — no new
+data entry, and history can be rebuilt for past periods.
+
+### What it unlocks
+
+- *"14 customers reached Order in Q2, 9 collected payment"*
+- *"Customer A ran 3 full cycles this year"* — invisible from closing stage alone
+- *"6 customers never moved all quarter"* — the dormant list
+- Per-customer yearly timeline: `Jan Approach · Feb Payment · Mar Approach`
+
+### Question
+
+For the **funnel bars** under a period filter, which reading do you want?
+
+- **(a)** Live snapshot — where everyone is right now *(current mockup)*
+- **(b)** Closing stage at period end — literal, but hides completed cycles
+- **(c)** Furthest reached in the period ⭐ — shows real progress
+
+*Recommendation: **(c)** when a past period is selected, **(a)** for the current
+one, since "furthest reached so far" and "today" are the same thing mid-period.*
+
+---
+
 ## Decisions — all confirmed ✅
 
 | # | Decision |
