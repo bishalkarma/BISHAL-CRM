@@ -58,7 +58,6 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/contacts",
         icon: Users,
         shortcut: "G O",
-        soon: true,
       },
       {
         label: "Activities",

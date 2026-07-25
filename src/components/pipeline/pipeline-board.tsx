@@ -14,7 +14,14 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, ChevronDown, Undo2, X, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Plus,
+  Undo2,
+  X,
+  XCircle,
+} from "lucide-react";
 import type { Deal } from "@/lib/deals";
 import { STAGE_MAP, type DealStage } from "@/lib/pipeline";
 import { usePipeline } from "./use-pipeline";
@@ -24,6 +31,11 @@ import { DealDrawer } from "./deal-drawer";
 import { DealList } from "./deal-list";
 import { PipelineToolbar } from "./pipeline-toolbar";
 import { useCurrency } from "@/components/providers/currency-provider";
+import { LostReasonDialog } from "@/components/deals/lost-reason-dialog";
+import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+import { NewCompanyDialog } from "@/components/companies/new-company-dialog";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { COMPANIES, type Company } from "@/lib/companies";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,6 +51,10 @@ export function PipelineBoard() {
     resetFilters,
     activeFilterCount,
     moveDeal,
+    pendingLost,
+    setPendingLost,
+    addDeal,
+    updateDeal,
     undo,
     undoMove,
     dismissUndo,
@@ -51,6 +67,13 @@ export function PipelineBoard() {
   const [activeDeal, setActiveDeal] = React.useState<Deal | null>(null);
   const [selectedDeal, setSelectedDeal] = React.useState<Deal | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [newDealOpen, setNewDealOpen] = React.useState(false);
+  const [newCompanyOpen, setNewCompanyOpen] = React.useState(false);
+  const [companyPrefill, setCompanyPrefill] = React.useState("");
+  const [createdCompany, setCreatedCompany] = React.useState<Company | null>(
+    null,
+  );
+  const [editingLost, setEditingLost] = React.useState<Deal | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -75,6 +98,15 @@ export function PipelineBoard() {
       (over.data.current?.deal as Deal | undefined)?.stage;
     if (!overStage) return;
 
+    // Lost always requires a reason before the move is committed.
+    if (overStage === "lost") {
+      const deal = filtered.find((d) => d.id === String(active.id));
+      if (deal && deal.stage !== "lost") {
+        setPendingLost(deal);
+        return;
+      }
+    }
+
     moveDeal(String(active.id), overStage);
   };
 
@@ -90,6 +122,17 @@ export function PipelineBoard() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <PageHeader
+        title="Pipeline"
+        description="Drag deals between stages. Totals and forecasts update instantly."
+        actions={
+          <Button size="sm" onClick={() => setNewDealOpen(true)}>
+            <Plus />
+            New Deal
+          </Button>
+        }
+      />
+
       {/* Summary — two headline tiles, then a 2×2 block of closed-deal metrics */}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <SummaryTile
@@ -264,7 +307,74 @@ export function PipelineBoard() {
         deal={liveSelected}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onMove={(id, stage) => moveDeal(id, stage)}
+        onMove={(id, stage) => {
+          if (stage === "lost" && liveSelected?.stage !== "lost") {
+            setPendingLost(liveSelected ?? null);
+            return;
+          }
+          moveDeal(id, stage);
+        }}
+        onEditLostReason={setEditingLost}
+      />
+
+      {/* Editing an existing lost reason */}
+      <LostReasonDialog
+        open={Boolean(editingLost)}
+        onOpenChange={(o) => !o && setEditingLost(null)}
+        dealTitle={editingLost?.title ?? ""}
+        initialReason={editingLost?.lostReason}
+        initialNote={editingLost?.lostNote}
+        isEdit
+        onCancel={() => setEditingLost(null)}
+        onConfirm={(reason, note) => {
+          if (editingLost) {
+            updateDeal(editingLost.id, { lostReason: reason, lostNote: note });
+          }
+          setEditingLost(null);
+        }}
+      />
+
+      <LostReasonDialog
+        open={Boolean(pendingLost)}
+        onOpenChange={(o) => !o && setPendingLost(null)}
+        dealTitle={pendingLost?.title ?? ""}
+        onCancel={() => setPendingLost(null)}
+        onConfirm={(reason, note) => {
+          if (pendingLost) {
+            moveDeal(pendingLost.id, "lost", { lostReason: reason, lostNote: note });
+          }
+          setPendingLost(null);
+        }}
+      />
+
+      <NewDealDialog
+        open={newDealOpen}
+        onOpenChange={(o) => {
+          setNewDealOpen(o);
+          if (!o) setCreatedCompany(null);
+        }}
+        onCreate={addDeal}
+        preselectedCompany={createdCompany}
+        justCreatedCompany={Boolean(createdCompany)}
+        onCreateCompany={(name) => {
+          setCompanyPrefill(name);
+          setNewDealOpen(false);
+          setNewCompanyOpen(true);
+        }}
+      />
+
+      <NewCompanyDialog
+        open={newCompanyOpen}
+        onOpenChange={setNewCompanyOpen}
+        existingNames={COMPANIES.map((c) => c.name)}
+        prefillName={companyPrefill}
+        onCreate={(company) => {
+          COMPANIES.unshift(company);
+          setCreatedCompany(company);
+          setNewCompanyOpen(false);
+          // Straight back to the deal, customer already selected.
+          setNewDealOpen(true);
+        }}
       />
 
       {/* Undo toast */}

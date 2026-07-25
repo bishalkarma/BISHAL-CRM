@@ -73,11 +73,14 @@ export function NewCompanyDialog({
   onOpenChange,
   onCreate,
   existingNames,
+  prefillName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (company: Company) => void;
   existingNames: string[];
+  /** Carried over when the user was sent here from the deal flow. */
+  prefillName?: string;
 }) {
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [touched, setTouched] = React.useState(false);
@@ -86,6 +89,13 @@ export function NewCompanyDialog({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Seed the name typed into the deal's company search.
+  React.useEffect(() => {
+    if (open && prefillName) {
+      setForm((f) => (f.name ? f : { ...f, name: prefillName }));
+    }
+  }, [open, prefillName]);
 
   // Business drives Type. Clear a stale Type when Business changes.
   const changeBusiness = (business: BusinessType) =>

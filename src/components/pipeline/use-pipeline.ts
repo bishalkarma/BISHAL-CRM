@@ -3,6 +3,12 @@
 import * as React from "react";
 import { DEALS, type Deal, type DealPriority } from "@/lib/deals";
 import {
+  closePeriods,
+  currentRunDays,
+  reopenPeriods,
+  type LostReason,
+} from "@/lib/deal-model";
+import {
   PIPELINE_STAGES,
   STAGE_MAP,
   isOpenStage,
@@ -42,8 +48,15 @@ export function usePipeline() {
   const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Move a deal to a new stage, syncing its probability to the stage default. */
+  /** Set when a drag lands on Lost — the reason prompt must resolve first. */
+  const [pendingLost, setPendingLost] = React.useState<Deal | null>(null);
+
   const moveDeal = React.useCallback(
-    (dealId: string, toStage: DealStage, options?: { silent?: boolean }) => {
+    (
+      dealId: string,
+      toStage: DealStage,
+      options?: { silent?: boolean; lostReason?: LostReason; lostNote?: string },
+    ) => {
       setDeals((current) => {
         const deal = current.find((d) => d.id === dealId);
         if (!deal || deal.stage === toStage) return current;
@@ -59,11 +72,25 @@ export function usePipeline() {
           undoTimer.current = setTimeout(() => setUndo(null), 6000);
         }
 
+        const nowIso = new Date().toISOString();
+        const closing = !isOpenStage(toStage);
+        const reopening = !isOpenStage(deal.stage) && isOpenStage(toStage);
+
         return current.map((d) =>
           d.id === dealId
             ? {
                 ...d,
                 stage: toStage,
+                // Ageing counts active days only: close the run when the deal
+                // closes, start a fresh one when it is reopened.
+                periods: closing
+                  ? closePeriods(d.periods, nowIso)
+                  : reopening
+                    ? reopenPeriods(d.periods, nowIso)
+                    : d.periods,
+                lostReason:
+                  toStage === "lost" ? options?.lostReason : undefined,
+                lostNote: toStage === "lost" ? options?.lostNote : undefined,
                 // Remember where a deal closed from so it can still be shown
                 // in that column. Reopening a deal clears the marker.
                 closedFromStage: isOpenStage(toStage)
@@ -91,6 +118,19 @@ export function usePipeline() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, [undo, moveDeal]);
 
+  const addDeal = React.useCallback(
+    (deal: Deal) => setDeals((current) => [deal, ...current]),
+    [],
+  );
+
+  const updateDeal = React.useCallback(
+    (dealId: string, patch: Partial<Deal>) =>
+      setDeals((current) =>
+        current.map((d) => (d.id === dealId ? { ...d, ...patch } : d)),
+      ),
+    [],
+  );
+
   const dismissUndo = React.useCallback(() => {
     setUndo(null);
     if (undoTimer.current) clearTimeout(undoTimer.current);
@@ -109,7 +149,9 @@ export function usePipeline() {
     return deals.filter((deal) => {
       if (
         q &&
-        !`${deal.title} ${deal.company} ${deal.contact} ${deal.city} ${deal.id}`
+        !`${deal.title} ${deal.company} ${deal.city} ${deal.id} ${deal.lines
+          .map((l) => `${l.product} ${l.brand}`)
+          .join(" ")}`
           .toLowerCase()
           .includes(q)
       ) {
@@ -127,9 +169,11 @@ export function usePipeline() {
       if (filters.rottingOnly) {
         const def = STAGE_MAP[deal.stage];
         if (!isOpenStage(deal.stage)) return false;
-        const daysIdle =
+        // Use the current active run so a reopened deal is not instantly red.
+        const runDays = currentRunDays(deal.periods);
+        const idle =
           (Date.now() - new Date(deal.lastActivityAt).getTime()) / 86_400_000;
-        if (daysIdle <= def.rotDays) return false;
+        if (Math.min(runDays, idle) <= def.rotDays) return false;
       }
       return true;
     });
@@ -258,6 +302,10 @@ export function usePipeline() {
     resetFilters: () => setFilters(EMPTY_FILTERS),
     activeFilterCount,
     moveDeal,
+    pendingLost,
+    setPendingLost,
+    addDeal,
+    updateDeal,
     undo,
     undoMove,
     dismissUndo,
