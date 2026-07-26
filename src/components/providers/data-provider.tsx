@@ -7,6 +7,11 @@ import { DEALS, type Deal } from "@/lib/deals";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
+  fromCompany,
+  fromContact,
+  fromDeal,
+  fromLineItem,
+  fromTransition,
   toCompany,
   toContact,
   toDeal,
@@ -20,9 +25,12 @@ import {
 /**
  * Single source of truth for companies, contacts, deals and stage history.
  *
- * Stage 2 (this file): loads everything from Supabase on mount, then keeps it
- * in memory. Writes are still local — they will be persisted in stage 3, so
- * behaviour is unchanged until then and there is nothing new to break.
+ * Reads on mount, and persists every write back to Supabase.
+ *
+ * Writes are OPTIMISTIC: local state updates immediately so the UI stays
+ * instant, then the row is sent to the database. If that fails the error is
+ * surfaced rather than swallowed, because silently losing a saved record is
+ * far worse than showing a warning.
  *
  * With no credentials present the provider silently falls back to the bundled
  * demo data, so the app never hard-fails on a missing .env.local.
@@ -43,6 +51,12 @@ type DataContextValue = {
   /** Set when Supabase was configured but unreachable. */
   error: string | null;
   refresh: () => Promise<void>;
+
+  /** True while a write is in flight. */
+  saving: boolean;
+  /** Set when the last write failed — surfaced in the UI, never swallowed. */
+  saveError: string | null;
+  clearSaveError: () => void;
 
   addCompany: (company: Company) => Contact;
   addCompanies: (companies: Company[]) => void;
@@ -111,6 +125,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true);
   const [source, setSource] = React.useState<DataSource>("demo");
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const clearSaveError = React.useCallback(() => setSaveError(null), []);
+
+  /**
+   * Runs a write against Supabase, surfacing any failure.
+   * A no-op when running on demo data, so every caller stays identical.
+   */
+  const persist = React.useCallback(
+    async (label: string, run: () => Promise<{ error: unknown } | void>) => {
+      if (!isSupabaseConfigured || !supabase) return;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const result = await run();
+        const err = result && "error" in result ? result.error : null;
+        if (err) throw err;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : `Could not save ${label}`;
+        setSaveError(`${label}: ${message}`);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
 
   /** Fall back to the bundled demo data — used on first run and on failure. */
   const loadDemo = React.useCallback(() => {
@@ -176,8 +218,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   const addContact = React.useCallback(
-    (contact: Contact) => setContacts((c) => [contact, ...c]),
-    [],
+    (contact: Contact) => {
+      setContacts((c) => [contact, ...c]);
+      void persist("contact", async () =>
+        supabase!.from("contacts").insert(fromContact(contact)),
+      );
+    },
+    [persist],
   );
 
   /** A company is never created without a contact. */
@@ -185,28 +232,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const contact = contactFromCompany(company);
     setCompanies((current) => [company, ...current]);
     setContacts((current) => [contact, ...current]);
-    setTransitions((current) => [
-      {
-        id: `T-${company.id}`,
-        companyId: company.id,
-        from: null,
-        to: company.spancop,
-        trigger: "seed",
-        reason: "Company created",
-        at: company.createdAt,
-        by: company.owner,
-      },
-      ...current,
-    ]);
-    return contact;
-  }, []);
+    const transition: StageTransition = {
+      id: `T-${company.id}`,
+      companyId: company.id,
+      from: null,
+      to: company.spancop,
+      trigger: "seed",
+      reason: "Company created",
+      at: company.createdAt,
+      by: company.owner,
+    };
+    setTransitions((current) => [transition, ...current]);
 
-  const addCompanies = React.useCallback((list: Company[]) => {
-    const newContacts = list.map(contactFromCompany);
-    setCompanies((current) => [...list, ...current]);
-    setContacts((current) => [...newContacts, ...current]);
-    setTransitions((current) => [
-      ...list.map((company) => ({
+    // Company first — contact and transition both reference it.
+    void persist("company", async () => {
+      const res = await supabase!.from("companies").insert(fromCompany(company));
+      if (res.error) return res;
+      await supabase!.from("contacts").insert(fromContact(contact));
+      return supabase!
+        .from("stage_transitions")
+        .insert(fromTransition(transition));
+    });
+
+    return contact;
+  }, [persist]);
+
+  const addCompanies = React.useCallback(
+    (list: Company[]) => {
+      const newContacts = list.map(contactFromCompany);
+      const newTransitions: StageTransition[] = list.map((company) => ({
         id: `T-${company.id}`,
         companyId: company.id,
         from: null,
@@ -215,37 +269,102 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         reason: "Imported",
         at: company.createdAt,
         by: company.owner,
-      })),
-      ...current,
-    ]);
-  }, []);
+      }));
 
-  const updateCompany = React.useCallback(
-    (id: string, patch: Partial<Company>) =>
-      setCompanies((current) =>
-        current.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-      ),
-    [],
+      setCompanies((current) => [...list, ...current]);
+      setContacts((current) => [...newContacts, ...current]);
+      setTransitions((current) => [...newTransitions, ...current]);
+
+      void persist("import", async () => {
+        const res = await supabase!
+          .from("companies")
+          .insert(list.map(fromCompany));
+        if (res.error) return res;
+        await supabase!.from("contacts").insert(newContacts.map(fromContact));
+        return supabase!
+          .from("stage_transitions")
+          .insert(newTransitions.map(fromTransition));
+      });
+    },
+    [persist],
   );
 
-  const addDeal = React.useCallback((deal: Deal) => {
-    setDeals((current) => [deal, ...current]);
-    // Keep the owning company's open-deal list in step.
-    setCompanies((current) =>
-      current.map((c) =>
-        c.id === deal.companyId
-          ? { ...c, openDealIds: [...c.openDealIds, deal.id] }
-          : c,
-      ),
-    );
-  }, []);
+  const updateCompany = React.useCallback(
+    (id: string, patch: Partial<Company>) => {
+      setCompanies((current) => {
+        const next = current.map((c) =>
+          c.id === id ? { ...c, ...patch } : c,
+        );
+        const updated = next.find((c) => c.id === id);
+        if (updated) {
+          void persist("company", async () =>
+            supabase!.from("companies").update(fromCompany(updated)).eq("id", id),
+          );
+        }
+        return next;
+      });
+    },
+    [persist],
+  );
+
+  const addDeal = React.useCallback(
+    (deal: Deal) => {
+      setDeals((current) => [deal, ...current]);
+      // Keep the owning company's open-deal list in step.
+      setCompanies((current) =>
+        current.map((c) =>
+          c.id === deal.companyId
+            ? { ...c, openDealIds: [...c.openDealIds, deal.id] }
+            : c,
+        ),
+      );
+
+      void persist("deal", async () => {
+        const res = await supabase!.from("deals").insert(fromDeal(deal));
+        if (res.error) return res;
+        if (deal.lines.length === 0) return res;
+        return supabase!
+          .from("deal_lines")
+          .insert(deal.lines.map((l, i) => fromLineItem(l, deal.id, i)));
+      });
+    },
+    [persist],
+  );
 
   const updateDeal = React.useCallback(
-    (id: string, patch: Partial<Deal>) =>
-      setDeals((current) =>
-        current.map((d) => (d.id === id ? { ...d, ...patch } : d)),
-      ),
-    [],
+    (id: string, patch: Partial<Deal>) => {
+      setDeals((current) => {
+        const next = current.map((d) =>
+          d.id === id ? { ...d, ...patch } : d,
+        );
+        const updated = next.find((d) => d.id === id);
+        if (updated) {
+          void persist("deal", async () => {
+            const res = await supabase!
+              .from("deals")
+              .update(fromDeal(updated))
+              .eq("id", id);
+            if (res.error) return res;
+
+            // Line items are only rewritten when the patch touched them,
+            // so an ordinary stage change stays a single statement.
+            if (patch.lines) {
+              await supabase!.from("deal_lines").delete().eq("deal_id", id);
+              if (updated.lines.length > 0) {
+                return supabase!
+                  .from("deal_lines")
+                  .insert(
+                    updated.lines.map((l, i) => fromLineItem(l, id, i)),
+                  );
+              }
+            }
+            return res;
+          });
+        }
+        return next;
+      });
+    },
+    [persist],
   );
 
   const moveStage = React.useCallback(
@@ -255,31 +374,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       reason: string,
       trigger: StageTransition["trigger"],
     ) => {
+      const at = new Date().toISOString();
+
       setCompanies((current) => {
         const company = current.find((c) => c.id === companyId);
         if (company) {
-          setTransitions((t) => [
-            {
-              id: `T-${Date.now()}-${companyId}`,
-              companyId,
-              from: company.spancop,
-              to,
-              trigger,
-              reason,
-              at: new Date().toISOString(),
-              by: "Bishal Karma",
-            },
-            ...t,
-          ]);
+          const transition: StageTransition = {
+            id: `T-${Date.now()}-${companyId}`,
+            companyId,
+            from: company.spancop,
+            to,
+            trigger,
+            reason,
+            at,
+            by: "Bishal Karma",
+          };
+          setTransitions((t) => [transition, ...t]);
+
+          void persist("stage change", async () => {
+            const res = await supabase!
+              .from("companies")
+              .update({ spancop: to, spancop_since: at })
+              .eq("id", companyId);
+            if (res.error) return res;
+            // History is what powers period reports, so it must land too.
+            return supabase!
+              .from("stage_transitions")
+              .insert(fromTransition(transition));
+          });
         }
         return current.map((c) =>
-          c.id === companyId
-            ? { ...c, spancop: to, spancopSince: new Date().toISOString() }
-            : c,
+          c.id === companyId ? { ...c, spancop: to, spancopSince: at } : c,
         );
       });
     },
-    [],
+    [persist],
   );
 
   const contactsFor = React.useCallback(
@@ -311,6 +440,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       source,
       error,
       refresh: load,
+      saving,
+      saveError,
+      clearSaveError,
       addCompany,
       addCompanies,
       updateCompany,
@@ -332,6 +464,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       source,
       error,
       load,
+      saving,
+      saveError,
+      clearSaveError,
       addCompany,
       addCompanies,
       updateCompany,

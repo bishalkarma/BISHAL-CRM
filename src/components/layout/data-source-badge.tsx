@@ -14,7 +14,16 @@ import { cn } from "@/lib/utils";
  * Temporary while we migrate — removed once Supabase is the only path.
  */
 export function DataSourceBadge() {
-  const { loading, source, error, companies } = useData();
+  const { loading, source, error, companies, saving } = useData();
+
+  if (saving) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent">
+        <Loader2 className="size-3 animate-spin" />
+        <span className="hidden sm:inline">Saving…</span>
+      </span>
+    );
+  }
 
   if (loading) {
     return (

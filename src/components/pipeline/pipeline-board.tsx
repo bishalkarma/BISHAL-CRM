@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle2,
   ChevronDown,
+  Loader2,
   Plus,
   Undo2,
   X,
@@ -63,7 +64,7 @@ export function PipelineBoard() {
     toggleOutcomeView,
   } = usePipeline();
   const { format } = useCurrency();
-  const { companies, addCompany } = useData();
+  const { companies, addCompany, loading: dataLoading } = useData();
 
   const [view, setView] = React.useState<"board" | "list">("board");
   const [activeDeal, setActiveDeal] = React.useState<Deal | null>(null);
@@ -212,6 +213,13 @@ export function PipelineBoard() {
           />
         </div>
       </div>
+
+      {dataLoading && (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading deals from the database…
+        </div>
+      )}
 
       <PipelineToolbar
         filters={filters}

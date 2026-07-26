@@ -10,6 +10,8 @@ import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useData } from "@/components/providers/data-provider";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn, initials } from "@/lib/utils";
 
 export function CompanyTable({
@@ -19,6 +21,29 @@ export function CompanyTable({
   companies: Company[];
   onOpen: (company: Company) => void;
 }) {
+  const { loading } = useData();
+
+  // An empty list while loading is not "no results" — say so honestly.
+  if (loading) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <ul className="divide-y divide-border">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-3 px-4 py-3.5">
+              <Skeleton className="size-8 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-1/3" />
+                <Skeleton className="h-3 w-1/4" />
+              </div>
+              <Skeleton className="hidden h-5 w-20 rounded-full sm:block" />
+              <Skeleton className="hidden h-5 w-28 rounded-full md:block" />
+              <Skeleton className="size-6 shrink-0 rounded-full" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   if (companies.length === 0) {
     return (

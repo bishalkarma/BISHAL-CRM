@@ -10,6 +10,7 @@ import { Topbar } from "./topbar";
 import { MobileTabBar } from "./mobile-nav";
 import { FloatingActionButton } from "./fab";
 import { CommandPalette } from "./command-palette";
+import { SaveErrorBanner } from "./save-error-banner";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { cn } from "@/lib/utils";
 
@@ -160,6 +161,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="flex-1 pb-24 lg:pb-8">{children}</main>
         </div>
 
+        <SaveErrorBanner />
         <MobileTabBar />
         <FloatingActionButton />
 

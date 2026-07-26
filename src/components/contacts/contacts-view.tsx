@@ -20,13 +20,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn, initials } from "@/lib/utils";
 
 /** Companies with more than this many contacts collapse the remainder. */
 const VISIBLE_LIMIT = 3;
 
 export function ContactsView() {
-  const { companies, contacts: allContacts, deals } = useData();
+  const { companies, contacts: allContacts, deals, loading } = useData();
   const [query, setQuery] = React.useState("");
   const [decisionMakersOnly, setDecisionMakersOnly] = React.useState(false);
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
@@ -102,7 +103,22 @@ export function ContactsView() {
         </Button>
       </div>
 
-      {grouped.length === 0 ? (
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="flex items-center gap-2.5 border-b border-border bg-secondary/40 px-4 py-2.5">
+                <Skeleton className="size-7 shrink-0 rounded-lg" />
+                <Skeleton className="h-3.5 w-40" />
+              </div>
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : grouped.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           No contacts match your search.
         </div>
