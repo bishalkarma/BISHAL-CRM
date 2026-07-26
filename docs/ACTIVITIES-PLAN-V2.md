@@ -119,8 +119,40 @@ say if you would rather keep the list short.*
 
 ---
 
-## 6. Questions
+## 6. Activity types — CONFIRMED
 
-1. **Summary** — derived (a) ⭐, manual (b), or wait for AI (c)?
-2. **Extra types** — add Sample and WhatsApp? And Payment follow-up, yes or no?
-3. Anything wrong in how I have read the deal-versus-customer split?
+**Site visit · Call · Email · Meeting · Demo · Casual follow-up · WhatsApp ·
+Payment follow-up**
+
+Note: *Demo* means **sample submitted**, so no separate Sample type is needed —
+Demo covers it. Payment follow-up is in, so collection chasing is visible
+separately from ordinary follow-up.
+
+---
+
+## 7. Deal linking — answered
+
+An activity belongs to a deal **only if it is linked**, via one optional
+dropdown on the log form:
+
+- **One open deal** → pre-selected automatically, nothing to do
+- **Two or more** → you pick, or choose *"No deal — general relationship"*
+- **Linked** → shows in the deal thread **and** the customer journal
+- **Not linked** → customer journal only
+
+---
+
+## 8. Reminders — scope
+
+In-app only: bell badge, dashboard tile, and overdue pinned in Open tasks.
+
+**Email and WhatsApp reminders are not included.** Reaching you when the CRM is
+closed needs a background scheduler, which is separate work. Flagged now rather
+than discovered later.
+
+---
+
+## 9. Open question
+
+**Summary** — derived now (A) ⭐, or manual box (B)?
+AI (C) layers on top of A later, it is not an alternative to it.
