@@ -130,19 +130,55 @@ separately from ordinary follow-up.
 
 ---
 
-## 7. Deal linking — answered
+## 7. Deal linking — CORRECTED, no auto-select
 
-An activity belongs to a deal **only if it is linked**, via one optional
-dropdown on the log form:
+My earlier proposal to auto-select the only open deal was **wrong**, and the
+objection was right: a customer with one open deal still has conversations that
+have nothing to do with it.
 
-- **One open deal** → pre-selected automatically, nothing to do
-- **Two or more** → you pick, or choose *"No deal — general relationship"*
-- **Linked** → shows in the deal thread **and** the customer journal
+```
+Customer A · 1 open deal (D-1042 Flower vases)
+  Diwali greeting call            -> auto-select would tag it D-1042
+  Site visit, met new F&B manager -> auto-select would tag it D-1042
+  WhatsApp festive greetings      -> auto-select would tag it D-1042
+  Coffee catch-up                 -> auto-select would tag it D-1042
+```
+
+The deal thread fills with noise and stops being trustworthy — the exact thing
+deal-scoping was meant to prevent.
+
+**Rule: nothing is preselected.** The field defaults to *"Not linked — general
+relationship"*. The user picks a deal only when the conversation really was
+about it.
+
+- **Linked** → deal thread **and** customer journal
 - **Not linked** → customer journal only
+
+Two taps when it matters, and no risk of a polluted thread.
 
 ---
 
-## 8. Reminders — scope
+## 8. Context on every card
+
+The log form shows the customer with area and business type, and the contact
+list with role, collapsing past three exactly like the Contacts page.
+
+Task, reminder and completion cards all carry the same block:
+
+| Shown | Example |
+| --- | --- |
+| Type + title | Email · *Send quotation* |
+| Customer | Atlantis The Palm · Palm Jumeirah, Dubai |
+| Contact | Mr. Ankit Singh Chauhan · Purchasing Manager |
+| Deal | `D-1042` Flower vases · AED 38,930 |
+| Urgency | Due today / Overdue 2 days |
+| Actions | Call · WhatsApp · Email, one tap |
+
+Nothing has to be opened to know what a task is about.
+
+---
+
+## 9. Reminders — scope
 
 In-app only: bell badge, dashboard tile, and overdue pinned in Open tasks.
 
@@ -152,7 +188,27 @@ than discovered later.
 
 ---
 
-## 9. Open question
+## 10. Summary — DECIDED
 
-**Summary** — derived now (A) ⭐, or manual box (B)?
-AI (C) layers on top of A later, it is not an alternative to it.
+**Option A, derived.** Latest activity plus oldest open task, shown as two
+short facts. Accurate by construction, nothing extra to type.
+
+AI (option C) can layer on later without rework, since it would sit on top of
+the same derived data rather than replacing it.
+
+---
+
+## Ready to build
+
+All decisions are closed:
+
+| Decision | Outcome |
+| --- | --- |
+| Deal linking | Nothing preselected, user links deliberately |
+| Types | Site visit · Call · Email · Meeting · Demo · Casual follow-up · WhatsApp · Payment follow-up |
+| Journal | Newest 3 visible, older collapse, expand in place |
+| Summary | Derived — last activity + next open task |
+| Task overlap | Deal task creates a linked activity |
+| Reminders | In-app only: bell, dashboard tile, open tasks |
+| Views | Timeline (default) · By customer · Open tasks |
+| SPANCOP | First activity of any type suggests Suspect to Approach |
