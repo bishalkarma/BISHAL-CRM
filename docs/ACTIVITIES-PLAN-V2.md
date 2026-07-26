@@ -198,6 +198,36 @@ the same derived data rather than replacing it.
 
 ---
 
+## 11. Final three refinements
+
+**1 · Unlinked activities show nothing.** No *"No deal — general"* chip. The
+absence of a deal chip already communicates it; the chip was visual noise on
+what is the more common case.
+
+**2 · "Title" becomes a type-aware report field.** The label follows the type
+rather than always reading "Title", which nudges a useful note instead of a
+bare subject line:
+
+| Type | Label |
+| --- | --- |
+| Call | Call report |
+| Site visit | Visit report |
+| Email | Email summary |
+| Meeting | Meeting report |
+| Demo | Demo / sample report |
+| WhatsApp | Message summary |
+| Payment follow-up | Payment note |
+| Casual follow-up | Follow-up note |
+
+Rendered as a textarea, not a single line, since a report needs room.
+
+**3 · Task reminder is on the same form.** Agreed earlier but missing from the
+previous mockup: `Next task` + `Due date` + `Remind me`, under a
+*"What happens next"* divider. One save creates both the record and the
+follow-up.
+
+---
+
 ## Ready to build
 
 All decisions are closed:
@@ -212,3 +242,6 @@ All decisions are closed:
 | Reminders | In-app only: bell, dashboard tile, open tasks |
 | Views | Timeline (default) · By customer · Open tasks |
 | SPANCOP | First activity of any type suggests Suspect to Approach |
+| Unlinked activities | No chip — shown as normal |
+| Report field | Label follows the type, textarea not single line |
+| Task reminder | Same form, under "What happens next" |
