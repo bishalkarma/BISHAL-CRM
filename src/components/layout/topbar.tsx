@@ -7,6 +7,7 @@ import { Bell, Menu, PanelLeft, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModeToggle, ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { DataSourceBadge } from "./data-source-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +88,8 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex items-center gap-0.5 lg:ml-2">
+        <DataSourceBadge />
+
         <Button
           variant="ghost"
           size="icon-sm"
