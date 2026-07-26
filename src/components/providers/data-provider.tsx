@@ -201,12 +201,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             .order("occurred_at", { ascending: false }),
         ]);
 
+      /*
+        Activities are deliberately NOT part of this check.
+
+        The activities table is migrated separately (supabase/03-activities.sql).
+        Until that runs, `occurred_at` does not exist and this query fails —
+        and treating that as fatal threw the whole load away, dropping the app
+        back to demo data. Real companies, contacts and deals would silently
+        disappear and every task completion would reappear after a refresh.
+        Core records load on their own merits; activities degrade alone.
+      */
       const failure =
-        companyRes.error ??
-        contactRes.error ??
-        dealRes.error ??
-        transitionRes.error ??
-        activityRes.error;
+        companyRes.error ?? contactRes.error ?? dealRes.error ?? transitionRes.error;
       if (failure) throw failure;
 
       const loadedDeals = ((dealRes.data ?? []) as DealRow[]).map(toDeal);
@@ -220,7 +226,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setTransitions(
         ((transitionRes.data ?? []) as TransitionRow[]).map(toTransition),
       );
-      setActivities(((activityRes.data ?? []) as ActivityRow[]).map(toActivity));
+      if (activityRes.error) {
+        // The table has not been migrated yet — say so plainly rather than
+        // showing demo activities as if they were the user's own.
+        setActivities([]);
+        setError(
+          "Activities are not saved yet — run supabase/03-activities.sql in the Supabase SQL editor. Everything else is loading normally.",
+        );
+      } else {
+        setActivities(
+          ((activityRes.data ?? []) as ActivityRow[]).map(toActivity),
+        );
+      }
       setSource("supabase");
     } catch (err) {
       // Never leave the user staring at an empty app.

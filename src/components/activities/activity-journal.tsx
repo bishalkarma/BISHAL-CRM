@@ -13,6 +13,7 @@ import {
   type Activity,
 } from "@/lib/activities";
 import { ActivityRow } from "./activity-row";
+import { CustomerSummary } from "./customer-summary";
 import { cn, relativeTime } from "@/lib/utils";
 
 /** Newest three stay visible; anything older folds away. */
@@ -27,10 +28,17 @@ export function ActivityJournal({
   activities,
   showCompany = false,
   emptyLabel = "No activity logged yet.",
+  /**
+   * The rolled-up history. Shown on the company drawer, where the whole
+   * relationship is in view; off on the deal drawer, where the thread is
+   * already narrow enough to read.
+   */
+  showSummary = false,
 }: {
   activities: Activity[];
   showCompany?: boolean;
   emptyLabel?: string;
+  showSummary?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const sorted = React.useMemo(() => sortByRecent(activities), [activities]);
@@ -49,6 +57,8 @@ export function ActivityJournal({
 
   return (
     <div className="space-y-2">
+      {showSummary && <CustomerSummary activities={activities} />}
+
       {/* Derived summary — never typed, so it cannot go stale */}
       {(summary.last || summary.next) && (
         <div className="rounded-xl border border-accent/30 bg-accent/[0.05] p-2.5 text-xs">

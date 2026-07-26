@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Building2,
@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   ListChecks,
+  PenLine,
   Plus,
   Search,
   Users,
@@ -28,6 +29,7 @@ import {
 import { DEAL_OWNERS } from "@/lib/deals";
 import { useData } from "@/components/providers/data-provider";
 import { ActivityRow } from "./activity-row";
+import { CustomerSummary } from "./customer-summary";
 import { LogActivityDialog } from "./log-activity-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
@@ -333,7 +335,16 @@ function ByCustomerView({
               </span>
               <Badge variant="outline">{list.length}</Badge>
             </div>
-            <div className="divide-y divide-border/60">
+
+            {/*
+              Summary first, journal second. Once a customer has hundreds of
+              entries, this is what actually gets read.
+            */}
+            <div className="p-3 pb-0">
+              <CustomerSummary activities={list} defaultOpen={false} />
+            </div>
+
+            <div className="mt-3 divide-y divide-border/60">
               {visible.map((a) => (
                 <ActivityRow key={a.id} activity={a} showCompany={false} />
               ))}
@@ -390,17 +401,24 @@ function OpenTasksView({
 
   return (
     <div className="space-y-2">
-      {tasks.map((a, i) => {
-        const urgency = taskUrgency(a);
-        const contact = contactById(a.contactId);
-        const deal = a.dealId ? deals.find((d) => d.id === a.dealId) : null;
-        return (
-          <motion.div
-            key={a.id}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, delay: Math.min(i * 0.03, 0.2) }}
-          >
+      {/*
+        Completed tasks leave this list the moment they are logged — the exit
+        animation makes that visible, so it never looks like nothing happened.
+      */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {tasks.map((a, i) => {
+          const urgency = taskUrgency(a);
+          const contact = contactById(a.contactId);
+          const deal = a.dealId ? deals.find((d) => d.id === a.dealId) : null;
+          return (
+            <motion.div
+              key={a.id}
+              layout
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 24, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.22, delay: Math.min(i * 0.03, 0.2) }}
+            >
             <Card
               className={cn(
                 "border-l-4 p-3",
@@ -412,12 +430,23 @@ function OpenTasksView({
               )}
             >
               <div className="flex items-start gap-2.5">
-                <button
-                  onClick={() => onComplete(a)}
-                  aria-label={`Complete task: ${a.task}`}
-                  title="Complete and log what happened"
-                  className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border border-border transition-colors hover:border-accent hover:bg-accent/10"
-                />
+                {/*
+                  No tickbox. A task can only be closed by recording what
+                  happened, so the single action opens the log form.
+                */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg",
+                    urgency === "overdue"
+                      ? "bg-destructive/12 text-destructive"
+                      : urgency === "today"
+                        ? "bg-warning/15 text-warning"
+                        : "bg-accent/12 text-accent",
+                  )}
+                >
+                  <ListChecks className="size-3.5" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{a.task}</span>
@@ -462,15 +491,16 @@ function OpenTasksView({
                     </AvatarFallback>
                   </Avatar>
                   <Button size="xs" variant="outline" onClick={() => onComplete(a)}>
-                    <Check />
+                    <PenLine />
                     Complete
                   </Button>
                 </div>
               </div>
             </Card>
-          </motion.div>
-        );
-      })}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
