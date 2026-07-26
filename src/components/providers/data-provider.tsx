@@ -4,6 +4,7 @@ import * as React from "react";
 import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
+import { ACTIVITIES, type Activity } from "@/lib/activities";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
@@ -11,11 +12,14 @@ import {
   fromContact,
   fromDeal,
   fromLineItem,
+  fromActivity,
   fromTransition,
+  toActivity,
   toCompany,
   toContact,
   toDeal,
   toTransition,
+  type ActivityRow,
   type CompanyRow,
   type ContactRow,
   type DealRow,
@@ -42,6 +46,7 @@ type DataContextValue = {
   companies: Company[];
   contacts: Contact[];
   deals: Deal[];
+  activities: Activity[];
   transitions: StageTransition[];
 
   /** True during the initial fetch. */
@@ -66,6 +71,10 @@ type DataContextValue = {
   contactsFor: (companyId: string) => Contact[];
   primaryFor: (companyId: string) => Contact | null;
   contactById: (id: string | null | undefined) => Contact | null;
+
+  addActivity: (activity: Activity) => void;
+  updateActivity: (id: string, patch: Partial<Activity>) => void;
+  activitiesFor: (opts: { companyId?: string; dealId?: string }) => Activity[];
 
   addDeal: (deal: Deal) => void;
   updateDeal: (id: string, patch: Partial<Deal>) => void;
@@ -121,6 +130,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = React.useState<Company[]>([]);
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [deals, setDeals] = React.useState<Deal[]>([]);
+  const [activities, setActivities] = React.useState<Activity[]>([]);
   const [transitions, setTransitions] = React.useState<StageTransition[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [source, setSource] = React.useState<DataSource>("demo");
@@ -159,6 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setCompanies(withOpenDeals(COMPANIES, DEALS));
     setContacts(CONTACTS);
     setDeals(DEALS);
+    setActivities(ACTIVITIES);
     setTransitions(STAGE_TRANSITIONS);
     setSource("demo");
   }, []);
@@ -174,7 +185,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const [companyRes, contactRes, dealRes, transitionRes] =
+      const [companyRes, contactRes, dealRes, transitionRes, activityRes] =
         await Promise.all([
           supabase.from("companies").select("*").order("name"),
           supabase.from("contacts").select("*").order("name"),
@@ -184,10 +195,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             .from("stage_transitions")
             .select("*")
             .order("at", { ascending: false }),
+          supabase
+            .from("activities")
+            .select("*")
+            .order("occurred_at", { ascending: false }),
         ]);
 
       const failure =
-        companyRes.error ?? contactRes.error ?? dealRes.error ?? transitionRes.error;
+        companyRes.error ??
+        contactRes.error ??
+        dealRes.error ??
+        transitionRes.error ??
+        activityRes.error;
       if (failure) throw failure;
 
       const loadedDeals = ((dealRes.data ?? []) as DealRow[]).map(toDeal);
@@ -201,6 +220,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setTransitions(
         ((transitionRes.data ?? []) as TransitionRow[]).map(toTransition),
       );
+      setActivities(((activityRes.data ?? []) as ActivityRow[]).map(toActivity));
       setSource("supabase");
     } catch (err) {
       // Never leave the user staring at an empty app.
@@ -305,6 +325,64 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
     },
     [persist],
+  );
+
+  /**
+   * Logging an activity also nudges the company's activity count, which is
+   * what the SPANCOP engine reads to suggest Suspect -> Approach.
+   */
+  const addActivity = React.useCallback(
+    (activity: Activity) => {
+      setActivities((current) => [activity, ...current]);
+      setCompanies((current) =>
+        current.map((c) =>
+          c.id === activity.companyId
+            ? {
+                ...c,
+                activityCount: c.activityCount + 1,
+                lastActivityAt: activity.occurredAt,
+              }
+            : c,
+        ),
+      );
+
+      void persist("activity", async () =>
+        supabase!.from("activities").insert(fromActivity(activity)),
+      );
+    },
+    [persist],
+  );
+
+  const updateActivity = React.useCallback(
+    (id: string, patch: Partial<Activity>) => {
+      setActivities((current) => {
+        const next = current.map((a) =>
+          a.id === id ? { ...a, ...patch } : a,
+        );
+        const updated = next.find((a) => a.id === id);
+        if (updated) {
+          void persist("activity", async () =>
+            supabase!
+              .from("activities")
+              .update(fromActivity(updated))
+              .eq("id", id),
+          );
+        }
+        return next;
+      });
+    },
+    [persist],
+  );
+
+  /** Deal-scoped when a dealId is given, otherwise the whole customer. */
+  const activitiesFor = React.useCallback(
+    ({ companyId, dealId }: { companyId?: string; dealId?: string }) =>
+      activities.filter((a) => {
+        if (dealId) return a.dealId === dealId;
+        if (companyId) return a.companyId === companyId;
+        return true;
+      }),
+    [activities],
   );
 
   const addDeal = React.useCallback(
@@ -435,6 +513,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       companies,
       contacts,
       deals,
+      activities,
       transitions,
       loading,
       source,
@@ -450,6 +529,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contactsFor,
       primaryFor,
       contactById: contactByIdFn,
+      addActivity,
+      updateActivity,
+      activitiesFor,
       addDeal,
       updateDeal,
       setDeals,
@@ -459,6 +541,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       companies,
       contacts,
       deals,
+      activities,
       transitions,
       loading,
       source,
@@ -474,6 +557,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contactsFor,
       primaryFor,
       contactByIdFn,
+      addActivity,
+      updateActivity,
+      activitiesFor,
       addDeal,
       updateDeal,
       moveStage,

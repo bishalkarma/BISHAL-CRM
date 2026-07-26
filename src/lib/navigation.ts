@@ -65,7 +65,6 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: CalendarCheck,
         shortcut: "G A",
         mobile: true,
-        soon: true,
       },
     ],
   },

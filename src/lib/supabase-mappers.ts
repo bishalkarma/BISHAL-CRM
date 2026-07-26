@@ -15,6 +15,7 @@ import type {
   LeadSource,
 } from "./companies";
 import type { Contact } from "./contacts";
+import type { Activity, ActivityType } from "./activities";
 import type { Deal, DealPriority, AccountType } from "./deals";
 import type {
   ActivePeriod,
@@ -394,5 +395,62 @@ export function fromTransition(t: StageTransition) {
     reason: t.reason,
     at: t.at,
     by_user: t.by,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Activities                                                          */
+/* ------------------------------------------------------------------ */
+
+export type ActivityRow = {
+  id: string;
+  company_id: string;
+  contact_id: string | null;
+  deal_id: string | null;
+  type: string;
+  report: string;
+  occurred_at: string;
+  task: string | null;
+  task_due_at: string | null;
+  task_done: boolean;
+  remind: boolean;
+  owner: string;
+  created_at: string;
+};
+
+export function toActivity(row: ActivityRow): Activity {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    contactId: row.contact_id,
+    dealId: row.deal_id,
+    type: row.type as ActivityType,
+    report: row.report,
+    occurredAt: row.occurred_at,
+    task: row.task,
+    taskDueAt: row.task_due_at,
+    taskDone: row.task_done,
+    remind: row.remind,
+    owner: row.owner,
+    createdAt: row.created_at,
+  };
+}
+
+export function fromActivity(a: Activity) {
+  return {
+    id: a.id,
+    company_id: a.companyId,
+    contact_id: a.contactId,
+    deal_id: a.dealId,
+    type: a.type,
+    report: a.report,
+    occurred_at: a.occurredAt,
+    // The DB constraint rejects a due date or reminder without a task.
+    task: a.task,
+    task_due_at: a.task ? a.taskDueAt : null,
+    task_done: a.taskDone,
+    remind: a.task ? a.remind : false,
+    owner: a.owner,
+    created_at: a.createdAt,
   };
 }
