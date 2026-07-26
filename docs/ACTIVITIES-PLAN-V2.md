@@ -221,10 +221,30 @@ bare subject line:
 
 Rendered as a textarea, not a single line, since a report needs room.
 
-**3 · Task reminder is on the same form.** Agreed earlier but missing from the
-previous mockup: `Next task` + `Due date` + `Remind me`, under a
-*"What happens next"* divider. One save creates both the record and the
-follow-up.
+**3 · Task reminder — inline reveal, not a popup.**
+
+The request was for a popup *after* saving. The instinct behind it is right —
+the form should not carry two empty fields when most notes need no follow-up —
+but asking after the save has a flaw:
+
+> Once the record is already saved, answering **No** costs nothing, so it
+> becomes the reflex. Follow-ups stop being set, the bell stays empty, and the
+> reminder feature quietly goes unused.
+
+In a sales CRM the follow-up date is the field that most needs a *little*
+friction to skip, not the least.
+
+**Same clean form, without that risk:** a single line under the report reading
+**`+ Add follow-up task`**. Tap it and `Next task`, `Due date` and `Remind me`
+expand in place. Ignore it and it stays one line.
+
+| | Extra clicks over 10 activities (8 needing follow-up) |
+| --- | --- |
+| Always visible | 0, but two empty fields always on screen |
+| Popup after save | 10 — asks even when the answer is no |
+| **Inline reveal** ⭐ | 8 — only when actually needed |
+
+Still one save. Nothing is asked twice.
 
 ---
 
