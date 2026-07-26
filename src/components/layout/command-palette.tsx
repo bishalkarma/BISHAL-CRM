@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ALL_NAV_ITEMS } from "@/lib/navigation";
-import { DEALS } from "@/lib/demo-data";
+import { useData } from "@/components/providers/data-provider";
 import { THEMES } from "@/lib/themes";
 import { useAccentTheme } from "@/components/theme/theme-provider";
 import { formatCurrency } from "@/lib/utils";
@@ -35,6 +35,7 @@ export function CommandPalette({
   const router = useRouter();
   const { setTheme } = useTheme();
   const { setAccent } = useAccentTheme();
+  const { deals } = useData();
   const [search, setSearch] = React.useState("");
 
   const run = React.useCallback(
@@ -114,7 +115,7 @@ export function CommandPalette({
             </Command.Group>
 
             <Command.Group heading="Open deals">
-              {DEALS.slice(0, 6).map((deal) => (
+              {deals.slice(0, 6).map((deal) => (
                 <Command.Item
                   key={deal.id}
                   value={`${deal.title} ${deal.company} ${deal.id}`}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DEALS, type Deal, type DealPriority } from "@/lib/deals";
+import type { Deal, DealPriority } from "@/lib/deals";
 import {
   closePeriods,
   currentRunDays,
@@ -15,6 +15,7 @@ import {
   type DealStage,
 } from "@/lib/pipeline";
 import { useCurrency } from "@/components/providers/currency-provider";
+import { useData } from "@/components/providers/data-provider";
 
 export type PipelineFilters = {
   query: string;
@@ -42,7 +43,13 @@ export type UndoState = {
 
 export function usePipeline() {
   const { display, toDisplay } = useCurrency();
-  const [deals, setDeals] = React.useState<Deal[]>(DEALS);
+  // Deals come from the shared store so every change persists to Supabase.
+  // A private useState here was why new deals vanished on refresh.
+  const {
+    deals,
+    addDeal: addDealShared,
+    updateDeal: updateDealShared,
+  } = useData();
   const [filters, setFilters] = React.useState<PipelineFilters>(EMPTY_FILTERS);
   const [undo, setUndo] = React.useState<UndoState>(null);
   const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,58 +64,51 @@ export function usePipeline() {
       toStage: DealStage,
       options?: { silent?: boolean; lostReason?: LostReason; lostNote?: string },
     ) => {
-      setDeals((current) => {
-        const deal = current.find((d) => d.id === dealId);
-        if (!deal || deal.stage === toStage) return current;
+      const deal = deals.find((d) => d.id === dealId);
+      if (!deal || deal.stage === toStage) return;
 
-        if (!options?.silent) {
-          setUndo({
-            dealId,
-            dealTitle: deal.title,
-            fromStage: deal.stage,
-            toStage,
-          });
-          if (undoTimer.current) clearTimeout(undoTimer.current);
-          undoTimer.current = setTimeout(() => setUndo(null), 6000);
-        }
+      if (!options?.silent) {
+        setUndo({
+          dealId,
+          dealTitle: deal.title,
+          fromStage: deal.stage,
+          toStage,
+        });
+        if (undoTimer.current) clearTimeout(undoTimer.current);
+        undoTimer.current = setTimeout(() => setUndo(null), 6000);
+      }
 
-        const nowIso = new Date().toISOString();
-        const closing = !isOpenStage(toStage);
-        const reopening = !isOpenStage(deal.stage) && isOpenStage(toStage);
+      const nowIso = new Date().toISOString();
+      const closing = !isOpenStage(toStage);
+      const reopening = !isOpenStage(deal.stage) && isOpenStage(toStage);
 
-        return current.map((d) =>
-          d.id === dealId
-            ? {
-                ...d,
-                stage: toStage,
-                // Ageing counts active days only: close the run when the deal
-                // closes, start a fresh one when it is reopened.
-                periods: closing
-                  ? closePeriods(d.periods, nowIso)
-                  : reopening
-                    ? reopenPeriods(d.periods, nowIso)
-                    : d.periods,
-                lostReason:
-                  toStage === "lost" ? options?.lostReason : undefined,
-                lostNote: toStage === "lost" ? options?.lostNote : undefined,
-                // Remember where a deal closed from so it can still be shown
-                // in that column. Reopening a deal clears the marker.
-                closedFromStage: isOpenStage(toStage)
-                  ? undefined
-                  : isOpenStage(d.stage)
-                    ? d.stage
-                    : d.closedFromStage,
-                // Manual overrides are dropped so the new stage default applies.
-                probability: isOpenStage(toStage)
-                  ? null
-                  : STAGE_MAP[toStage].probability,
-                lastActivityAt: new Date().toISOString(),
-              }
-            : d,
-        );
+      // Routed through the shared store so the stage change reaches Supabase.
+      updateDealShared(dealId, {
+        stage: toStage,
+        // Ageing counts active days only: close the run when the deal closes,
+        // start a fresh one when it is reopened.
+        periods: closing
+          ? closePeriods(deal.periods, nowIso)
+          : reopening
+            ? reopenPeriods(deal.periods, nowIso)
+            : deal.periods,
+        lostReason: toStage === "lost" ? options?.lostReason : undefined,
+        lostNote: toStage === "lost" ? options?.lostNote : undefined,
+        // Remember where a deal closed from so it can still be shown in that
+        // column. Reopening a deal clears the marker.
+        closedFromStage: isOpenStage(toStage)
+          ? undefined
+          : isOpenStage(deal.stage)
+            ? deal.stage
+            : deal.closedFromStage,
+        // Manual overrides are dropped so the new stage default applies.
+        probability: isOpenStage(toStage)
+          ? null
+          : STAGE_MAP[toStage].probability,
+        lastActivityAt: nowIso,
       });
     },
-    [],
+    [deals, updateDealShared],
   );
 
   const undoMove = React.useCallback(() => {
@@ -119,16 +119,13 @@ export function usePipeline() {
   }, [undo, moveDeal]);
 
   const addDeal = React.useCallback(
-    (deal: Deal) => setDeals((current) => [deal, ...current]),
-    [],
+    (deal: Deal) => addDealShared(deal),
+    [addDealShared],
   );
 
   const updateDeal = React.useCallback(
-    (dealId: string, patch: Partial<Deal>) =>
-      setDeals((current) =>
-        current.map((d) => (d.id === dealId ? { ...d, ...patch } : d)),
-      ),
-    [],
+    (dealId: string, patch: Partial<Deal>) => updateDealShared(dealId, patch),
+    [updateDealShared],
   );
 
   const dismissUndo = React.useCallback(() => {

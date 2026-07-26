@@ -1,15 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { DEALS } from "@/lib/deals";
+import { useData } from "@/components/providers/data-provider";
 import { PIPELINE_STAGES, STAGE_MAP, type DealStage } from "@/lib/pipeline";
 import { formatCompactCurrency } from "@/lib/utils";
 
 const FUNNEL_STAGES: DealStage[] = PIPELINE_STAGES.map((stage) => stage.id);
 
 export function PipelineFunnel() {
+  const { deals: allDeals } = useData();
   const rows = FUNNEL_STAGES.map((stage) => {
-    const deals = DEALS.filter((deal) => deal.stage === stage);
+    const deals = allDeals.filter((deal) => deal.stage === stage);
     return {
       stage,
       count: deals.length,

@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
+
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { DEALS } from "@/lib/deals";
+import { useData } from "@/components/providers/data-provider";
 import { STAGE_MAP } from "@/lib/pipeline";
 import type { Deal } from "@/lib/deals";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +15,17 @@ import { formatCurrency, relativeTime } from "@/lib/utils";
 const probabilityOf = (deal: Deal) =>
   deal.probability ?? STAGE_MAP[deal.stage].probability;
 
-const OPEN_DEALS = DEALS.filter(
-  (deal) => deal.stage !== "won" && deal.stage !== "lost",
-)
-  .sort((a, b) => b.value - a.value)
-  .slice(0, 6);
-
 export function DealsTable() {
+  const { deals } = useData();
+  const OPEN_DEALS = React.useMemo(
+    () =>
+      deals
+        .filter((deal) => deal.stage !== "won" && deal.stage !== "lost")
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6),
+    [deals],
+  );
+
   return (
     <>
       {/* Mobile: card list */}
