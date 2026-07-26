@@ -64,13 +64,15 @@ function dateBucket(iso: string) {
 }
 
 export function ActivitiesView() {
-  const { activities, companies, updateActivity, loading } = useData();
+  const { activities, companies, loading } = useData();
 
   const [view, setView] = React.useState<ViewMode>("timeline");
   const [query, setQuery] = React.useState("");
   const [types, setTypes] = React.useState<ActivityType[]>([]);
   const [owners, setOwners] = React.useState<string[]>([]);
   const [logOpen, setLogOpen] = React.useState(false);
+  /** The open task being closed out — drives the pre-filled log form. */
+  const [completing, setCompleting] = React.useState<Activity | null>(null);
   const [expandedCompanies, setExpandedCompanies] = React.useState<
     Record<string, boolean>
   >({});
@@ -94,11 +96,14 @@ export function ActivitiesView() {
     });
   }, [activities, types, owners, query, companyName]);
 
-  const toggleTask = React.useCallback(
-    (activity: Activity) =>
-      updateActivity(activity.id, { taskDone: !activity.taskDone }),
-    [updateActivity],
-  );
+  /**
+   * Completing a task opens the log form rather than silently ticking a box,
+   * so the work is always recorded and the next follow-up can be set.
+   */
+  const startComplete = React.useCallback((activity: Activity) => {
+    setCompleting(activity);
+    setLogOpen(true);
+  }, []);
 
   const activeFilters = types.length + owners.length + (query ? 1 : 0);
 
@@ -221,37 +226,37 @@ export function ActivitiesView() {
           ))}
         </Card>
       ) : view === "timeline" ? (
-        <TimelineView activities={filtered} onToggleTask={toggleTask} />
+        <TimelineView activities={filtered} />
       ) : view === "by-customer" ? (
         <ByCustomerView
           activities={filtered}
           companyName={companyName}
           expanded={expandedCompanies}
           setExpanded={setExpandedCompanies}
-          onToggleTask={toggleTask}
         />
       ) : (
         <OpenTasksView
           activities={filtered}
           companyName={companyName}
-          onToggleTask={toggleTask}
+          onComplete={startComplete}
         />
       )}
 
-      <LogActivityDialog open={logOpen} onOpenChange={setLogOpen} />
+      <LogActivityDialog
+        open={logOpen}
+        onOpenChange={(o) => {
+          setLogOpen(o);
+          if (!o) setCompleting(null);
+        }}
+        completing={completing}
+      />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 
-function TimelineView({
-  activities,
-  onToggleTask,
-}: {
-  activities: Activity[];
-  onToggleTask: (a: Activity) => void;
-}) {
+function TimelineView({ activities }: { activities: Activity[] }) {
   const grouped = React.useMemo(() => {
     const map = new Map<string, Activity[]>();
     sortByRecent(activities).forEach((a) => {
@@ -278,7 +283,7 @@ function TimelineView({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2) }}
               >
-                <ActivityRow activity={a} onToggleTask={onToggleTask} />
+                <ActivityRow activity={a} />
               </motion.div>
             ))}
           </Card>
@@ -293,13 +298,11 @@ function ByCustomerView({
   companyName,
   expanded,
   setExpanded,
-  onToggleTask,
 }: {
   activities: Activity[];
   companyName: (id: string) => string;
   expanded: Record<string, boolean>;
   setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  onToggleTask: (a: Activity) => void;
 }) {
   const grouped = React.useMemo(() => {
     const map = new Map<string, Activity[]>();
@@ -332,12 +335,7 @@ function ByCustomerView({
             </div>
             <div className="divide-y divide-border/60">
               {visible.map((a) => (
-                <ActivityRow
-                  key={a.id}
-                  activity={a}
-                  showCompany={false}
-                  onToggleTask={onToggleTask}
-                />
+                <ActivityRow key={a.id} activity={a} showCompany={false} />
               ))}
             </div>
             {hidden > 0 && (
@@ -366,11 +364,11 @@ function ByCustomerView({
 function OpenTasksView({
   activities,
   companyName,
-  onToggleTask,
+  onComplete,
 }: {
   activities: Activity[];
   companyName: (id: string) => string;
-  onToggleTask: (a: Activity) => void;
+  onComplete: (a: Activity) => void;
 }) {
   const { contactById, deals } = useData();
 
@@ -415,8 +413,9 @@ function OpenTasksView({
             >
               <div className="flex items-start gap-2.5">
                 <button
-                  onClick={() => onToggleTask(a)}
-                  aria-label="Mark task as done"
+                  onClick={() => onComplete(a)}
+                  aria-label={`Complete task: ${a.task}`}
+                  title="Complete and log what happened"
                   className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border border-border transition-colors hover:border-accent hover:bg-accent/10"
                 />
                 <div className="min-w-0 flex-1">
@@ -456,11 +455,17 @@ function OpenTasksView({
                     </div>
                   </div>
                 </div>
-                <Avatar className="size-6 shrink-0">
-                  <AvatarFallback className="bg-secondary text-[9px]">
-                    {initials(a.owner)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Avatar className="size-6">
+                    <AvatarFallback className="bg-secondary text-[9px]">
+                      {initials(a.owner)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button size="xs" variant="outline" onClick={() => onComplete(a)}>
+                    <Check />
+                    Complete
+                  </Button>
+                </div>
               </div>
             </Card>
           </motion.div>

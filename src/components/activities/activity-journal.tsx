@@ -27,12 +27,10 @@ export function ActivityJournal({
   activities,
   showCompany = false,
   emptyLabel = "No activity logged yet.",
-  onToggleTask,
 }: {
   activities: Activity[];
   showCompany?: boolean;
   emptyLabel?: string;
-  onToggleTask?: (activity: Activity) => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const sorted = React.useMemo(() => sortByRecent(activities), [activities]);
@@ -134,7 +132,6 @@ export function ActivityJournal({
                 activity={activity}
                 compact
                 showCompany={showCompany}
-                onToggleTask={onToggleTask}
               />
             </motion.div>
           ))}

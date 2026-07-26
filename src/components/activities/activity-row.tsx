@@ -1,8 +1,8 @@
 "use client";
 
 import {
+  ArrowRight,
   Banknote,
-  Check,
   Mail,
   MapPin,
   MessageCircle,
@@ -14,7 +14,6 @@ import {
 import {
   ACTIVITY_MAP,
   URGENCY_STYLES,
-  isOpenTask,
   taskUrgency,
   taskUrgencyLabel,
   type Activity,
@@ -45,12 +44,10 @@ export function ActivityRow({
   activity,
   compact = false,
   showCompany = true,
-  onToggleTask,
 }: {
   activity: Activity;
   compact?: boolean;
   showCompany?: boolean;
-  onToggleTask?: (activity: Activity) => void;
 }) {
   const { companies, contactById, deals } = useData();
   const def = ACTIVITY_MAP[activity.type];
@@ -62,7 +59,6 @@ export function ActivityRow({
     ? deals.find((d) => d.id === activity.dealId)
     : null;
 
-  const openTask = isOpenTask(activity);
   const urgency = taskUrgency(activity);
   const urgencyLabel = taskUrgencyLabel(activity);
 
@@ -121,42 +117,15 @@ export function ActivityRow({
           )}
         </div>
 
-        {/* The follow-up, if one was set */}
-        {activity.task && (
-          <div
-            className={cn(
-              "mt-2 flex items-center gap-2 rounded-lg border p-2",
-              openTask && urgency === "overdue"
-                ? "border-destructive/40 bg-destructive/[0.06]"
-                : openTask && urgency === "today"
-                  ? "border-warning/40 bg-warning/[0.07]"
-                  : "border-border bg-secondary/40",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => onToggleTask?.(activity)}
-              aria-label={
-                activity.taskDone ? "Mark task as open" : "Mark task as done"
-              }
-              className={cn(
-                "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
-                activity.taskDone
-                  ? "border-success bg-success text-success-foreground"
-                  : "border-border hover:border-accent",
-              )}
-            >
-              {activity.taskDone && <Check className="size-3" />}
-            </button>
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-xs",
-                activity.taskDone && "text-muted-foreground line-through",
-              )}
-            >
-              {activity.task}
-            </span>
-            {openTask && urgencyLabel && (
+        {/*
+          The follow-up is shown as read-only context. Tasks are actioned in
+          the Open tasks view, where completing one opens a new log entry.
+        */}
+        {activity.task && !activity.taskDone && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <ArrowRight className="size-3 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{activity.task}</span>
+            {urgencyLabel && (
               <span
                 className={cn(
                   "shrink-0 rounded-full px-1.5 py-0.5 text-[10px]",

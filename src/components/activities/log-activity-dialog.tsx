@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   Banknote,
   Bell,
+  CheckCircle2,
   ChevronRight,
   Mail,
   MapPin,
@@ -56,14 +57,23 @@ export function LogActivityDialog({
   onOpenChange,
   presetCompanyId,
   presetDealId,
+  completing,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Set when opened from a company or deal drawer. */
   presetCompanyId?: string;
   presetDealId?: string;
+  /**
+   * The open task being closed out. Completing a task never just ticks a box:
+   * it opens this form pre-filled so what actually happened gets recorded,
+   * and a further follow-up can be set — the loop continues until the user
+   * decides no next step is needed.
+   */
+  completing?: Activity | null;
 }) {
-  const { companies, contactsFor, primaryFor, deals, addActivity } = useData();
+  const { companies, contactsFor, primaryFor, deals, addActivity, updateActivity } =
+    useData();
 
   const [type, setType] = React.useState<ActivityType>("call");
   const [companyId, setCompanyId] = React.useState("");
@@ -82,10 +92,10 @@ export function LogActivityDialog({
   const [remind, setRemind] = React.useState(true);
 
   const reset = React.useCallback(() => {
-    setType("call");
-    setCompanyId(presetCompanyId ?? "");
-    setContactId("");
-    setDealId(presetDealId ?? "");
+    setType(completing?.type ?? "call");
+    setCompanyId(completing?.companyId ?? presetCompanyId ?? "");
+    setContactId(completing?.contactId ?? "");
+    setDealId(completing?.dealId ?? presetDealId ?? "");
     setReport("");
     setOccurredAt(new Date().toISOString().slice(0, 10));
     setShowAllContacts(false);
@@ -94,7 +104,7 @@ export function LogActivityDialog({
     setTask("");
     setTaskDueAt("");
     setRemind(true);
-  }, [presetCompanyId, presetDealId]);
+  }, [presetCompanyId, presetDealId, completing]);
 
   React.useEffect(() => {
     if (open) reset();
@@ -102,8 +112,10 @@ export function LogActivityDialog({
 
   // Default the contact to the company primary, but never the deal.
   React.useEffect(() => {
-    if (companyId) setContactId(primaryFor(companyId)?.id ?? "");
-  }, [companyId, primaryFor]);
+    if (companyId && !completing) {
+      setContactId(primaryFor(companyId)?.id ?? "");
+    }
+  }, [companyId, primaryFor, completing]);
 
   const company = companies.find((c) => c.id === companyId) ?? null;
   const contacts = companyId ? contactsFor(companyId) : [];
@@ -148,6 +160,9 @@ export function LogActivityDialog({
       createdAt: now,
     } satisfies Activity);
 
+    // Closing the loop: the task is done because the work was recorded.
+    if (completing) updateActivity(completing.id, { taskDone: true });
+
     onOpenChange(false);
   };
 
@@ -155,11 +170,26 @@ export function LogActivityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto scrollbar-thin">
         <DialogHeader>
-          <DialogTitle>Log activity</DialogTitle>
+          <DialogTitle>
+            {completing ? "Complete task" : "Log activity"}
+          </DialogTitle>
           <DialogDescription>
             Record what happened, and optionally what needs to happen next.
           </DialogDescription>
         </DialogHeader>
+
+        {completing && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-accent/40 bg-accent/[0.06] p-3">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent" />
+            <div className="min-w-0 flex-1 text-sm">
+              <div className="font-medium">{completing.task}</div>
+              <div className="text-xs text-muted-foreground">
+                Write what happened. Add another follow-up if the work
+                continues.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Type — the whole form adapts to this */}
@@ -415,7 +445,9 @@ export function LogActivityDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit}>Save activity</Button>
+          <Button onClick={submit}>
+            {completing ? "Complete and log" : "Save activity"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
