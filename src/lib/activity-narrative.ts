@@ -1,27 +1,91 @@
 /**
- * The written story of a customer relationship.
+ * The customer story, as three bullets.
  *
- * `activity-summary.ts` answers "what are the numbers?". This answers
- * "what is the story?" — the paragraph a colleague would say if you asked
- * them to catch you up before a call.
+ * Runs entirely on the device: no API key, no per-call cost, no network,
+ * instant, works offline. Every line is assembled from records that were
+ * actually logged, so it cannot invent a promise or a price.
  *
- * It runs entirely on the device. No API key, no per-call cost, no network,
- * instant, and it works on a plane. Crucially it can only ever restate what
- * was actually logged: every sentence is assembled from real records, so it
- * cannot hallucinate a promise or a price that was never written down.
+ * Three bullets, because that is what a salesperson needs before a call:
+ *   1. where it stands   — the latest real interaction
+ *   2. what has happened — the whole history, in one line
+ *   3. what is next      — the most urgent outstanding thing
  *
- * How it reads a journal, in the order a person would:
- *   1. how the relationship opened
- *   2. what has been happening since, and at what rhythm
- *   3. whether a deal ever entered the conversation
- *   4. where it stands right now
- *   5. what is outstanding
+ * Two counting rules, both agreed with the user:
+ *
+ *   THREAD MODEL — a log and the follow-up task created on it are one unit.
+ *   The interaction is not finished until its task is done. "6 interactions ·
+ *   1 still open" is honest in a way that a single number is not.
+ *
+ *   FUTURE-DATED ENTRIES — a meeting booked for next week has not happened,
+ *   so it is never counted as history. It stays visible as "upcoming", and
+ *   its task still surfaces as the next step, because that work is real now.
  */
 
 import { type Activity, type ActivityType } from "./activities";
-import { summariseCustomer, type CustomerSummary } from "./activity-summary";
+import { detectRisk, type RiskFlag } from "./activity-risk";
 
 const DAY = 86_400_000;
+
+/* ------------------------------------------------------------------ */
+/* Thread helpers — the shared definition of "counted"                 */
+/* ------------------------------------------------------------------ */
+
+/** Has this actually happened yet? Future-dated entries have not. */
+export function hasHappened(activity: Activity, now = Date.now()) {
+  return new Date(activity.occurredAt).getTime() <= now;
+}
+
+/** Booked for later — real, but not history. */
+export function isUpcoming(activity: Activity, now = Date.now()) {
+  return !hasHappened(activity, now);
+}
+
+/**
+ * An open thread: it happened, but the follow-up it created is still pending.
+ * The conversation is live.
+ */
+export function isOpenThread(activity: Activity, now = Date.now()) {
+  return (
+    hasHappened(activity, now) && Boolean(activity.task) && !activity.taskDone
+  );
+}
+
+/** Happened, and nothing left hanging off it. */
+export function isClosedThread(activity: Activity, now = Date.now()) {
+  return hasHappened(activity, now) && !isOpenThread(activity, now);
+}
+
+export type ThreadCounts = {
+  /** Interactions that have actually happened. */
+  logged: number;
+  /** Of those, how many still have a pending follow-up. */
+  open: number;
+  closed: number;
+  /** Booked for a future date — excluded from `logged`. */
+  upcoming: number;
+};
+
+export function countThreads(
+  activities: Activity[],
+  now = Date.now(),
+): ThreadCounts {
+  let logged = 0;
+  let open = 0;
+  let upcoming = 0;
+  for (const activity of activities) {
+    if (isUpcoming(activity, now)) {
+      upcoming += 1;
+      continue;
+    }
+    logged += 1;
+    if (isOpenThread(activity, now)) open += 1;
+  }
+  return { logged, open, closed: logged - open, upcoming };
+}
+
+/* ------------------------------------------------------------------ */
+/* Wording helpers                                                     */
+/* ------------------------------------------------------------------ */
 
 function dayGap(from: string, to: number | string = Date.now()) {
   const a = new Date(from).getTime();
@@ -42,10 +106,9 @@ function ago(days: number) {
 }
 
 /**
- * Past-tense phrasing per channel, split so a contact name always slots in
- * grammatically: verb + (preposition) + name + tail.
- *   site visit → "visited the property and met Reena Thomas"
- *   whatsapp   → "messaged Grace Mensah on WhatsApp"
+ * Channel-aware phrasing so a contact name always slots in grammatically.
+ * Built after "visited the property Reena Thomas" and "messaged on WhatsApp
+ * Grace" came out of an earlier version.
  */
 const PHRASING: Record<
   ActivityType,
@@ -55,13 +118,12 @@ const PHRASING: Record<
   call: { verb: "called", prep: "" },
   email: { verb: "emailed", prep: "" },
   meeting: { verb: "met", prep: "" },
-  demo: { verb: "submitted samples", prep: "to" },
-  casual_follow_up: { verb: "followed up", prep: "with", tail: "informally" },
+  demo: { verb: "sent samples", prep: "to" },
+  casual_follow_up: { verb: "followed up", prep: "with" },
   whatsapp: { verb: "messaged", prep: "", tail: "on WhatsApp" },
   payment_follow_up: { verb: "chased payment", prep: "with" },
 };
 
-/** Builds "emailed Ankit" / "messaged Grace on WhatsApp" / "called". */
 function didWhat(type: ActivityType, who: string | null) {
   const { verb, prep, tail } = PHRASING[type];
   const parts = [verb];
@@ -73,234 +135,200 @@ function didWhat(type: ActivityType, who: string | null) {
   return parts.join(" ");
 }
 
-/** Trims a logged report to a clause that can sit inside a sentence. */
-function clause(report: string, max = 110) {
+/** Trims a report to a clause, never mid-word. */
+function clause(report: string, max = 95) {
   const clean = report.trim().replace(/\s+/g, " ").replace(/[.。]+$/, "");
   if (clean.length <= max) return clean;
-  // Cut on a word boundary so it never ends mid-word.
   const cut = clean.slice(0, max);
   return `${cut.slice(0, cut.lastIndexOf(" "))}…`;
 }
 
-/**
- * Lower-cases the first word so a report can sit mid-sentence — but leaves
- * proper nouns and acronyms alone. "Sent the quote" → "sent the quote",
- * while "Mr. Ankit called" and "USD lock" keep their capitals.
- */
+/** Lower-cases for mid-sentence use, but protects names and acronyms. */
 function inlineCase(text: string) {
-  const firstWord = text.split(/\s+/)[0]?.replace(/[.,:;]$/, "") ?? "";
-  const isAcronym = firstWord.length > 1 && firstWord === firstWord.toUpperCase();
-  const isTitle = /^(Mr|Mrs|Ms|Dr|Chef|Eng)\.?$/i.test(firstWord);
-  // A capitalised word whose *next* word is also capitalised reads as a name.
   const words = text.split(/\s+/);
+  const first = words[0]?.replace(/[.,:;]$/, "") ?? "";
+  const isAcronym = first.length > 1 && first === first.toUpperCase();
+  const isTitle = /^(Mr|Mrs|Ms|Dr|Chef|Eng)\.?$/i.test(first);
   const looksLikeName =
-    /^[A-Z][a-z]+$/.test(firstWord) && /^[A-Z]/.test(words[1] ?? "");
+    /^[A-Z][a-z]+$/.test(first) && /^[A-Z]/.test(words[1] ?? "");
   if (isAcronym || isTitle || looksLikeName) return text;
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-export type Narrative = {
-  /** 3–6 sentences, the full catch-up. */
-  paragraph: string;
-  /** Each sentence separately, for staggered reveal in the UI. */
-  sentences: string[];
-  /** The one line to lead with — "Waiting on them since Tuesday." */
-  standfirst: string;
-  /** Suggested next move, derived from the pattern. Never a promise. */
-  suggestion: string | null;
-  summary: CustomerSummary;
+function sentenceCase(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/* ------------------------------------------------------------------ */
+/* The summary                                                         */
+/* ------------------------------------------------------------------ */
+
+export type BulletKind =
+  | "now"
+  | "history"
+  | "next"
+  | "overdue"
+  | "upcoming"
+  | "none";
+
+export type Bullet = { kind: BulletKind; text: string };
+
+export type CustomerBrief = {
+  bullets: Bullet[];
+  counts: ThreadCounts;
+  risk: RiskFlag | null;
+  /** Distinct deals that came up in conversation. */
+  dealIds: string[];
+  /** Average days between interactions; null with fewer than two. */
+  cadenceDays: number | null;
+  daysSinceLast: number | null;
 };
 
 /**
- * Writes the story. Returns null when there is nothing logged.
+ * Builds the three-bullet brief. Returns null when there is nothing at all.
  */
-export function narrateCustomer(
+export function briefCustomer(
   activities: Activity[],
   contactName?: (id: string | null) => string | null,
   now = Date.now(),
-): Narrative | null {
-  const summary = summariseCustomer(activities, now);
-  if (!summary) return null;
+): CustomerBrief | null {
+  if (activities.length === 0) return null;
 
-  const sorted = [...activities].sort(
-    (a, b) =>
-      new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
-  );
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
+  const happened = activities
+    .filter((a) => hasHappened(a, now))
+    .sort(
+      (a, b) =>
+        new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+  const upcoming = activities
+    .filter((a) => isUpcoming(a, now))
+    .sort(
+      (a, b) =>
+        new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+
+  const counts = countThreads(activities, now);
   const nameOf = (id: string | null) => (contactName ? contactName(id) : null);
+  const bullets: Bullet[] = [];
 
-  const sentences: string[] = [];
-
-  /* ---- 1. How it opened ------------------------------------------- */
-  const openedDays = dayGap(first.occurredAt, now);
-  const firstWho = nameOf(first.contactId);
-  /*
-    With a single entry the opening IS the latest state, so step 4 is skipped
-    to avoid saying the same thing twice.
-  */
-  const onlyOne = sorted.length === 1;
-  if (onlyOne) {
-    sentences.push(
-      `First contact ${ago(openedDays)} — ${didWhat(
-        first.type,
-        firstWho,
-      )}: ${inlineCase(clause(first.report))}.`,
-    );
-  } else {
-    sentences.push(
-      `The relationship opened ${ago(openedDays)} when we ${didWhat(
-        first.type,
-        firstWho,
-      )}.`,
-    );
-  }
-
-  /* ---- 2. What has happened since, and how often ------------------ */
-  if (sorted.length > 1) {
-    const channels = summary.typeCounts
-      .slice(0, 3)
-      .map((t) => plural(t.count, t.label.toLowerCase()))
-      .join(", ");
-    const rhythm =
-      summary.cadenceDays !== null
-        ? summary.cadenceDays <= 7
-          ? "keeping close contact"
-          : summary.cadenceDays <= 21
-            ? "touching base every few weeks"
-            : "with long gaps between touches"
-        : "";
-    sentences.push(
-      `Since then there have been ${plural(
-        summary.total,
-        "interaction",
-      )} — ${channels} — ${rhythm}.`,
-    );
-  }
-
-  /* ---- 3. Did a deal ever enter the conversation? ------------------ */
-  if (summary.dealIds.length === 1) {
-    const dealTouches = sorted.filter((a) => a.dealId).length;
-    sentences.push(
-      `Talk has centred on ${summary.dealIds[0]}, which came up in ${plural(
-        dealTouches,
-        "conversation",
-      )}.`,
-    );
-  } else if (summary.dealIds.length > 1) {
-    sentences.push(
-      `${plural(
-        summary.dealIds.length,
-        "deal",
-      )} have been discussed: ${summary.dealIds.join(", ")}.`,
-    );
-  } else if (summary.total > 2) {
-    sentences.push(
-      `No deal has been linked to any of it yet — this is still relationship building.`,
-    );
-  }
-
-  /* ---- 4. Where it stands right now -------------------------------- */
-  if (!onlyOne) {
-    const lastWho = nameOf(last.contactId);
-    sentences.push(
-      `Most recently, ${ago(summary.daysSinceLast)}, we ${didWhat(
+  /* ---- 1. Where it stands ---------------------------------------- */
+  if (happened.length > 0) {
+    const last = happened[happened.length - 1];
+    const days = dayGap(last.occurredAt, now);
+    bullets.push({
+      kind: "now",
+      text: `${sentenceCase(ago(days))} we ${didWhat(
         last.type,
-        lastWho,
-      )}: ${inlineCase(clause(last.report))}.`,
-    );
+        nameOf(last.contactId),
+      )} — ${inlineCase(clause(last.report))}.`,
+    });
+  } else {
+    bullets.push({
+      kind: "now",
+      text: "Nothing logged yet — the first entry is still ahead.",
+    });
   }
 
-  /* ---- 5. What is outstanding -------------------------------------- */
-  const overdue = summary.openTasks.filter(
-    (t) => t.taskDueAt && new Date(t.taskDueAt).getTime() < now,
-  );
-  if (overdue.length > 0) {
-    const worst = overdue[0];
-    const late = worst.taskDueAt ? dayGap(worst.taskDueAt, now) : 0;
-    // "due 0 days ago" is nonsense — same-day slips read as "due today".
-    const when = late === 0 ? "was due today" : `was due ${plural(late, "day")} ago`;
-    sentences.push(
-      `${
-        overdue.length === 1 ? "One task is" : `${overdue.length} tasks are`
-      } overdue — "${clause(worst.task ?? "", 70)}" ${when}.`,
+  /* ---- 2. What has been happening (wording B) --------------------- */
+  const dealIds = [
+    ...new Set(happened.filter((a) => a.dealId).map((a) => a.dealId as string)),
+  ];
+  let cadenceDays: number | null = null;
+
+  if (happened.length > 0) {
+    const first = happened[0];
+    const last = happened[happened.length - 1];
+    if (happened.length > 1) {
+      cadenceDays = Math.max(
+        Math.round(
+          dayGap(first.occurredAt, new Date(last.occurredAt).getTime()) /
+            (happened.length - 1),
+        ),
+        1,
+      );
+    }
+    // Total leads, the exception follows — so nothing looks hidden.
+    const openPart = counts.open > 0 ? ` · ${counts.open} still open` : "";
+    const cadencePart = cadenceDays
+      ? `, about every ${plural(cadenceDays, "day")}`
+      : "";
+    const dealPart = dealIds.length ? ` · ${dealIds.join(", ")}` : "";
+    bullets.push({
+      kind: "history",
+      text: `${plural(
+        counts.logged,
+        "interaction",
+      )}${openPart} since ${ago(dayGap(first.occurredAt, now))}${cadencePart}${dealPart}.`,
+    });
+  } else if (counts.upcoming > 0) {
+    bullets.push({
+      kind: "history",
+      text: `${plural(counts.upcoming, "entry")} booked, none logged yet.`,
+    });
+  }
+
+  /* ---- 3. What is next -------------------------------------------- */
+  /*
+    A task on a future-dated entry still counts here. The meeting has not
+    happened, but "send the revised quote" is real work due now.
+  */
+  const openTasks = activities
+    .filter((a) => a.task && !a.taskDone)
+    .sort(
+      (a, b) =>
+        new Date(a.taskDueAt ?? a.occurredAt).getTime() -
+        new Date(b.taskDueAt ?? b.occurredAt).getTime(),
     );
-  } else if (summary.openTasks.length > 0) {
-    const next = summary.openTasks[0];
-    // Days remaining = due date minus now, so the arguments run that way round.
-    const due = next.taskDueAt
-      ? Math.max(
-          Math.round(
-            (new Date(next.taskDueAt).getTime() - now) / DAY,
-          ),
-          0,
-        )
+
+  if (openTasks.length > 0) {
+    const task = openTasks[0];
+    const dueIn = task.taskDueAt
+      ? Math.round((new Date(task.taskDueAt).getTime() - now) / DAY)
       : null;
-    sentences.push(
-      `Next up: "${clause(next.task ?? "", 70)}"${
-        due !== null
-          ? due === 0
-            ? ", due today"
-            : `, due in ${plural(due, "day")}`
-          : ""
-      }.`,
+    const when =
+      dueIn === null
+        ? ""
+        : dueIn < 0
+          ? ` — overdue ${plural(-dueIn, "day")}`
+          : dueIn === 0
+            ? " — due today"
+            : ` — due in ${plural(dueIn, "day")}`;
+    const more =
+      openTasks.length > 1
+        ? ` (+${openTasks.length - 1} more)`
+        : "";
+    bullets.push({
+      kind: dueIn !== null && dueIn < 0 ? "overdue" : "next",
+      text: `${clause(task.task ?? "", 70)}${when}${more}.`,
+    });
+  } else if (upcoming.length > 0) {
+    const next = upcoming[0];
+    const inDays = Math.max(
+      Math.round((new Date(next.occurredAt).getTime() - now) / DAY),
+      0,
     );
+    bullets.push({
+      kind: "upcoming",
+      text: `Upcoming ${next.type.replace(/_/g, " ")} ${
+        inDays === 0 ? "later today" : `in ${plural(inDays, "day")}`
+      }.`,
+    });
   } else {
-    sentences.push(`Nothing is scheduled — there is no next step on the books.`);
-  }
-
-  /* ---- Standfirst: the single most useful line --------------------- */
-  let standfirst: string;
-  if (overdue.length > 0) {
-    standfirst = `${plural(overdue.length, "task")} overdue — needs action today.`;
-  } else if (summary.momentum === "quiet") {
-    standfirst = `Dormant ${plural(
-      summary.daysSinceLast,
-      "day",
-    )} — worth a re-approach.`;
-  } else if (summary.momentum === "cooling") {
-    standfirst = `Slowing down — ${plural(
-      summary.daysSinceLast,
-      "day",
-    )} since the last contact.`;
-  } else if (summary.openTasks.length === 0) {
-    standfirst = `Active, but nothing is scheduled next.`;
-  } else {
-    standfirst = `On track — next step is booked.`;
-  }
-
-  /* ---- Suggestion: pattern-based, never invented -------------------- */
-  let suggestion: string | null = null;
-  const hasQuoteTalk = sorted.some((a) =>
-    /quot|price|offer|rate/i.test(a.report),
-  );
-  const sampled = sorted.some((a) => a.type === "demo");
-  const chasingMoney = sorted.some((a) => a.type === "payment_follow_up");
-
-  if (overdue.length > 0) {
-    suggestion = `Clear the overdue task first, then log what came of it.`;
-  } else if (summary.momentum === "quiet") {
-    suggestion = summary.dealIds.length
-      ? `Reopen the conversation on ${summary.dealIds[0]} before it goes cold.`
-      : `Send a re-approach — no contact in ${plural(
-          summary.daysSinceLast,
-          "day",
-        )}.`;
-  } else if (chasingMoney) {
-    suggestion = `Payment is outstanding — confirm the release date in writing.`;
-  } else if (sampled && summary.openTasks.length === 0) {
-    suggestion = `Samples were submitted but nothing is scheduled — collect the feedback.`;
-  } else if (hasQuoteTalk && summary.openTasks.length === 0) {
-    suggestion = `Pricing has been discussed with no next step — chase the decision.`;
-  } else if (summary.openTasks.length === 0) {
-    suggestion = `Set a follow-up so this does not go quiet.`;
+    bullets.push({
+      kind: "none",
+      text: "Nothing scheduled — no next step booked.",
+    });
   }
 
   return {
-    paragraph: sentences.join(" "),
-    sentences,
-    standfirst,
-    suggestion,
-    summary,
+    bullets,
+    counts,
+    risk: detectRisk(activities, now),
+    dealIds,
+    cadenceDays,
+    daysSinceLast:
+      happened.length > 0
+        ? dayGap(happened[happened.length - 1].occurredAt, now)
+        : null,
   };
 }

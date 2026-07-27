@@ -26,6 +26,7 @@ import {
   type Activity,
   type ActivityType,
 } from "@/lib/activities";
+import { countThreads } from "@/lib/activity-narrative";
 import { DEAL_OWNERS } from "@/lib/deals";
 import { useData } from "@/components/providers/data-provider";
 import { ActivityRow } from "./activity-row";
@@ -50,6 +51,23 @@ import { cn, initials, relativeTime } from "@/lib/utils";
 
 type ViewMode = "timeline" | "by-customer" | "open-tasks";
 
+/**
+ * Timeline-only period filter.
+ *
+ * Deliberately not applied to By customer or Open tasks: a customer summary
+ * built from one week of history would be misleading, and hiding a task
+ * because it is old is the opposite of useful.
+ */
+type Period = "week" | "month" | "quarter" | "year" | "all";
+
+const PERIODS: { id: Period; label: string; days: number | null }[] = [
+  { id: "week", label: "Week", days: 7 },
+  { id: "month", label: "Month", days: 30 },
+  { id: "quarter", label: "Quarter", days: 90 },
+  { id: "year", label: "Year", days: 365 },
+  { id: "all", label: "All", days: null },
+];
+
 /** Groups the timeline into readable buckets rather than a flat list. */
 function dateBucket(iso: string) {
   const d = new Date(iso);
@@ -69,6 +87,7 @@ export function ActivitiesView() {
   const { activities, companies, loading } = useData();
 
   const [view, setView] = React.useState<ViewMode>("timeline");
+  const [period, setPeriod] = React.useState<Period>("month");
   const [query, setQuery] = React.useState("");
   const [types, setTypes] = React.useState<ActivityType[]>([]);
   const [owners, setOwners] = React.useState<string[]>([]);
@@ -80,6 +99,10 @@ export function ActivitiesView() {
   >({});
 
   const counts = React.useMemo(() => taskCounts(activities), [activities]);
+  const threadTotals = React.useMemo(
+    () => countThreads(activities),
+    [activities],
+  );
 
   const companyName = React.useCallback(
     (id: string) => companies.find((c) => c.id === id)?.name ?? "—",
@@ -97,6 +120,19 @@ export function ActivitiesView() {
         .includes(q);
     });
   }, [activities, types, owners, query, companyName]);
+
+  /**
+   * The period cut, applied to Timeline alone. Everything upstream of this
+   * stays whole, so By customer and Open tasks are untouched by it.
+   */
+  const periodScoped = React.useMemo(() => {
+    const days = PERIODS.find((p) => p.id === period)?.days ?? null;
+    if (days === null) return filtered;
+    const cutoff = Date.now() - days * 86_400_000;
+    return filtered.filter(
+      (a) => new Date(a.occurredAt).getTime() >= cutoff,
+    );
+  }, [filtered, period]);
 
   /**
    * Completing a task opens the log form rather than silently ticking a box,
@@ -126,7 +162,16 @@ export function ActivitiesView() {
       <div className="grid grid-cols-3 gap-3">
         <Tile label="Due today" value={counts.today} tone="warning" />
         <Tile label="Overdue" value={counts.overdue} tone="danger" />
-        <Tile label="Logged" value={activities.length} hint="all time" />
+        {/* Future-dated entries are not history yet, so they are not counted. */}
+        <Tile
+          label="Logged"
+          value={threadTotals.logged}
+          hint={
+            threadTotals.upcoming > 0
+              ? `${threadTotals.upcoming} upcoming`
+              : "all time"
+          }
+        />
       </div>
 
       {/* Views + filters */}
@@ -215,6 +260,29 @@ export function ActivitiesView() {
         </DropdownMenu>
       </div>
 
+      {/* Period pills — Timeline only, so the scope is never ambiguous. */}
+      {view === "timeline" && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPeriod(p.id)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                period === p.id
+                  ? "bg-accent text-accent-foreground"
+                  : "border border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+          <span className="ml-1 text-[11px] text-muted-foreground">
+            {periodScoped.length} of {filtered.length} shown
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <Card className="divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -228,7 +296,7 @@ export function ActivitiesView() {
           ))}
         </Card>
       ) : view === "timeline" ? (
-        <TimelineView activities={filtered} />
+        <TimelineView activities={periodScoped} />
       ) : view === "by-customer" ? (
         <ByCustomerView
           activities={filtered}
@@ -322,8 +390,8 @@ function ByCustomerView({
     <div className="space-y-3">
       {grouped.map(({ id, list }) => {
         const isOpen = expanded[id];
-        const hidden = Math.max(list.length - 3, 0);
-        const visible = isOpen ? list : list.slice(0, 3);
+        // Only ever the newest three — the summary already covers the rest.
+        const visible = list.slice(0, 3);
         return (
           <Card key={id} className="overflow-hidden">
             <div className="flex items-center gap-2.5 border-b border-border bg-secondary/40 px-4 py-2.5">
@@ -333,38 +401,45 @@ function ByCustomerView({
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {companyName(id)}
               </span>
-              <Badge variant="outline">{list.length}</Badge>
+              {/* Logged is history only; anything booked ahead sits beside it. */}
+              <Badge variant="outline">{countThreads(list).logged}</Badge>
+              {countThreads(list).upcoming > 0 && (
+                <Badge variant="accent" className="px-1.5 py-0 text-[10px]">
+                  +{countThreads(list).upcoming} upcoming
+                </Badge>
+              )}
             </div>
 
             {/*
-              Summary first, journal second. Once a customer has hundreds of
-              entries, this is what actually gets read.
+              Summary is the page. The raw entries stay shut until asked for —
+              at hundreds of logs per customer, nobody reads them top to bottom.
             */}
-            <div className="p-3 pb-0">
-              <CustomerSummary activities={list} defaultOpen={false} />
+            <div className="p-3">
+              <CustomerSummary activities={list} defaultOpen />
             </div>
 
-            <div className="mt-3 divide-y divide-border/60">
-              {visible.map((a) => (
-                <ActivityRow key={a.id} activity={a} showCompany={false} />
-              ))}
-            </div>
-            {hidden > 0 && (
-              <button
-                onClick={() => setExpanded((e) => ({ ...e, [id]: !e[id] }))}
-                className="flex w-full items-center justify-center gap-1.5 border-t border-border py-2 text-xs font-medium text-accent transition-colors hover:bg-secondary/50"
-              >
-                <ChevronRight
-                  className={cn(
-                    "size-3.5 transition-transform duration-200",
-                    isOpen && "rotate-90",
-                  )}
-                />
-                {isOpen
-                  ? "Hide earlier entries"
-                  : `Show ${hidden} earlier ${hidden === 1 ? "entry" : "entries"}`}
-              </button>
+            {isOpen && (
+              <div className="divide-y divide-border/60 border-t border-border">
+                {visible.map((a) => (
+                  <ActivityRow key={a.id} activity={a} showCompany={false} />
+                ))}
+              </div>
             )}
+
+            <button
+              onClick={() => setExpanded((e) => ({ ...e, [id]: !e[id] }))}
+              className="flex w-full items-center justify-center gap-1.5 border-t border-border py-2 text-xs font-medium text-accent transition-colors hover:bg-secondary/50"
+            >
+              <ChevronRight
+                className={cn(
+                  "size-3.5 transition-transform duration-200",
+                  isOpen && "rotate-90",
+                )}
+              />
+              {isOpen
+                ? "Hide logs"
+                : `Show last ${visible.length} log${visible.length === 1 ? "" : "s"}`}
+            </button>
           </Card>
         );
       })}

@@ -61,12 +61,18 @@ export function ActivityRow({
 
   const urgency = taskUrgency(activity);
   const urgencyLabel = taskUrgencyLabel(activity);
+  /*
+    Booked for a future date: real, but not history. Marked so it can never be
+    mistaken for something that already happened.
+  */
+  const upcoming = new Date(activity.occurredAt).getTime() > Date.now();
 
   return (
     <div
       className={cn(
         "flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50",
         compact && "px-2 py-2",
+        upcoming && "opacity-70",
       )}
     >
       <span
@@ -81,6 +87,14 @@ export function ActivityRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-medium">{def.label}</span>
+          {upcoming && (
+            <Badge
+              variant="outline"
+              className="border-chart-4/40 px-1.5 py-0 text-[10px] text-chart-4"
+            >
+              Upcoming
+            </Badge>
+          )}
           {/* No chip at all when unlinked — an ordinary activity. */}
           {deal && (
             <Badge variant="accent" className="gap-1 px-1.5 py-0 font-mono text-[10px]">
