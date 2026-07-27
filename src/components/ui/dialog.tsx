@@ -36,7 +36,16 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-[var(--shadow-float)] duration-200 data-[state=open]:animate-[scale-in_0.18s_cubic-bezier(0.16,1,0.3,1)]",
+        /*
+          [&>*]:min-w-0 is load-bearing.
+
+          Grid and flex children default to min-width:auto, meaning "never
+          shrink below my content". A pasted URL or an unbroken string then
+          widened the whole dialog and produced a horizontal scrollbar — the
+          break-words guards on the text could not take effect, because the
+          parent never forced them to wrap.
+        */
+        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-[var(--shadow-float)] duration-200 data-[state=open]:animate-[scale-in_0.18s_cubic-bezier(0.16,1,0.3,1)] [&>*]:min-w-0",
         className,
       )}
       {...props}
