@@ -47,7 +47,7 @@ export function CustomerSummary({
 
   if (!brief) return null;
 
-  const { bullets, counts, risk } = brief;
+  const { bullets, risk } = brief;
 
   return (
     <div className="rounded-xl border border-accent/30 bg-accent/[0.05]">
@@ -74,11 +74,10 @@ export function CustomerSummary({
                 Possible risk
               </span>
             )}
-            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-              {counts.logged} logged
-              {counts.open > 0 && ` · ${counts.open} open`}
-              {counts.upcoming > 0 && ` · ${counts.upcoming} upcoming`}
-            </span>
+            {/*
+              No counts here on purpose. They live once, next to the customer
+              name — repeating them was noise, and two copies can drift.
+            */}
           </div>
 
           {/* Collapsed: the risk if there is one, otherwise where it stands. */}

@@ -392,6 +392,7 @@ function ByCustomerView({
         const isOpen = expanded[id];
         // Only ever the newest three — the summary already covers the rest.
         const visible = list.slice(0, 3);
+        const threads = countThreads(list);
         return (
           <Card key={id} className="overflow-hidden">
             <div className="flex items-center gap-2.5 border-b border-border bg-secondary/40 px-4 py-2.5">
@@ -401,11 +402,14 @@ function ByCustomerView({
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {companyName(id)}
               </span>
-              {/* Logged is history only; anything booked ahead sits beside it. */}
-              <Badge variant="outline">{countThreads(list).logged}</Badge>
-              {countThreads(list).upcoming > 0 && (
+              {/*
+                The only place counts appear. Logged is history; anything
+                booked ahead is named rather than added to it.
+              */}
+              <Badge variant="outline">{threads.logged}</Badge>
+              {threads.upcoming > 0 && (
                 <Badge variant="accent" className="px-1.5 py-0 text-[10px]">
-                  +{countThreads(list).upcoming} upcoming
+                  {threads.upcoming} upcoming
                 </Badge>
               )}
             </div>
