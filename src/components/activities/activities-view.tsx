@@ -7,7 +7,11 @@ import {
   Building2,
   CalendarClock,
   Check,
+  ChevronLeft,
   ChevronRight,
+  ChevronRight as ChevronRightIcon,
+  ChevronsLeft,
+  ChevronsRight,
   ListChecks,
   PenLine,
   Plus,
@@ -26,7 +30,11 @@ import {
   type Activity,
   type ActivityType,
 } from "@/lib/activities";
-import { countThreads } from "@/lib/activity-narrative";
+import {
+  countThreads,
+  hasHappened,
+  isUpcoming,
+} from "@/lib/activity-narrative";
 import { DEAL_OWNERS } from "@/lib/deals";
 import { useData } from "@/components/providers/data-provider";
 import { ActivityRow } from "./activity-row";
@@ -87,7 +95,11 @@ export function ActivitiesView() {
   const { activities, companies, loading } = useData();
 
   const [view, setView] = React.useState<ViewMode>("timeline");
-  const [period, setPeriod] = React.useState<Period>("month");
+  // "all" by default so the Timeline opens grouped by Today / Yesterday.
+  // Choosing a period switches it to a flat dated list.
+  const [period, setPeriod] = React.useState<Period>("all");
+  const [page, setPage] = React.useState(1);
+  const [perPage, setPerPage] = React.useState(25);
   const [query, setQuery] = React.useState("");
   const [types, setTypes] = React.useState<ActivityType[]>([]);
   const [owners, setOwners] = React.useState<string[]>([]);
@@ -128,11 +140,25 @@ export function ActivitiesView() {
   const periodScoped = React.useMemo(() => {
     const days = PERIODS.find((p) => p.id === period)?.days ?? null;
     if (days === null) return filtered;
-    const cutoff = Date.now() - days * 86_400_000;
-    return filtered.filter(
-      (a) => new Date(a.occurredAt).getTime() >= cutoff,
-    );
+    const now = Date.now();
+    const cutoff = now - days * 86_400_000;
+    return filtered.filter((a) => {
+      const at = new Date(a.occurredAt).getTime();
+      // Upcoming entries are never filtered out: they sit in their own pinned
+      // section, and "later than the cutoff" would otherwise let a meeting
+      // booked for next year show up under Week.
+      if (at > now) return true;
+      return at >= cutoff;
+    });
   }, [filtered, period]);
+
+  /*
+    Any change to the result set sends you back to page 1 — otherwise you can
+    sit on page 8 of a list that now has two pages.
+  */
+  React.useEffect(() => {
+    setPage(1);
+  }, [period, perPage, query, types, owners]);
 
   /**
    * Completing a task opens the log form rather than silently ticking a box,
@@ -280,6 +306,21 @@ export function ActivitiesView() {
           <span className="ml-1 text-[11px] text-muted-foreground">
             {periodScoped.length} of {filtered.length} shown
           </span>
+
+          <label className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            Rows per page
+            <select
+              value={perPage}
+              onChange={(e) => setPerPage(Number(e.target.value))}
+              className="h-7 rounded-lg border border-input bg-background px-1.5 text-xs outline-none focus-visible:border-accent"
+            >
+              {[10, 25, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
 
@@ -296,7 +337,13 @@ export function ActivitiesView() {
           ))}
         </Card>
       ) : view === "timeline" ? (
-        <TimelineView activities={periodScoped} />
+        <TimelineView
+          activities={periodScoped}
+          grouped={period === "all"}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+        />
       ) : view === "by-customer" ? (
         <ByCustomerView
           activities={filtered}
@@ -326,39 +373,182 @@ export function ActivitiesView() {
 
 /* ------------------------------------------------------------------ */
 
-function TimelineView({ activities }: { activities: Activity[] }) {
-  const grouped = React.useMemo(() => {
+/**
+ * Timeline.
+ *
+ * Three behaviours agreed with the user, all interacting:
+ *
+ *   UPCOMING sits above everything, outside the paging. Entries booked for a
+ *   future date are few, and burying next week's meeting on page 6 would
+ *   defeat the point of recording it.
+ *
+ *   HEADINGS only when unfiltered. Once a period is chosen the filter already
+ *   states the range — under Week it produced 3 headings for 4 rows, which is
+ *   more heading than content. Filtered views get a flat dated list instead.
+ *
+ *   PAGING applies to history only, newest first.
+ */
+function TimelineView({
+  activities,
+  grouped,
+  page,
+  perPage,
+  onPageChange,
+}: {
+  activities: Activity[];
+  /** Date buckets, used only when no period filter is active. */
+  grouped: boolean;
+  page: number;
+  perPage: number;
+  onPageChange: (page: number) => void;
+}) {
+  const now = Date.now();
+
+  const { upcoming, history } = React.useMemo(() => {
+    const sorted = sortByRecent(activities);
+    return {
+      // Soonest first: the next thing to prepare for leads.
+      upcoming: sorted
+        .filter((a) => isUpcoming(a, now))
+        .reverse(),
+      history: sorted.filter((a) => hasHappened(a, now)),
+    };
+  }, [activities, now]);
+
+  const totalPages = Math.max(Math.ceil(history.length / perPage), 1);
+  const safePage = Math.min(page, totalPages);
+  const pageItems = history.slice(
+    (safePage - 1) * perPage,
+    safePage * perPage,
+  );
+
+  // Buckets are built from the current page, so a heading never spans pages.
+  const buckets = React.useMemo(() => {
+    if (!grouped) return null;
     const map = new Map<string, Activity[]>();
-    sortByRecent(activities).forEach((a) => {
+    pageItems.forEach((a) => {
       const key = dateBucket(a.occurredAt);
       map.set(key, [...(map.get(key) ?? []), a]);
     });
     return [...map.entries()];
-  }, [activities]);
+  }, [pageItems, grouped]);
 
   if (activities.length === 0) return <Empty />;
 
   return (
     <div className="space-y-4">
-      {grouped.map(([bucket, items]) => (
-        <div key={bucket}>
-          <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-            {bucket}
+      {upcoming.length > 0 && (
+        <div>
+          <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-chart-4">
+            Upcoming · {upcoming.length}
           </div>
-          <Card className="divide-y divide-border/60">
-            {items.map((a, i) => (
-              <motion.div
-                key={a.id}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2) }}
-              >
-                <ActivityRow activity={a} />
-              </motion.div>
+          <Card className="divide-y divide-border/60 border-chart-4/30">
+            {upcoming.map((a) => (
+              <ActivityRow key={a.id} activity={a} />
             ))}
           </Card>
         </div>
-      ))}
+      )}
+
+      {history.length === 0 ? (
+        <Empty label="Nothing logged in this period yet." />
+      ) : buckets ? (
+        buckets.map(([bucket, items]) => (
+          <div key={bucket}>
+            <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {bucket}
+            </div>
+            <Card className="divide-y divide-border/60">
+              {items.map((a, i) => (
+                <motion.div
+                  key={a.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2) }}
+                >
+                  <ActivityRow activity={a} />
+                </motion.div>
+              ))}
+            </Card>
+          </div>
+        ))
+      ) : (
+        /* Filtered: flat list, each row carrying its own date. */
+        <Card className="divide-y divide-border/60">
+          {pageItems.map((a, i) => (
+            <motion.div
+              key={a.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2) }}
+            >
+              <ActivityRow activity={a} showDate />
+            </motion.div>
+          ))}
+        </Card>
+      )}
+
+      {history.length > perPage && (
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+      )}
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  const btn =
+    "flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+  return (
+    <div className="flex items-center justify-center gap-2 pt-1">
+      <span className="text-xs text-muted-foreground">
+        Page {page} of {totalPages}
+      </span>
+      <div className="flex gap-1">
+        <button
+          className={btn}
+          onClick={() => onPageChange(1)}
+          disabled={page === 1}
+          aria-label="First page"
+        >
+          <ChevronsLeft className="size-4" />
+        </button>
+        <button
+          className={btn}
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <button
+          className={btn}
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+          aria-label="Next page"
+        >
+          <ChevronRightIcon className="size-4" />
+        </button>
+        <button
+          className={btn}
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages}
+          aria-label="Last page"
+        >
+          <ChevronsRight className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -419,7 +609,8 @@ function ByCustomerView({
               at hundreds of logs per customer, nobody reads them top to bottom.
             */}
             <div className="p-3">
-              <CustomerSummary activities={list} defaultOpen />
+              {/* Collapsed until asked for — the user decides what to open. */}
+              <CustomerSummary activities={list} defaultOpen={false} />
             </div>
 
             {isOpen && (

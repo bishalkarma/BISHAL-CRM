@@ -44,10 +44,16 @@ export function ActivityRow({
   activity,
   compact = false,
   showCompany = true,
+  /**
+   * Used by the filtered Timeline, which drops the date headings — each row
+   * then has to carry its own date.
+   */
+  showDate = false,
 }: {
   activity: Activity;
   compact?: boolean;
   showCompany?: boolean;
+  showDate?: boolean;
 }) {
   const { companies, contactById, deals } = useData();
   const def = ACTIVITY_MAP[activity.type];
@@ -102,7 +108,12 @@ export function ActivityRow({
             </Badge>
           )}
           <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-            {relativeTime(activity.occurredAt)}
+            {showDate
+              ? new Date(activity.occurredAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })
+              : relativeTime(activity.occurredAt)}
           </span>
         </div>
 
