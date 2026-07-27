@@ -24,11 +24,11 @@ import { useData } from "@/components/providers/data-provider";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -69,20 +69,23 @@ export function CompanyDrawer({
   const lead = LEAD_STATUS_META[company.leadStatus];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md"
-      >
-        <SheetHeader className="border-b border-border p-5 pr-12">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/*
+        Centred pop-up, matching the deal view: the customer record and the
+        activity journal sit side by side rather than stacking into one long
+        scroll. Below `lg` the columns collapse into a single full-height
+        column, so a phone loses the layout but not the content.
+      */}
+      <DialogContent className="flex max-h-[92vh] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 space-y-1.5 border-b border-border p-5 pr-12 text-left">
           <div className="flex items-center gap-2.5">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-sm font-semibold text-accent">
               {company.name.charAt(0)}
             </span>
             <div className="min-w-0">
-              <SheetTitle className="truncate text-base">
+              <DialogTitle className="truncate text-base">
                 {company.name}
-              </SheetTitle>
+              </DialogTitle>
               <div className="truncate text-xs text-muted-foreground">
                 {company.cluster && company.cluster !== "Independent"
                   ? `${company.cluster} · `
@@ -103,9 +106,10 @@ export function CompanyDrawer({
               </Badge>
             )}
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="space-y-5 p-5">
+        <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-5 overflow-y-auto p-5 lg:border-r lg:border-border">
           {/* SPANCOP */}
           <div>
             <div className="flex items-center justify-between pb-2">
@@ -338,28 +342,29 @@ export function CompanyDrawer({
             )}
           </div>
 
-          <Separator />
+            <Button
+              variant="outline"
+              className="w-full lg:hidden"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
+          </div>
 
           {/*
             Every activity for this customer, across all deals — the widest of
             the three scopes, so it keeps the full summary and risk flag.
           */}
-          <DrawerJournal
-            activities={companyActivities}
-            scope="company"
-            companyId={company.id}
-          />
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </Button>
+          <div className="overflow-y-auto border-t border-border p-5 lg:border-t-0">
+            <DrawerJournal
+              activities={companyActivities}
+              scope="company"
+              companyId={company.id}
+            />
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
