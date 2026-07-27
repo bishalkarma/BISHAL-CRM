@@ -39,11 +39,12 @@ import {
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DrawerJournal } from "@/components/activities/drawer-journal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -64,7 +65,12 @@ export function DealDrawer({
   onEditLostReason?: (deal: Deal) => void;
 }) {
   const { display, toDisplay, format } = useCurrency();
-  const { contactById } = useData();
+  const { contactById, activitiesFor } = useData();
+  // Deal-scoped: activitiesFor filters on dealId when one is supplied.
+  const dealActivities = React.useMemo(
+    () => (deal ? activitiesFor({ dealId: deal.id }) : []),
+    [activitiesFor, deal],
+  );
   if (!deal) return null;
 
   const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
@@ -72,12 +78,15 @@ export function DealDrawer({
   const isForeign = deal.currency !== display;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md"
-      >
-        <SheetHeader className="border-b border-border p-5 pr-12">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/*
+        A centred pop-up rather than a side panel: the details and the deal's
+        history sit side by side instead of stacking into one long scroll.
+        Below `lg` the two columns fall back to a single full-height column,
+        so nothing is hidden on a phone.
+      */}
+      <DialogContent className="flex max-h-[92vh] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 space-y-1.5 border-b border-border p-5 pr-12 text-left">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-mono text-[10px]">
               {deal.id}
@@ -104,16 +113,17 @@ export function DealDrawer({
               </Badge>
             )}
           </div>
-          <SheetTitle className="text-lg leading-snug">{deal.title}</SheetTitle>
+          <DialogTitle className="text-lg leading-snug">{deal.title}</DialogTitle>
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Building2 className="size-3.5" />
             {deal.company}
             <span aria-hidden>·</span>
             <span>{deal.accountType}</span>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="space-y-5 p-5">
+        <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-5 overflow-y-auto p-5 lg:border-r lg:border-border">
           {/* Value */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -474,21 +484,31 @@ export function DealDrawer({
             </div>
           </div>
 
-          <div className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-            Notes, files, quotations and the full activity timeline arrive in
-            Part 3 &amp; 4.
+            <Button
+              variant="outline"
+              className="w-full lg:hidden"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </Button>
+          {/*
+            Only activities deliberately linked to this deal. The summary is
+            built from the same list, so it can never mention a conversation
+            that belongs to the customer rather than the deal.
+          */}
+          <div className="overflow-y-auto border-t border-border p-5 lg:border-t-0">
+            <DrawerJournal
+              activities={dealActivities}
+              scope="deal"
+              companyId={deal.companyId}
+              dealId={deal.id}
+            />
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

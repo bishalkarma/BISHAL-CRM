@@ -28,9 +28,12 @@ const BULLET_TONE: Record<BulletKind, string> = {
 export function CustomerSummary({
   activities,
   defaultOpen = true,
+  /** "Deal summary" inside a deal pop-up, so the scope is never ambiguous. */
+  label = "Summary",
 }: {
   activities: Activity[];
   defaultOpen?: boolean;
+  label?: string;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const { contactById } = useData();
@@ -63,7 +66,7 @@ export function CustomerSummary({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Summary
+              {label}
             </span>
             {/*
               Soft by design. This is a prompt to go and look, never a verdict,

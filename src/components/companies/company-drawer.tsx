@@ -19,6 +19,8 @@ import type { Company } from "@/lib/companies";
 import { LEAD_STATUS_META } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/spancop";
 import { alertFor, suggestionFor } from "./use-companies";
+import { DrawerJournal } from "@/components/activities/drawer-journal";
+import { useData } from "@/components/providers/data-provider";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
 import {
@@ -53,6 +55,11 @@ export function CompanyDrawer({
   ) => void;
   onDismissSuggestion: (id: string, stage: SpancopStage) => void;
 }) {
+  const { activitiesFor } = useData();
+  const companyActivities = React.useMemo(
+    () => (company ? activitiesFor({ companyId: company.id }) : []),
+    [activitiesFor, company],
+  );
   if (!company) return null;
 
   const suggestion = suggestionFor(company);
@@ -330,6 +337,18 @@ export function CompanyDrawer({
               </ul>
             )}
           </div>
+
+          <Separator />
+
+          {/*
+            Every activity for this customer, across all deals — the widest of
+            the three scopes, so it keeps the full summary and risk flag.
+          */}
+          <DrawerJournal
+            activities={companyActivities}
+            scope="company"
+            companyId={company.id}
+          />
 
           <Button
             variant="outline"
