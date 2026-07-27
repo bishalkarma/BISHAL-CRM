@@ -136,7 +136,7 @@ export function CompanyDrawer({
                 <ArrowRight className="size-3.5 text-muted-foreground" />
                 {SPANCOP_MAP[suggestion.stage].label}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 break-words text-xs text-muted-foreground">
                 {suggestion.reason}
               </p>
               <div className="mt-2.5 flex gap-2">
@@ -301,7 +301,7 @@ export function CompanyDrawer({
           </dl>
 
           {company.remarks && (
-            <div className="rounded-xl bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground">
+            <div className="break-words rounded-xl bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground">
               {company.remarks}
             </div>
           )}
@@ -332,7 +332,7 @@ export function CompanyDrawer({
                         {t.from ? `${SPANCOP_MAP[t.from].label} → ` : ""}
                         {SPANCOP_MAP[t.to].label}
                       </div>
-                      <div className="text-muted-foreground">
+                      <div className="break-words text-muted-foreground">
                         {t.reason} · {relativeTime(t.at)} · {t.by}
                       </div>
                     </div>

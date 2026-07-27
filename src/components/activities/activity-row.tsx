@@ -129,7 +129,9 @@ export function ActivityRow({
               {activity.report}
             </ClampedText>
           ) : (
-            <p className="text-sm text-muted-foreground">{activity.report}</p>
+            <p className="break-words text-sm text-muted-foreground">
+              {activity.report}
+            </p>
           )}
         </div>
 

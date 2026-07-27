@@ -52,7 +52,7 @@ export function DealCardContent({
 
       <div className="flex items-start gap-2 pl-1.5">
         <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 text-sm font-medium leading-snug">
+          <div className="line-clamp-2 break-words text-sm font-medium leading-snug">
             {deal.title}
           </div>
           <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">

@@ -113,7 +113,9 @@ export function DealDrawer({
               </Badge>
             )}
           </div>
-          <DialogTitle className="text-lg leading-snug">{deal.title}</DialogTitle>
+          <DialogTitle className="break-words text-lg leading-snug">
+            {deal.title}
+          </DialogTitle>
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Building2 className="size-3.5" />
             {deal.company}
@@ -460,7 +462,9 @@ export function DealDrawer({
                   </button>
                 )}
               </div>
-              <p className="mt-1 text-sm font-medium">{deal.lostReason}</p>
+              <p className="mt-1 break-words text-sm font-medium">
+                {deal.lostReason}
+              </p>
               {deal.lostNote && (
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {deal.lostNote}

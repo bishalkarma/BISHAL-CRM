@@ -104,7 +104,7 @@ export function SuggestionsDialog({
                         <span className="font-medium text-foreground">
                           Reason:{" "}
                         </span>
-                        <span className="text-muted-foreground">
+                        <span className="break-words text-muted-foreground">
                           {suggestion.reason}
                         </span>
                       </div>

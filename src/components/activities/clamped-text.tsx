@@ -48,7 +48,12 @@ export function ClampedText({
     <span className="block">
       <span
         ref={ref}
-        className={cn("block", className)}
+        /*
+          break-words is essential here, not cosmetic: line-clamp limits the
+          number of rows but not the width, so a single unbroken string still
+          widened the panel before clamping ever applied.
+        */
+        className={cn("block break-words", className)}
         style={
           expanded
             ? undefined

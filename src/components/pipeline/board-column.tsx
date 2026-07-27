@@ -238,7 +238,7 @@ function ClosedDealCard({
       </div>
 
       {deal.lostReason && (
-        <div className="mt-1.5 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">
+        <div className="mt-1.5 line-clamp-2 break-words text-[10px] leading-relaxed text-muted-foreground">
           {deal.lostReason}
         </div>
       )}

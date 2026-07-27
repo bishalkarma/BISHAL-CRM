@@ -182,7 +182,7 @@ export function LogActivityDialog({
           <div className="flex items-start gap-2.5 rounded-xl border border-accent/40 bg-accent/[0.06] p-3">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent" />
             <div className="min-w-0 flex-1 text-sm">
-              <div className="font-medium">{completing.task}</div>
+              <div className="break-words font-medium">{completing.task}</div>
               <div className="text-xs text-muted-foreground">
                 Write what happened. Add another follow-up if the work
                 continues.

@@ -762,7 +762,10 @@ function OpenTasksView({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{a.task}</span>
+                    {/* User-typed: can be one unbroken string. */}
+                    <span className="min-w-0 break-words text-sm font-medium">
+                      {a.task}
+                    </span>
                     {taskUrgencyLabel(a) && (
                       <span
                         className={cn(
