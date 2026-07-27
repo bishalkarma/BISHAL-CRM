@@ -23,6 +23,7 @@
 
 import { ACTIVITY_MAP, type Activity, type ActivityType } from "./activities";
 import { detectRisk, type RiskFlag } from "./activity-risk";
+import { buildStory, type StoryLine } from "./activity-story";
 
 const DAY = 86_400_000;
 
@@ -177,6 +178,11 @@ export type Bullet = { kind: BulletKind; text: string };
 export type Momentum = "active" | "cooling" | "quiet" | "new";
 
 export type CustomerBrief = {
+  /**
+   * The turning points, oldest first. Replaces quoting only the newest entry,
+   * which could not convey what a deal was even about.
+   */
+  story: StoryLine[];
   bullets: Bullet[];
   counts: ThreadCounts;
   risk: RiskFlag | null;
@@ -372,6 +378,7 @@ export function briefCustomer(
   }
 
   return {
+    story: buildStory(activities, now),
     bullets,
     counts,
     risk: detectRisk(activities, now),

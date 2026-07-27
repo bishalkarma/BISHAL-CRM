@@ -50,7 +50,7 @@ export function CustomerSummary({
 
   if (!brief) return null;
 
-  const { bullets, risk } = brief;
+  const { bullets, risk, story } = brief;
 
   return (
     <div className="rounded-xl border border-accent/30 bg-accent/[0.05]">
@@ -99,7 +99,7 @@ export function CustomerSummary({
                         ? "yesterday"
                         : `${risk.daysAgo} days ago`
                   }`
-                : bullets[0]?.text}
+                : (story[story.length - 1]?.text ?? bullets[0]?.text)}
             </p>
           )}
         </div>
@@ -137,8 +137,56 @@ export function CustomerSummary({
                 </div>
               )}
 
-              <ul className="space-y-1.5">
-                {bullets.map((bullet, i) => (
+              {/*
+                The story thread — the turning points, oldest first. Quoting
+                only the newest entry could not convey what a deal was about;
+                this carries the quantity, the value and the outcome.
+              */}
+              {story.length > 0 && (
+                <ol className="relative space-y-2 pl-[70px]">
+                  <span
+                    aria-hidden
+                    className="absolute bottom-1 left-[62px] top-1 w-px bg-border"
+                  />
+                  {story.map((line, i) => (
+                    <motion.li
+                      key={line.id}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: 0.04 + i * 0.04 }}
+                      className="relative"
+                    >
+                      <span className="absolute -left-[70px] top-[1px] w-[56px] text-right text-[10px] leading-relaxed text-muted-foreground">
+                        {line.when}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute -left-[11px] top-[6px] size-1.5 rounded-full ring-2 ring-[hsl(var(--card))]",
+                          line.tone === "risk"
+                            ? "bg-destructive"
+                            : line.tone === "positive"
+                              ? "bg-success"
+                              : "bg-muted-foreground/40",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "block text-[13px] leading-relaxed",
+                          line.tone === "risk"
+                            ? "font-medium text-destructive"
+                            : "text-foreground/85",
+                        )}
+                      >
+                        {line.text}
+                      </span>
+                    </motion.li>
+                  ))}
+                </ol>
+              )}
+
+              <ul className="space-y-1.5 border-t border-accent/20 pt-2">
+                {bullets.slice(1).map((bullet, i) => (
                   <motion.li
                     key={i}
                     initial={{ opacity: 0, x: -4 }}
