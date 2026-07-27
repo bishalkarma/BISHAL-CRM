@@ -165,10 +165,79 @@ export function CustomerSummary({
                   </motion.li>
                 ))}
               </ul>
+
+              {/*
+                Supporting detail under the bullets.
+
+                Interactions and Deals are deliberately absent: the count is
+                already beside the customer name and the deal is already in
+                bullet 2. Showing either again would be the same duplication
+                we just removed.
+              */}
+              <div className="space-y-2 border-t border-accent/20 pt-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <Stat
+                    label="Cadence"
+                    value={brief.cadenceDays ? `${brief.cadenceDays}d` : "—"}
+                    hint="avg gap"
+                  />
+                  <Stat
+                    label="Last contact"
+                    value={
+                      brief.daysSinceLast === null
+                        ? "—"
+                        : brief.daysSinceLast === 0
+                          ? "Today"
+                          : `${brief.daysSinceLast}d`
+                    }
+                    hint={brief.daysSinceLast ? "ago" : undefined}
+                  />
+                </div>
+
+                {brief.mix && <Line label="Mix" value={brief.mix} />}
+                <Line label="Rhythm" value={brief.rhythm} />
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-background/60 px-2.5 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm font-semibold tabular-nums">
+        {value}
+        {hint && (
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2 text-xs">
+      <span className="w-14 shrink-0 font-medium text-muted-foreground">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 text-foreground/80">{value}</span>
     </div>
   );
 }

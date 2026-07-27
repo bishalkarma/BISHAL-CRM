@@ -21,7 +21,7 @@
  *   its task still surfaces as the next step, because that work is real now.
  */
 
-import { type Activity, type ActivityType } from "./activities";
+import { ACTIVITY_MAP, type Activity, type ActivityType } from "./activities";
 import { detectRisk, type RiskFlag } from "./activity-risk";
 
 const DAY = 86_400_000;
@@ -173,6 +173,9 @@ export type BulletKind =
 
 export type Bullet = { kind: BulletKind; text: string };
 
+/** How the relationship is trending, judged against its own rhythm. */
+export type Momentum = "active" | "cooling" | "quiet" | "new";
+
 export type CustomerBrief = {
   bullets: Bullet[];
   counts: ThreadCounts;
@@ -182,6 +185,13 @@ export type CustomerBrief = {
   /** Average days between interactions; null with fewer than two. */
   cadenceDays: number | null;
   daysSinceLast: number | null;
+
+  /** Channel mix, busiest first — "4 calls, 2 meetings". */
+  mix: string;
+  typeCounts: { type: ActivityType; label: string; count: number }[];
+  momentum: Momentum;
+  /** Plain-language reading of the contact rhythm. */
+  rhythm: string;
 };
 
 /**
@@ -320,15 +330,57 @@ export function briefCustomer(
     });
   }
 
+  /* ---- Supporting stats, shown under the bullets ------------------ */
+  const tally = new Map<ActivityType, number>();
+  for (const a of happened) tally.set(a.type, (tally.get(a.type) ?? 0) + 1);
+  const typeCounts = [...tally.entries()]
+    .map(([type, count]) => ({ type, label: ACTIVITY_MAP[type].label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const mix = typeCounts
+    .map((t) => plural(t.count, t.label.toLowerCase()))
+    .join(", ");
+
+  const daysSinceLast =
+    happened.length > 0
+      ? dayGap(happened[happened.length - 1].occurredAt, now)
+      : null;
+
+  /*
+    Momentum is judged against the customer's OWN rhythm. A weekly account
+    going 20 days silent matters; a quarterly one at 20 days does not.
+  */
+  let momentum: Momentum;
+  let rhythm: string;
+  if (happened.length <= 1) {
+    momentum = "new";
+    rhythm = "Too early to read a pattern.";
+  } else if ((daysSinceLast ?? 0) > 30) {
+    momentum = "quiet";
+    rhythm = `Gone quiet — ${plural(daysSinceLast ?? 0, "day")} since the last contact.`;
+  } else if (cadenceDays !== null && (daysSinceLast ?? 0) > cadenceDays * 2) {
+    momentum = "cooling";
+    rhythm = `Cooling — usually every ${plural(
+      cadenceDays,
+      "day",
+    )}, now ${plural(daysSinceLast ?? 0, "day")}.`;
+  } else {
+    momentum = "active";
+    rhythm = `Steady contact, roughly every ${plural(
+      cadenceDays ?? daysSinceLast ?? 0,
+      "day",
+    )}.`;
+  }
+
   return {
     bullets,
     counts,
     risk: detectRisk(activities, now),
     dealIds,
     cadenceDays,
-    daysSinceLast:
-      happened.length > 0
-        ? dayGap(happened[happened.length - 1].occurredAt, now)
-        : null,
+    daysSinceLast,
+    mix,
+    typeCounts,
+    momentum,
+    rhythm,
   };
 }
