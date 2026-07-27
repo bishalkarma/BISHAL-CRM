@@ -60,6 +60,22 @@ import { cn, initials, relativeTime } from "@/lib/utils";
 type ViewMode = "timeline" | "by-customer" | "open-tasks";
 
 /**
+ * The three task buckets shown as tiles.
+ *
+ * These mirror taskCounts rather than TaskUrgency: "upcoming" is the tile's
+ * name for everything that is neither late nor due today, which taskUrgency
+ * splits into "soon" and "later".
+ */
+type TaskBucket = "today" | "overdue" | "upcoming";
+
+function bucketOf(activity: Activity, now = Date.now()): TaskBucket {
+  const urgency = taskUrgency(activity, now);
+  if (urgency === "overdue") return "overdue";
+  if (urgency === "today") return "today";
+  return "upcoming";
+}
+
+/**
  * Timeline-only period filter.
  *
  * Deliberately not applied to By customer or Open tasks: a customer summary
@@ -99,6 +115,11 @@ export function ActivitiesView() {
   // Choosing a period switches it to a flat dated list.
   const [period, setPeriod] = React.useState<Period>("all");
   const [page, setPage] = React.useState(1);
+  /**
+   * Tile filter for Open tasks. Null means "all open tasks".
+   * Kept separate from the period filter, which belongs to Timeline only.
+   */
+  const [bucket, setBucket] = React.useState<TaskBucket | null>(null);
   const [perPage, setPerPage] = React.useState(25);
   const [query, setQuery] = React.useState("");
   const [types, setTypes] = React.useState<ActivityType[]>([]);
@@ -152,6 +173,15 @@ export function ActivitiesView() {
     });
   }, [filtered, period]);
 
+  /**
+   * Tapping a tile always lands you on the list it describes — from Timeline
+   * or By customer, "Overdue" plainly means "show me those".
+   */
+  const toggleBucket = React.useCallback((next: TaskBucket) => {
+    setView("open-tasks");
+    setBucket((current) => (current === next ? null : next));
+  }, []);
+
   /*
     Any change to the result set sends you back to page 1 — otherwise you can
     sit on page 8 of a list that now has two pages.
@@ -193,9 +223,27 @@ export function ActivitiesView() {
         lands in exactly one of the first three tiles.
       */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Due today" value={counts.today} tone="warning" />
-        <Tile label="Overdue" value={counts.overdue} tone="danger" />
-        <Tile label="Upcoming" value={counts.upcoming} tone="accent" />
+        <Tile
+          label="Due today"
+          value={counts.today}
+          tone="warning"
+          active={bucket === "today"}
+          onClick={() => toggleBucket("today")}
+        />
+        <Tile
+          label="Overdue"
+          value={counts.overdue}
+          tone="danger"
+          active={bucket === "overdue"}
+          onClick={() => toggleBucket("overdue")}
+        />
+        <Tile
+          label="Upcoming"
+          value={counts.upcoming}
+          tone="accent"
+          active={bucket === "upcoming"}
+          onClick={() => toggleBucket("upcoming")}
+        />
         {/* Future-dated entries are not history yet, so they are not counted. */}
         <Tile
           label="Logged"
@@ -364,6 +412,8 @@ export function ActivitiesView() {
           activities={filtered}
           companyName={companyName}
           onComplete={startComplete}
+          bucket={bucket}
+          onClearBucket={() => setBucket(null)}
         />
       )}
 
@@ -685,19 +735,29 @@ function ByCustomerView({
   );
 }
 
+const BUCKET_LABEL: Record<TaskBucket, string> = {
+  today: "due today",
+  overdue: "overdue",
+  upcoming: "upcoming",
+};
+
 function OpenTasksView({
   activities,
   companyName,
   onComplete,
+  bucket,
+  onClearBucket,
 }: {
   activities: Activity[];
   companyName: (id: string) => string;
   onComplete: (a: Activity) => void;
+  bucket: TaskBucket | null;
+  onClearBucket: () => void;
 }) {
   const { contactById, deals } = useData();
 
   // Overdue first, then by due date — the order you would work them in.
-  const tasks = React.useMemo(
+  const all = React.useMemo(
     () =>
       activities
         .filter(isOpenTask)
@@ -709,11 +769,48 @@ function OpenTasksView({
     [activities],
   );
 
-  if (tasks.length === 0)
+  const tasks = React.useMemo(
+    () => (bucket ? all.filter((a) => bucketOf(a) === bucket) : all),
+    [all, bucket],
+  );
+  const hidden = all.length - tasks.length;
+
+  if (all.length === 0)
     return <Empty label="No open tasks. Everything is closed out." />;
 
   return (
     <div className="space-y-2">
+      {/*
+        A filter must never be silent: the banner names it, offers a way out,
+        and says how much is being withheld.
+      */}
+      {bucket && (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs">
+          <span className="font-medium">
+            Showing {tasks.length} {BUCKET_LABEL[bucket]}{" "}
+            {tasks.length === 1 ? "task" : "tasks"}
+          </span>
+          {hidden > 0 && (
+            <span className="text-muted-foreground">
+              · {hidden} other open {hidden === 1 ? "task" : "tasks"} hidden
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onClearBucket}
+            className="ml-auto font-medium text-accent hover:underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+
+      {tasks.length === 0 && (
+        <Empty
+          label={`No ${BUCKET_LABEL[bucket ?? "today"]} tasks. Clear the filter to see the rest.`}
+        />
+      )}
+
       {/*
         Completed tasks leave this list the moment they are logged — the exit
         animation makes that visible, so it never looks like nothing happened.
@@ -829,19 +926,41 @@ function Empty({ label = "No activities match your filters." }: { label?: string
   );
 }
 
+/**
+ * A count, and where it applies, a filter.
+ *
+ * Due today / Overdue / Upcoming each select a slice of the open-task list.
+ * Logged is history rather than work, so it stays inert — there is nothing
+ * to filter to.
+ *
+ * The active tile is marked by colour and a ring only. An explicit close
+ * control was considered and dropped: the tile is its own toggle, so a second
+ * affordance would just be another thing to aim at.
+ */
 function Tile({
   label,
   value,
   hint,
   tone = "neutral",
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
   hint?: string;
   tone?: "neutral" | "warning" | "danger" | "accent";
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <Card className="p-3">
+  const ring =
+    tone === "danger"
+      ? "border-destructive ring-1 ring-destructive/30 bg-destructive/[0.04]"
+      : tone === "warning"
+        ? "border-warning ring-1 ring-warning/30 bg-warning/[0.05]"
+        : "border-accent ring-1 ring-accent/30 bg-accent/[0.04]";
+
+  const body = (
+    <>
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         {tone === "danger" && value > 0 && (
           <AlertTriangle className="size-3 text-destructive" />
@@ -861,6 +980,27 @@ function Tile({
         {value}
       </div>
       {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
-    </Card>
+    </>
+  );
+
+  if (!onClick) {
+    return <Card className="p-3 opacity-80">{body}</Card>;
+  }
+
+  // A button rather than a Card wrapper: Card renders a div, and a div
+  // holding a button is neither keyboard-reachable nor announced as pressed.
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-2xl border border-border bg-card p-3 text-left text-card-foreground shadow-[var(--shadow-card)] transition-colors",
+        "hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        active && ring,
+      )}
+    >
+      {body}
+    </button>
   );
 }
