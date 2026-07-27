@@ -184,17 +184,25 @@ export function ActivitiesView() {
         }
       />
 
-      {/* Task counts — the same numbers behind the bell */}
-      <div className="grid grid-cols-3 gap-3">
+      {/*
+        Task counts — the same numbers behind the bell.
+
+        Upcoming has its own tile because taskCounts already computed it and
+        nothing displayed it: with every task weeks away, the row read
+        "0 · 0" while three tasks were genuinely open. Every open task now
+        lands in exactly one of the first three tiles.
+      */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label="Due today" value={counts.today} tone="warning" />
         <Tile label="Overdue" value={counts.overdue} tone="danger" />
+        <Tile label="Upcoming" value={counts.upcoming} tone="accent" />
         {/* Future-dated entries are not history yet, so they are not counted. */}
         <Tile
           label="Logged"
           value={threadTotals.logged}
           hint={
             threadTotals.upcoming > 0
-              ? `${threadTotals.upcoming} upcoming`
+              ? `${threadTotals.upcoming} scheduled`
               : "all time"
           }
         />
@@ -403,6 +411,8 @@ function TimelineView({
   onPageChange: (page: number) => void;
 }) {
   const now = Date.now();
+  // Starts closed: the Timeline is history, upcoming is a peek ahead.
+  const [upcomingOpen, setUpcomingOpen] = React.useState(false);
 
   const { upcoming, history } = React.useMemo(() => {
     const sorted = sortByRecent(activities);
@@ -437,17 +447,50 @@ function TimelineView({
 
   return (
     <div className="space-y-4">
+      {/*
+        Collapsed by default so the Timeline reads as history. It cannot be
+        removed outright: Open tasks only lists tasks, so a scheduled visit
+        with no follow-up attached would otherwise be invisible everywhere.
+      */}
       {upcoming.length > 0 && (
-        <div>
-          <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-chart-4">
-            Upcoming · {upcoming.length}
-          </div>
-          <Card className="divide-y divide-border/60 border-chart-4/30">
-            {upcoming.map((a) => (
-              <ActivityRow key={a.id} activity={a} />
-            ))}
-          </Card>
-        </div>
+        <Card className="overflow-hidden border-chart-4/30">
+          <button
+            type="button"
+            onClick={() => setUpcomingOpen((v) => !v)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-secondary/40"
+          >
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 text-chart-4 transition-transform duration-200",
+                upcomingOpen && "rotate-90",
+              )}
+            />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-chart-4">
+              Upcoming · {upcoming.length}
+            </span>
+            <span className="ml-auto text-[11px] text-muted-foreground">
+              {upcomingOpen ? "Hide" : "Show"}
+            </span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {upcomingOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="divide-y divide-border/60 border-t border-border">
+                  {upcoming.map((a) => (
+                    <ActivityRow key={a.id} activity={a} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
       )}
 
       {history.length === 0 ? (
@@ -792,19 +835,24 @@ function Tile({
   label: string;
   value: number;
   hint?: string;
-  tone?: "neutral" | "warning" | "danger";
+  tone?: "neutral" | "warning" | "danger" | "accent";
 }) {
   return (
     <Card className="p-3">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        {tone === "danger" && <AlertTriangle className="size-3 text-destructive" />}
+        {tone === "danger" && value > 0 && (
+          <AlertTriangle className="size-3 text-destructive" />
+        )}
         {label}
       </div>
+      {/* Colour only earns attention when there is something to attend to. */}
       <div
         className={cn(
           "mt-1 text-xl font-semibold tabular-nums",
+          value === 0 && "text-muted-foreground",
           tone === "warning" && value > 0 && "text-warning",
           tone === "danger" && value > 0 && "text-destructive",
+          tone === "accent" && value > 0 && "text-accent",
         )}
       >
         {value}
