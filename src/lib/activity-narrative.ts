@@ -136,8 +136,13 @@ function didWhat(type: ActivityType, who: string | null) {
   return parts.join(" ");
 }
 
-/** Trims a report to a clause, never mid-word. */
-function clause(report: string, max = 95) {
+/**
+ * Trims text for display, never mid-word.
+ *
+ * 400 to match the story lines — the task bullet was still cutting at 70 and
+ * losing the end of the sentence long after the story limit had been raised.
+ */
+function clause(report: string, max = 400) {
   const clean = report.trim().replace(/\s+/g, " ").replace(/[.。]+$/, "");
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max);
@@ -315,7 +320,7 @@ export function briefCustomer(
         : "";
     bullets.push({
       kind: dueIn !== null && dueIn < 0 ? "overdue" : "next",
-      text: `${clause(task.task ?? "", 70)}${when}${more}.`,
+      text: `${clause(task.task ?? "")}${when}${more}.`,
     });
   } else if (upcoming.length > 0) {
     const next = upcoming[0];

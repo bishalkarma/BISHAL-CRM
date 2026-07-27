@@ -6,6 +6,7 @@ import { AlertTriangle, ChevronRight, Sparkles } from "lucide-react";
 import { briefCustomer, type BulletKind } from "@/lib/activity-narrative";
 import type { Activity } from "@/lib/activities";
 import { useData } from "@/components/providers/data-provider";
+import { ClampedText } from "./clamped-text";
 import { cn } from "@/lib/utils";
 
 /** Each bullet answers one question, and is colour-coded to match. */
@@ -170,16 +171,16 @@ export function CustomerSummary({
                               : "bg-muted-foreground/40",
                         )}
                       />
-                      <span
+                      <ClampedText
                         className={cn(
-                          "block text-[13px] leading-relaxed",
+                          "text-[13px] leading-relaxed",
                           line.tone === "risk"
                             ? "font-medium text-destructive"
                             : "text-foreground/85",
                         )}
                       >
                         {line.text}
-                      </span>
+                      </ClampedText>
                     </motion.li>
                   ))}
                 </ol>
@@ -201,17 +202,19 @@ export function CustomerSummary({
                         BULLET_TONE[bullet.kind],
                       )}
                     />
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 text-[13px] leading-relaxed",
-                        bullet.kind === "overdue"
-                          ? "font-medium text-destructive"
-                          : bullet.kind === "none"
-                            ? "text-warning"
-                            : "text-foreground/85",
-                      )}
-                    >
-                      {bullet.text}
+                    <span className="min-w-0 flex-1">
+                      <ClampedText
+                        className={cn(
+                          "text-[13px] leading-relaxed",
+                          bullet.kind === "overdue"
+                            ? "font-medium text-destructive"
+                            : bullet.kind === "none"
+                              ? "text-warning"
+                              : "text-foreground/85",
+                        )}
+                      >
+                        {bullet.text}
+                      </ClampedText>
                     </span>
                   </motion.li>
                 ))}

@@ -129,14 +129,20 @@ function ago(days: number) {
 }
 
 /**
- * Compresses a report to its essential clause.
+ * Tidies a report for display.
  *
- * Cuts at a natural boundary — a comma, or "and", "for", "after", "with" —
- * rather than mid-word. The earlier version stopped at 95 characters and
- * removed the word "order" from "approval of the purchase order", losing the
- * only fact that mattered.
+ * The limit is deliberately generous: real notes here run from 32 to 231
+ * characters, so 400 clears the longest with room to spare and nothing is
+ * lost. Height is handled visually instead — the UI clamps a long line to two
+ * rows and reveals the rest on tap, which keeps the panel compact without
+ * deleting a single word.
+ *
+ * A cut only happens past 400, and even then it breaks at a comma or a
+ * conjunction rather than mid-word. An earlier 95-character version removed
+ * "order" from "approval of the purchase order", losing the one fact that
+ * mattered.
  */
-export function gist(report: string, max = 110) {
+export function gist(report: string, max = 400) {
   const text = report
     .trim()
     .replace(/\s+/g, " ")

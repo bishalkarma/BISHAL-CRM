@@ -21,6 +21,7 @@ import {
 import { useData } from "@/components/providers/data-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ClampedText } from "./clamped-text";
 import { cn, initials, relativeTime } from "@/lib/utils";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -117,14 +118,20 @@ export function ActivityRow({
           </span>
         </div>
 
-        <p
-          className={cn(
-            "mt-0.5 text-sm text-muted-foreground",
-            compact ? "line-clamp-2" : "",
+        {/*
+          In a drawer the row was hard-clamped to two lines with no way to
+          read the rest. Same treatment as the summary now: clamped, but
+          expandable, and the full text is always present.
+        */}
+        <div className="mt-0.5">
+          {compact ? (
+            <ClampedText className="text-sm text-muted-foreground">
+              {activity.report}
+            </ClampedText>
+          ) : (
+            <p className="text-sm text-muted-foreground">{activity.report}</p>
           )}
-        >
-          {activity.report}
-        </p>
+        </div>
 
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           {showCompany && company && (
