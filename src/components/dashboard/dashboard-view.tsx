@@ -21,7 +21,6 @@ import {
   customersByType,
   dealTotals,
   dealsInPeriod,
-  revenueBySegment,
   revenueTrend,
   todaySummary,
   periodStart,
@@ -147,10 +146,6 @@ export function DashboardView() {
         label: ACTIVITY_MAP[s.key as keyof typeof ACTIVITY_MAP]?.label ?? s.key,
       })),
     [scopedActivities],
-  );
-  const segments = React.useMemo(
-    () => revenueBySegment(scopedDeals, companies, convert),
-    [scopedDeals, companies, convert],
   );
   const byType = React.useMemo(
     () => customersByType(scopedCompanies),
@@ -344,22 +339,6 @@ export function DashboardView() {
             </Card>
           ),
 
-          segments: (
-            <Card className="flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle>Revenue by segment</CardTitle>
-                <CardDescription>Which venues bring the money</CardDescription>
-              </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <DistributionChart
-                  slices={segments}
-                  format={money}
-                  donut
-                  emptyLabel="No won deals in this period yet."
-                />
-              </CardContent>
-            </Card>
-          ),
         }}
       </DashboardGrid>
 

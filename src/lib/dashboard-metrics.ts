@@ -214,33 +214,6 @@ export function activityMix(activities: Activity[], now = Date.now()): Slice[] {
   return toSlices(counts);
 }
 
-/** Revenue split by what kind of venue it came from. */
-export function revenueBySegment(
-  deals: Deal[],
-  companies: Company[],
-  convert: (amount: number, from: CurrencyCode) => number,
-): Slice[] {
-  const business = new Map(companies.map((c) => [c.id, c.business]));
-  const totals = new Map<string, number>();
-  for (const deal of deals) {
-    if (deal.stage !== "won") continue;
-    const segment = business.get(deal.companyId) ?? "Other";
-    totals.set(
-      segment,
-      (totals.get(segment) ?? 0) + convert(deal.value, deal.currency),
-    );
-  }
-  const total = [...totals.values()].reduce((a, b) => a + b, 0);
-  return [...totals.entries()]
-    .map(([key, value]) => ({
-      key,
-      label: key,
-      value,
-      share: total === 0 ? 0 : Math.round((value / total) * 100),
-    }))
-    .sort((a, b) => b.value - a.value);
-}
-
 /** Customers by star rating or condition — 5★, New, Old, Renovation. */
 export function customersByType(companies: Company[]): Slice[] {
   const counts = new Map<string, number>();

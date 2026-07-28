@@ -14,8 +14,7 @@ export type WidgetId =
   | "today"
   | "mix"
   | "spancop"
-  | "types"
-  | "segments";
+  | "types";
 
 export type WidgetBox = {
   i: WidgetId;
@@ -38,8 +37,8 @@ export const DEFAULT_LAYOUT: WidgetBox[] = [
   { i: "today", x: 0, y: 13, w: 8, h: 8, minW: 4, minH: 5 },
   { i: "mix", x: 8, y: 13, w: 4, h: 8, minW: 3, minH: 6 },
   { i: "spancop", x: 0, y: 21, w: 6, h: 10, minW: 4, minH: 8 },
-  { i: "types", x: 6, y: 21, w: 6, h: 5, minW: 3, minH: 5 },
-  { i: "segments", x: 6, y: 26, w: 6, h: 5, minW: 3, minH: 5 },
+  // Full height beside SPANCOP now that Revenue by segment has gone.
+  { i: "types", x: 6, y: 21, w: 6, h: 10, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
