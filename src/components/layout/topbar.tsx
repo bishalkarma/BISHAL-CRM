@@ -3,11 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, PanelLeft, Search, Settings } from "lucide-react";
+import { Menu, PanelLeft, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModeToggle, ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { DataSourceBadge } from "./data-source-badge";
+import { NotificationBell } from "./notification-bell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,10 @@ export function Topbar({
   onOpenMobileNav,
   onToggleSidebar,
   sidebarCollapsed,
+  onOpenCompany,
 }: {
+  /** Opens a customer over the current page, without navigating away. */
+  onOpenCompany: (companyId: string) => void;
   onOpenSearch: () => void;
   onOpenMobileNav: () => void;
   onToggleSidebar: () => void;
@@ -100,15 +104,7 @@ export function Topbar({
           <Search />
         </Button>
 
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative"
-          aria-label="Notifications"
-        >
-          <Bell />
-          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-destructive" />
-        </Button>
+        <NotificationBell onOpenCompany={onOpenCompany} />
 
         <ThemeSwitcher />
         <ModeToggle />

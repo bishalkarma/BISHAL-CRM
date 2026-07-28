@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { CompanyDrawer } from "@/components/companies/company-drawer";
+import { useCompanies } from "@/components/companies/use-companies";
 import { MobileTabBar } from "./mobile-nav";
 import { FloatingActionButton } from "./fab";
 import { CommandPalette } from "./command-palette";
@@ -31,6 +33,12 @@ const GOTO_MAP: Record<string, string> = {
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  /** Set by the notification bell; cleared when the pop-up closes. */
+  const [bellCompanyId, setBellCompanyId] = React.useState<string | null>(null);
+  const { companies, transitions, moveStage, dismissSuggestion } =
+    useCompanies();
+  const bellCompany =
+    companies.find((c) => c.id === bellCompanyId) ?? null;
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
 
@@ -157,9 +165,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onOpenMobileNav={() => setMobileNavOpen(true)}
             onToggleSidebar={toggleSidebar}
             sidebarCollapsed={collapsed}
+            onOpenCompany={setBellCompanyId}
           />
           <main className="flex-1 pb-24 lg:pb-8">{children}</main>
         </div>
+
+        {/*
+          Owned by the shell rather than a page, so a task opened from the
+          bell appears over whatever you were doing. Closing it leaves you
+          exactly where you were, with your scroll position intact.
+        */}
+        <CompanyDrawer
+          company={bellCompany}
+          transitions={transitions}
+          open={Boolean(bellCompany)}
+          onOpenChange={(next) => !next && setBellCompanyId(null)}
+          onMoveStage={moveStage}
+          onDismissSuggestion={dismissSuggestion}
+        />
 
         <SaveErrorBanner />
         <MobileTabBar />
