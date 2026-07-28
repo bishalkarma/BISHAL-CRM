@@ -95,54 +95,64 @@ export function SpancopFunnelWidget() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-1.5">
-        {flows.map((flow, index) => {
-          const def = SPANCOP_MAP[flow.stage];
-          const count = countFor(flow);
-          // Taper the bars so the row reads as a funnel.
-          const widthPct = Math.max(
-            (count / max) * 100 * (1 - index * 0.055),
-            count > 0 ? 14 : 6,
-          );
+      {/*
+        Vertical columns rather than stacked rows: the widget now sits beside
+        two charts at half width, and horizontal bars left a long empty strip
+        underneath them. Columns also make the shape of the funnel readable at
+        a glance instead of as a list.
+      */}
+      <CardContent className="flex flex-1 flex-col">
+        <div className="flex flex-1 items-end gap-1.5 pt-2">
+          {flows.map((flow, index) => {
+            const def = SPANCOP_MAP[flow.stage];
+            const count = countFor(flow);
+            // Empty stages keep a visible stub so the column is still a target.
+            const heightPct = Math.max((count / max) * 100, count > 0 ? 12 : 5);
 
-          return (
-            <div key={flow.stage} className="flex items-center gap-2.5">
-              <div className="relative h-8 flex-1 overflow-hidden rounded-lg bg-secondary/60">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${widthPct}%` }}
-                  transition={{
-                    duration: 0.6,
-                    delay: index * 0.05,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className={cn("absolute inset-y-0 left-0", def.color)}
-                />
-                <div className="relative flex h-full items-center justify-between px-2.5">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-white mix-blend-luminosity">
-                    <span className="font-bold">{def.letter}</span>
-                    <span className="hidden sm:inline">{def.label}</span>
-                  </span>
-                  <span className="text-sm font-semibold tabular-nums">
-                    {count}
-                  </span>
+            return (
+              <div
+                key={flow.stage}
+                className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                title={`${def.label} · ${count}`}
+              >
+                <span className="text-sm font-semibold tabular-nums">
+                  {count}
+                </span>
+
+                <div className="flex h-[120px] w-full items-end">
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${heightPct}%` }}
+                    transition={{
+                      duration: 0.6,
+                      delay: index * 0.05,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    className={cn("w-full rounded-t-md", def.color)}
+                  />
                 </div>
-              </div>
 
-              {/* Movement is period-scoped, so the filter always does something */}
-              <div className="w-[86px] shrink-0 text-right text-[11px] tabular-nums">
-                {flow.in > 0 ? (
-                  <span className="font-medium text-success">+{flow.in} in</span>
-                ) : (
-                  <span className="text-muted-foreground/50">—</span>
-                )}
-                {flow.out > 0 && (
-                  <span className="text-muted-foreground"> · {flow.out} out</span>
-                )}
+                {/*
+                  Letters only: seven columns across half the dashboard leave
+                  roughly 90px each, which cannot hold "Negotiate". The full
+                  name is on the tooltip and on the Details page.
+                */}
+                <span className="text-xs font-bold">{def.letter}</span>
+
+                <span className="text-[10px] tabular-nums">
+                  {flow.in > 0 ? (
+                    <span className="font-medium text-success">+{flow.in}</span>
+                  ) : (
+                    <span className="text-muted-foreground/50">—</span>
+                  )}
+                  {flow.out > 0 && (
+                    <span className="text-muted-foreground"> /{flow.out}</span>
+                  )}
+                </span>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-2.5 text-xs">
           <span className="text-muted-foreground">

@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, LayoutGrid, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiBlock } from "@/components/dashboard/kpi-block";
+import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
 import { TodayPanel } from "@/components/dashboard/today-panel";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
 import { RevenueTargetChart } from "@/components/dashboard/revenue-target-chart";
@@ -27,6 +28,13 @@ import {
   DASHBOARD_PERIODS,
   type DashboardPeriod,
 } from "@/lib/dashboard-metrics";
+import {
+  readLayout,
+  writeLayout,
+  clearLayout,
+  DEFAULT_LAYOUT,
+  type WidgetBox,
+} from "@/lib/dashboard-layout";
 import {
   readMonthlyTarget,
   writeMonthlyTarget,
@@ -75,6 +83,24 @@ export function DashboardView() {
   const saveTarget = React.useCallback((value: number) => {
     setTarget(value);
     writeMonthlyTarget(value);
+  }, []);
+
+  /*
+    Layout is read on the client only — localStorage does not exist during the
+    server render, and reading it inline would mismatch the markup.
+  */
+  const [layout, setLayout] = React.useState<WidgetBox[]>(DEFAULT_LAYOUT);
+  React.useEffect(() => setLayout(readLayout()), []);
+  const [editing, setEditing] = React.useState(false);
+
+  const saveLayout = React.useCallback((next: WidgetBox[]) => {
+    setLayout(next);
+    writeLayout(next);
+  }, []);
+
+  const resetLayout = React.useCallback(() => {
+    clearLayout();
+    setLayout(DEFAULT_LAYOUT);
   }, []);
 
   const [openCompanyId, setOpenCompanyId] = React.useState<string | null>(null);
@@ -146,12 +172,40 @@ export function DashboardView() {
         title={`${greeting()}, ${CURRENT_USER.name.split(" ")[0]}`}
         description="Your customers, deals and work in one place."
         actions={
-          <Button size="sm" asChild>
-            <Link href="/pipeline">
-              Open pipeline
-              <ArrowRight />
-            </Link>
-          </Button>
+          <>
+            {/* Dragging stays off until asked for, so a stray click on a
+                chart never rearranges the page. */}
+            {editing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={resetLayout}>
+                  <RotateCcw />
+                  Reset
+                </Button>
+                <Button size="sm" onClick={() => setEditing(false)}>
+                  <Check />
+                  Done
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden lg:inline-flex"
+                  onClick={() => setEditing(true)}
+                >
+                  <LayoutGrid />
+                  Edit layout
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/pipeline">
+                    Open pipeline
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              </>
+            )}
+          </>
         }
       />
 
@@ -176,118 +230,138 @@ export function DashboardView() {
         </span>
       </div>
 
-      <KpiBlock
-        totalCustomers={scopedCompanies.length}
-        totals={totals}
-        formatMoney={money}
-      />
-
-      {/* Revenue + pipeline */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Revenue vs target</CardTitle>
-            <CardDescription>Won revenue, last 8 months</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RevenueTargetChart
-              data={trend}
-              target={target}
-              onTargetChange={saveTarget}
-              format={format}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pipeline by stage</CardTitle>
-            <CardDescription>Open deals across the board</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PipelineFunnel deals={scopedDeals} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Today + activity mix */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle>Today</CardTitle>
-              <CardDescription>What needs you right now</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/activities?view=open-tasks">
-                All tasks
-                <ArrowRight />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <TodayPanel
-              summary={today}
-              companyName={companyName}
-              onOpenCompany={setOpenCompanyId}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity mix</CardTitle>
-            <CardDescription>How contact time is spent</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DistributionChart
-              slices={mix}
-              emptyLabel="No activity logged yet."
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/*
-        SPANCOP takes half the width so the two distribution charts sit beside
-        it rather than below. Full width left a long empty bar row and pushed
-        everything else off the first screen.
-      */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SpancopFunnelWidget />
-
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Revenue by segment</CardTitle>
-              <CardDescription>Which venues bring the money</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DistributionChart
-                slices={segments}
-                format={money}
-                donut
-                emptyLabel="No won deals in this period yet."
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Customers by type</CardTitle>
-              <CardDescription>
-                Star rating, new, old, renovation
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DistributionChart
-                slices={byType}
-                emptyLabel="No customers in this period yet."
-              />
-            </CardContent>
-          </Card>
+      {editing && (
+        <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/[0.06] px-3 py-2 text-xs">
+          <LayoutGrid className="size-3.5 shrink-0 text-accent" />
+          <span>
+            Drag the <strong className="font-semibold">Move</strong> tab to
+            reposition, or pull a corner to resize.
+          </span>
+          <span className="ml-auto hidden text-muted-foreground sm:inline">
+            Saved on this device
+          </span>
         </div>
-      </div>
+      )}
+
+      <DashboardGrid
+        layout={layout}
+        editing={editing}
+        onLayoutChange={saveLayout}
+      >
+        {{
+          kpi: (
+            <KpiBlock
+              totalCustomers={scopedCompanies.length}
+              totals={totals}
+              formatMoney={money}
+            />
+          ),
+
+          revenue: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Revenue vs target</CardTitle>
+                <CardDescription>Won revenue, last 8 months</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1">
+                <RevenueTargetChart
+                  data={trend}
+                  target={target}
+                  onTargetChange={saveTarget}
+                  format={format}
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          pipeline: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Pipeline by stage</CardTitle>
+                <CardDescription>Open deals across the board</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <PipelineFunnel deals={scopedDeals} />
+              </CardContent>
+            </Card>
+          ),
+
+          today: (
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle>Today</CardTitle>
+                  <CardDescription>What needs you right now</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/activities?view=open-tasks">
+                    All tasks
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <TodayPanel
+                  summary={today}
+                  companyName={companyName}
+                  onOpenCompany={setOpenCompanyId}
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          mix: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Activity mix</CardTitle>
+                <CardDescription>How contact time is spent</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <DistributionChart
+                  slices={mix}
+                  emptyLabel="No activity logged yet."
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          spancop: <SpancopFunnelWidget />,
+
+          types: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Customers by type</CardTitle>
+                <CardDescription>
+                  Star rating, new, old, renovation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <DistributionChart
+                  slices={byType}
+                  emptyLabel="No customers in this period yet."
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          segments: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Revenue by segment</CardTitle>
+                <CardDescription>Which venues bring the money</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <DistributionChart
+                  slices={segments}
+                  format={money}
+                  donut
+                  emptyLabel="No won deals in this period yet."
+                />
+              </CardContent>
+            </Card>
+          ),
+        }}
+      </DashboardGrid>
 
       {/* Opened from a Today row, over the dashboard rather than navigating */}
       <CompanyDrawer

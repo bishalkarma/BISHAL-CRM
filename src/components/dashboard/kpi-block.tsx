@@ -30,7 +30,11 @@ export function KpiBlock({
         icon={Building2}
         label="Total customer"
         value={String(totalCustomers)}
+        support="in this period"
         tone="accent"
+        /* Spans the full height of the 2x2 beside it, so the number is
+           centred in real space rather than stranded at the top. */
+        tall
       />
 
       <div className="grid grid-cols-2 gap-3">
@@ -41,7 +45,7 @@ export function KpiBlock({
         />
         <Tile
           icon={Wallet}
-          label="Total Deal worth AED"
+          label="Total Deal worth"
           value={formatMoney(totals.totalValue)}
         />
         <Tile
@@ -75,6 +79,7 @@ function Tile({
   rateLabel,
   rate,
   tone = "neutral",
+  tall = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -84,6 +89,7 @@ function Tile({
   rateLabel?: string;
   rate?: number;
   tone?: "neutral" | "accent" | "success" | "danger";
+  tall?: boolean;
 }) {
   const accent =
     tone === "success"
@@ -107,20 +113,37 @@ function Tile({
         <span className="min-w-0 break-words">{label}</span>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className="mt-1.5 text-2xl font-semibold tabular-nums"
+      {/* Centred in whatever space the tile has, so a tall tile is not
+          mostly empty and a short one still reads clearly. */}
+      <div
+        className={cn(
+          "flex flex-1 flex-col justify-center",
+          tall ? "items-center py-4 text-center" : "mt-1.5",
+        )}
       >
-        {value}
-      </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className={cn(
+            "font-semibold tabular-nums",
+            tall ? "text-5xl" : "text-3xl",
+          )}
+        >
+          {value}
+        </motion.div>
 
-      {support && (
-        <div className="text-xs text-muted-foreground tabular-nums">
-          {support}
-        </div>
-      )}
+        {support && (
+          <div
+            className={cn(
+              "text-xs text-muted-foreground tabular-nums",
+              tall && "mt-1",
+            )}
+          >
+            {support}
+          </div>
+        )}
+      </div>
 
       {rateLabel && rate !== undefined && (
         <div className="mt-auto flex items-baseline justify-between gap-2 border-t border-border/60 pt-2">
