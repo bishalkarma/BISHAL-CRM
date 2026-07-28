@@ -47,16 +47,18 @@ export function DistributionChart({
   const show = (v: number) => (format ? format(v) : String(v));
 
   return (
-    <div className="flex flex-col items-center gap-3 sm:flex-row">
-      <div className="h-[150px] w-[150px] shrink-0">
+    <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
+      {/* Bigger and centred: a small pie stranded in a wide tile read as a
+          rendering fault rather than a chart. */}
+      <div className="h-[190px] w-[190px] shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={slices}
               dataKey="value"
               nameKey="label"
-              innerRadius={donut ? 42 : 0}
-              outerRadius={70}
+              innerRadius={donut ? 54 : 0}
+              outerRadius={90}
               paddingAngle={slices.length > 1 ? 2 : 0}
               stroke="none"
             >
@@ -77,7 +79,7 @@ export function DistributionChart({
         </ResponsiveContainer>
       </div>
 
-      <ul className="min-w-0 flex-1 space-y-1.5">
+      <ul className="min-w-0 flex-1 space-y-2 self-center">
         {slices.map((slice, i) => (
           <li key={slice.key} className="flex items-center gap-2 text-xs">
             <span

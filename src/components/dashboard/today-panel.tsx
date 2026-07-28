@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils";
  * overdue and due-today work appears — anything later belongs on the
  * Activities page.
  */
+/** The two buckets this tile can narrow to. Booked is a count, not a task. */
+type TodayBucket = "overdue" | "today";
+
 export function TodayPanel({
   summary,
   companyName,
@@ -26,15 +29,70 @@ export function TodayPanel({
 }) {
   const { overdue, dueToday, scheduled, tasks } = summary;
 
+  /*
+    This tile filters itself rather than following the page period, which
+    could otherwise set it to Year — and "today" cannot mean this year.
+  */
+  const [bucket, setBucket] = React.useState<TodayBucket | null>(null);
+  const toggle = (next: TodayBucket) =>
+    setBucket((current) => (current === next ? null : next));
+
+  const shown = React.useMemo(() => {
+    if (!bucket) return tasks;
+    return tasks.filter((t) =>
+      bucket === "overdue"
+        ? taskUrgency(t) === "overdue"
+        : taskUrgency(t) === "today",
+    );
+  }, [tasks, bucket]);
+
+  const hidden = tasks.length - shown.length;
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <Count label="Overdue" value={overdue} tone="danger" />
-        <Count label="Due today" value={dueToday} tone="warning" />
+        <Count
+          label="Overdue"
+          value={overdue}
+          tone="danger"
+          active={bucket === "overdue"}
+          onClick={() => toggle("overdue")}
+        />
+        <Count
+          label="Due today"
+          value={dueToday}
+          tone="warning"
+          active={bucket === "today"}
+          onClick={() => toggle("today")}
+        />
+        {/* Booked counts entries scheduled ahead — there is no list to filter. */}
         <Count label="Booked" value={scheduled} tone="neutral" hint="7 days" />
       </div>
 
-      {tasks.length === 0 ? (
+      {bucket && (
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs",
+            bucket === "overdue" ? "bg-destructive/10" : "bg-warning/12",
+          )}
+        >
+          <span className="font-medium">
+            Showing {shown.length} {bucket === "overdue" ? "overdue" : "due today"}
+          </span>
+          {hidden > 0 && (
+            <span className="text-muted-foreground">· {hidden} hidden</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setBucket(null)}
+            className="ml-auto font-medium text-accent hover:underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {shown.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border py-8 text-center">
           <Check className="mx-auto mb-1.5 size-5 text-success" />
           <p className="text-sm font-medium">Nothing due today</p>
@@ -44,7 +102,7 @@ export function TodayPanel({
         </div>
       ) : (
         <ul className="space-y-1">
-          {tasks.slice(0, 5).map((task) => (
+          {shown.slice(0, 5).map((task) => (
             <TaskRow
               key={task.id}
               task={task}
@@ -55,12 +113,12 @@ export function TodayPanel({
         </ul>
       )}
 
-      {tasks.length > 5 && (
+      {shown.length > 5 && (
         <Link
           href="/activities?view=open-tasks"
           className="flex items-center justify-center gap-1 text-xs font-medium text-accent hover:underline"
         >
-          {tasks.length - 5} more
+          {shown.length - 5} more
           <ArrowRight className="size-3" />
         </Link>
       )}
@@ -73,14 +131,18 @@ function Count({
   value,
   tone,
   hint,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
   tone: "danger" | "warning" | "neutral";
   hint?: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="rounded-xl bg-secondary/50 px-2.5 py-2">
+  const body = (
+    <>
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
         {tone === "danger" && value > 0 && (
           <AlertTriangle className="size-3 text-destructive" />
@@ -99,7 +161,29 @@ function Count({
         {value}
       </div>
       {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
-    </div>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="rounded-xl bg-secondary/50 px-2.5 py-2">{body}</div>;
+  }
+
+  // A real button, so it is keyboard reachable and announces its state.
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-xl bg-secondary/50 px-2.5 py-2 text-left transition-colors hover:bg-secondary",
+        active &&
+          (tone === "danger"
+            ? "bg-destructive/10 ring-1 ring-destructive/40"
+            : "bg-warning/12 ring-1 ring-warning/40"),
+      )}
+    >
+      {body}
+    </button>
   );
 }
 

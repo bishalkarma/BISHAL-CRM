@@ -23,6 +23,7 @@ import {
   revenueBySegment,
   revenueTrend,
   todaySummary,
+  periodStart,
   DASHBOARD_PERIODS,
   type DashboardPeriod,
 } from "@/lib/dashboard-metrics";
@@ -105,13 +106,21 @@ export function DashboardView() {
   );
   const today = React.useMemo(() => todaySummary(activities), [activities]);
 
+  const scopedActivities = React.useMemo(() => {
+    const from = periodStart(period);
+    if (from === null) return activities;
+    return activities.filter(
+      (a) => new Date(a.occurredAt).getTime() >= from,
+    );
+  }, [activities, period]);
+
   const mix = React.useMemo(
     () =>
-      activityMix(activities).map((s) => ({
+      activityMix(scopedActivities).map((s) => ({
         ...s,
         label: ACTIVITY_MAP[s.key as keyof typeof ACTIVITY_MAP]?.label ?? s.key,
       })),
-    [activities],
+    [scopedActivities],
   );
   const segments = React.useMemo(
     () => revenueBySegment(scopedDeals, companies, convert),
@@ -196,7 +205,7 @@ export function DashboardView() {
             <CardDescription>Open deals across the board</CardDescription>
           </CardHeader>
           <CardContent>
-            <PipelineFunnel />
+            <PipelineFunnel deals={scopedDeals} />
           </CardContent>
         </Card>
       </div>
@@ -239,37 +248,45 @@ export function DashboardView() {
         </Card>
       </div>
 
-      <SpancopFunnelWidget />
-
-      {/* Distributions */}
+      {/*
+        SPANCOP takes half the width so the two distribution charts sit beside
+        it rather than below. Full width left a long empty bar row and pushed
+        everything else off the first screen.
+      */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue by segment</CardTitle>
-            <CardDescription>Which venues bring the money</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DistributionChart
-              slices={segments}
-              format={money}
-              donut
-              emptyLabel="No won deals in this period yet."
-            />
-          </CardContent>
-        </Card>
+        <SpancopFunnelWidget />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Customers by type</CardTitle>
-            <CardDescription>Star rating, new, old, renovation</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DistributionChart
-              slices={byType}
-              emptyLabel="No customers in this period yet."
-            />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Revenue by segment</CardTitle>
+              <CardDescription>Which venues bring the money</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DistributionChart
+                slices={segments}
+                format={money}
+                donut
+                emptyLabel="No won deals in this period yet."
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Customers by type</CardTitle>
+              <CardDescription>
+                Star rating, new, old, renovation
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DistributionChart
+                slices={byType}
+                emptyLabel="No customers in this period yet."
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Opened from a Today row, over the dashboard rather than navigating */}

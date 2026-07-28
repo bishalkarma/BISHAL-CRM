@@ -3,12 +3,19 @@
 import { motion } from "framer-motion";
 import { useData } from "@/components/providers/data-provider";
 import { PIPELINE_STAGES, STAGE_MAP, type DealStage } from "@/lib/pipeline";
+import type { Deal } from "@/lib/deals";
 import { formatCompactCurrency } from "@/lib/utils";
 
 const FUNNEL_STAGES: DealStage[] = PIPELINE_STAGES.map((stage) => stage.id);
 
-export function PipelineFunnel() {
-  const { deals: allDeals } = useData();
+/**
+ * Deals are passed in rather than read here, so the funnel answers the same
+ * period question as the rest of the dashboard. Reading the store directly
+ * meant it silently showed all time while every tile beside it showed a month.
+ */
+export function PipelineFunnel({ deals }: { deals?: Deal[] }) {
+  const { deals: storeDeals } = useData();
+  const allDeals = deals ?? storeDeals;
   const rows = FUNNEL_STAGES.map((stage) => {
     const deals = allDeals.filter((deal) => deal.stage === stage);
     return {
