@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -110,7 +111,37 @@ function dateBucket(iso: string) {
 export function ActivitiesView() {
   const { activities, companies, loading } = useData();
 
-  const [view, setView] = React.useState<ViewMode>("timeline");
+  /*
+    The view lives in the URL so the notification bell can point straight at
+    Open tasks, and so a tab can be bookmarked or shared.
+
+    Tab clicks REPLACE the URL rather than push it. Switching tab is not
+    really going somewhere new — it changes what you look at on the same page
+    — so pushing would make Back re-walk tabs you already saw instead of
+    returning you to wherever you came from.
+  */
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = React.useMemo<ViewMode>(() => {
+    const raw = searchParams.get("view");
+    return raw === "by-customer" || raw === "open-tasks" || raw === "timeline"
+      ? raw
+      : "timeline";
+  }, [searchParams]);
+
+  const setView = React.useCallback(
+    (next: ViewMode) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "timeline") params.delete("view");
+      else params.set("view", next);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [router, pathname, searchParams],
+  );
   // "all" by default so the Timeline opens grouped by Today / Yesterday.
   // Choosing a period switches it to a flat dated list.
   const [period, setPeriod] = React.useState<Period>("all");
@@ -177,10 +208,15 @@ export function ActivitiesView() {
    * Tapping a tile always lands you on the list it describes — from Timeline
    * or By customer, "Overdue" plainly means "show me those".
    */
-  const toggleBucket = React.useCallback((next: TaskBucket) => {
-    setView("open-tasks");
-    setBucket((current) => (current === next ? null : next));
-  }, []);
+  const toggleBucket = React.useCallback(
+    (next: TaskBucket) => {
+      setView("open-tasks");
+      setBucket((current) => (current === next ? null : next));
+    },
+    // setView is derived from the URL, so it must be tracked — an empty list
+    // would capture a stale copy and write the wrong query string.
+    [setView],
+  );
 
   /*
     Any change to the result set sends you back to page 1 — otherwise you can

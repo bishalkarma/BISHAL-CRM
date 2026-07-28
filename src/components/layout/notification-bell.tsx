@@ -153,7 +153,9 @@ export function NotificationBell({
           type="button"
           onClick={() => {
             setOpen(false);
-            router.push("/activities");
+            // push, not replace: the bell is a real navigation, so Back
+            // should return you to the page you came from.
+            router.push("/activities?view=open-tasks");
           }}
           className="w-full border-t border-border py-2.5 text-center text-xs font-medium text-accent transition-colors hover:bg-secondary/50"
         >
