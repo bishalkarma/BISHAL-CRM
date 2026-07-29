@@ -43,14 +43,13 @@ export function AnimatedNumber({
       return;
     }
 
-    let controls: AnimationPlaybackControls | undefined;
-    controls = animate(motionValue, value, {
+    const controls: AnimationPlaybackControls = animate(motionValue, value, {
       duration,
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (latest) => setText(formatRef.current(latest)),
     });
 
-    return () => controls?.stop();
+    return () => controls.stop();
   }, [value, duration, reduceMotion, motionValue]);
 
   /* suppressHydrationWarning: the server renders the final value while the
