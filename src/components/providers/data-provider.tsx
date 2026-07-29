@@ -132,6 +132,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [deals, setDeals] = React.useState<Deal[]>([]);
   const [activities, setActivities] = React.useState<Activity[]>([]);
+  /* Read by deleteActivity so the write can happen outside a state updater. */
+  const activitiesRef = React.useRef<Activity[]>([]);
+  React.useEffect(() => {
+    activitiesRef.current = activities;
+  }, [activities]);
   const [transitions, setTransitions] = React.useState<StageTransition[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [source, setSource] = React.useState<DataSource>("demo");
@@ -373,21 +378,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateActivity = React.useCallback(
     (id: string, patch: Partial<Activity>) => {
-      setActivities((current) => {
-        const next = current.map((a) =>
-          a.id === id ? { ...a, ...patch } : a,
-        );
-        const updated = next.find((a) => a.id === id);
-        if (updated) {
-          void persist("activity", async () =>
-            supabase!
-              .from("activities")
-              .update(fromActivity(updated))
-              .eq("id", id),
-          );
-        }
-        return next;
-      });
+      // Same rule as deleteActivity: compute here, write once, never inside
+      // a state updater. An UPDATE repeated is harmless, but a state updater
+      // is still the wrong place for it.
+      const existing = activitiesRef.current.find((a) => a.id === id);
+      if (!existing) return;
+      const updated = { ...existing, ...patch };
+
+      setActivities((current) =>
+        current.map((a) => (a.id === id ? updated : a)),
+      );
+
+      void persist("activity", async () =>
+        supabase!.from("activities").update(fromActivity(updated)).eq("id", id),
+      );
     },
     [persist],
   );
@@ -399,36 +403,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
    */
   const deleteActivity = React.useCallback(
     (id: string) => {
-      setActivities((current) => {
-        const doomed = current.find((a) => a.id === id);
-        if (!doomed) return current;
-        const next = current.filter((a) => a.id !== id);
+      /*
+        Everything here runs OUTSIDE the state updaters on purpose.
 
-        setCompanies((cs) =>
-          cs.map((c) => {
-            if (c.id !== doomed.companyId) return c;
-            // The newest survivor becomes the last contact date; none left
-            // means the company genuinely has no recorded contact.
-            const remaining = next
-              .filter((a) => a.companyId === c.id)
-              .sort(
-                (a, b) =>
-                  new Date(b.occurredAt).getTime() -
-                  new Date(a.occurredAt).getTime(),
-              );
-            return {
-              ...c,
-              activityCount: Math.max(0, c.activityCount - 1),
-              lastActivityAt: remaining[0]?.occurredAt ?? null,
-            };
-          }),
-        );
+        The first version did the Supabase delete and a setCompanies call from
+        inside setActivities. A state updater must be pure: React 19 invokes it
+        twice under StrictMode to surface exactly this kind of mistake, so the
+        delete fired twice and the second pass worked from stale state. Rows
+        the user never selected were removed. Compute first, then write once.
+      */
+      const doomed = activitiesRef.current.find((a) => a.id === id);
+      if (!doomed) return;
 
-        void persist("activity", async () =>
-          supabase!.from("activities").delete().eq("id", id),
-        );
-        return next;
-      });
+      const remaining = activitiesRef.current.filter((a) => a.id !== id);
+      const newestForCompany = remaining
+        .filter((a) => a.companyId === doomed.companyId)
+        .reduce<string | null>((newest, a) => {
+          if (!newest) return a.occurredAt;
+          return new Date(a.occurredAt) > new Date(newest)
+            ? a.occurredAt
+            : newest;
+        }, null);
+
+      setActivities(remaining);
+      setCompanies((cs) =>
+        cs.map((c) =>
+          c.id === doomed.companyId
+            ? {
+                ...c,
+                activityCount: Math.max(0, c.activityCount - 1),
+                lastActivityAt: newestForCompany,
+              }
+            : c,
+        ),
+      );
+
+      void persist("activity", async () =>
+        supabase!.from("activities").delete().eq("id", id),
+      );
     },
     [persist],
   );

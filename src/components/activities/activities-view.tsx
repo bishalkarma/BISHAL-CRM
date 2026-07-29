@@ -123,17 +123,22 @@ export function ActivitiesView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  /*
+    Open tasks is the landing view: this page is opened to answer "what do I
+    owe someone today", not to browse history. Timeline stays one click away
+    and is still what the bell and the tab links address by name.
+  */
   const view = React.useMemo<ViewMode>(() => {
     const raw = searchParams.get("view");
     return raw === "by-customer" || raw === "open-tasks" || raw === "timeline"
       ? raw
-      : "timeline";
+      : "open-tasks";
   }, [searchParams]);
 
   const setView = React.useCallback(
     (next: ViewMode) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next === "timeline") params.delete("view");
+      if (next === "open-tasks") params.delete("view");
       else params.set("view", next);
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, {
