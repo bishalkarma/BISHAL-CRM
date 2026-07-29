@@ -146,7 +146,7 @@ export function CashToCollectTile({
 
   return (
     <ul className="space-y-1.5">
-      {rows.map(({ company, value, daysOutstanding }) => (
+      {rows.map(({ company, value, daysOutstanding, tone, orderCount }) => (
         <li
           key={company.id}
           className="flex items-start justify-between gap-2 border-b border-border/60 pb-1.5 last:border-0 last:pb-0"
@@ -154,22 +154,26 @@ export function CashToCollectTile({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{company.name}</p>
             <p className="truncate text-[11px] text-muted-foreground">
-              {company.emirate} · {company.owner}
+              {company.emirate}
+              {orderCount > 1 && ` · ${orderCount} orders`}
             </p>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-sm font-semibold tabular-nums">
               {formatMoney(value)}
             </p>
-            <p
+            {/* Agreed thresholds: under 30 normal, 30-60 chase, 60+ at risk. */}
+            <span
               className={
-                daysOutstanding >= 30
-                  ? "text-[11px] font-medium text-destructive tabular-nums"
-                  : "text-[11px] text-muted-foreground tabular-nums"
+                tone === "risk"
+                  ? "inline-block rounded-full bg-destructive/12 px-1.5 py-0.5 text-[11px] font-medium text-destructive tabular-nums"
+                  : tone === "chase"
+                    ? "inline-block rounded-full bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning tabular-nums"
+                    : "inline-block rounded-full bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground tabular-nums"
               }
             >
-              {daysOutstanding}d outstanding
-            </p>
+              {daysOutstanding} days
+            </span>
           </div>
         </li>
       ))}

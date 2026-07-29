@@ -4,7 +4,9 @@ import * as React from "react";
 import { ArrowLeft, Building2, CheckCircle2, PartyPopper } from "lucide-react";
 import type { Company } from "@/lib/companies";
 import { useData } from "@/components/providers/data-provider";
-import { DEAL_CATEGORIES, dealValue, type LineItem } from "@/lib/deal-model";
+import { DEAL_CATEGORIES, dealValue, type LineItem,
+  EMPTY_FULFILMENT,
+} from "@/lib/deal-model";
 import type { Deal, DealPriority } from "@/lib/deals";
 import { DEAL_OWNERS } from "@/lib/deals";
 import { LineItemsEditor } from "./line-items-editor";
@@ -136,6 +138,7 @@ export function NewDealDialog({
       remarks: "",
       sample: null,
       periods: [{ openedAt: now, closedAt: null }],
+      fulfilment: { ...EMPTY_FULFILMENT },
     });
     reset();
     onOpenChange(false);

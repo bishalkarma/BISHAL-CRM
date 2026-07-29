@@ -191,3 +191,95 @@ export function daysToFeedback(sample: SampleRecord) {
   if (!sample.feedbackAt) return null;
   return daysBetween(sample.sentAt, sample.feedbackAt);
 }
+
+/* ------------------------------------------------------------------ */
+/* Order fulfilment — the C · O · P half of the customer journey       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What has happened to a won deal after it was won.
+ *
+ * Kept on the deal rather than the company because one customer can run
+ * several orders at once: the PO, the delivery and the money all belong to a
+ * single deal. The company-level flags stay a fast summary for SPANCOP.
+ *
+ * Every date here is stamped by the app when a button is pressed — nothing is
+ * typed, so a date can never be mistyped or back-dated by accident.
+ */
+export type Fulfilment = {
+  poNumber: string | null;
+  poDate: string | null;
+  deliveredAt: string | null;
+  /** True when only part of the order shipped. */
+  partialDelivery: boolean;
+  /** Free text: what is still to come on a partial delivery. */
+  deliveryNote: string | null;
+  /** Set only when the balance reaches zero. */
+  paidAt: string | null;
+  /** Running total received, in the deal's own currency. */
+  amountReceived: number;
+};
+
+export const EMPTY_FULFILMENT: Fulfilment = {
+  poNumber: null,
+  poDate: null,
+  deliveredAt: null,
+  partialDelivery: false,
+  deliveryNote: null,
+  paidAt: null,
+  amountReceived: 0,
+};
+
+/** The four steps of the tracker shown on a won deal. */
+export type FulfilmentStep = "won" | "po" | "delivered" | "paid";
+
+export const FULFILMENT_STEPS: { id: FulfilmentStep; label: string }[] = [
+  { id: "won", label: "Won" },
+  { id: "po", label: "PO" },
+  { id: "delivered", label: "Delivered" },
+  { id: "paid", label: "Paid" },
+];
+
+/** How far along a won deal is. Drives the tracker and the next button. */
+export function fulfilmentStage(f: Fulfilment): FulfilmentStep {
+  if (f.paidAt) return "paid";
+  if (f.deliveredAt) return "delivered";
+  if (f.poNumber) return "po";
+  return "won";
+}
+
+/**
+ * What is still owed on this deal.
+ *
+ * Guarded at zero: an over-payment is a data-entry slip, not a negative debt,
+ * and a negative number would quietly reduce the dashboard total.
+ */
+export function balanceOutstanding(value: number, f: Fulfilment) {
+  if (f.paidAt) return 0;
+  return Math.max(0, value - f.amountReceived);
+}
+
+/**
+ * Days since delivery, for the ageing clock.
+ *
+ * Counted from the delivery date, not the PO date — the money is only really
+ * due once the customer has the goods. Null until something has shipped.
+ */
+export function daysSinceDelivery(f: Fulfilment, now = Date.now()) {
+  if (!f.deliveredAt) return null;
+  return Math.floor((now - new Date(f.deliveredAt).getTime()) / 86_400_000);
+}
+
+export type AgeingTone = "fresh" | "chase" | "risk";
+
+/** Agreed thresholds: under 30 days normal, 30–60 chase, over 60 at risk. */
+export function ageingTone(days: number | null): AgeingTone {
+  if (days === null || days < 30) return "fresh";
+  if (days <= 60) return "chase";
+  return "risk";
+}
+
+/** A deal counts as cash owed once it has shipped and is not settled. */
+export function isAwaitingPayment(f: Fulfilment) {
+  return Boolean(f.deliveredAt) && !f.paidAt;
+}

@@ -126,6 +126,13 @@ export type DealRow = {
   sample_feedback_at: string | null;
   sample_feedback: string | null;
   periods: ActivePeriod[] | null;
+  po_number: string | null;
+  po_date: string | null;
+  delivered_at: string | null;
+  partial_delivery: boolean | null;
+  delivery_note: string | null;
+  paid_at: string | null;
+  amount_received: number | string | null;
   created_at: string;
   deal_lines?: DealLineRow[];
 };
@@ -261,6 +268,18 @@ export function toDeal(row: DealRow): Deal {
         }
       : null,
     periods: row.periods ?? [{ openedAt: row.created_at, closedAt: null }],
+    /* Columns added by supabase/04-order-fulfilment.sql. Read defensively so
+       the app still loads against a database where the migration has not been
+       run yet — the fields simply come back empty. */
+    fulfilment: {
+      poNumber: row.po_number ?? null,
+      poDate: row.po_date ?? null,
+      deliveredAt: row.delivered_at ?? null,
+      partialDelivery: row.partial_delivery ?? false,
+      deliveryNote: row.delivery_note ?? null,
+      paidAt: row.paid_at ?? null,
+      amountReceived: num(row.amount_received ?? 0),
+    },
   };
 }
 
@@ -366,6 +385,13 @@ export function fromDeal(d: Deal) {
     sample_feedback_at: d.sample?.feedbackAt ?? null,
     sample_feedback: d.sample?.feedback ?? null,
     periods: d.periods,
+    po_number: d.fulfilment.poNumber,
+    po_date: d.fulfilment.poDate,
+    delivered_at: d.fulfilment.deliveredAt,
+    partial_delivery: d.fulfilment.partialDelivery,
+    delivery_note: d.fulfilment.deliveryNote,
+    paid_at: d.fulfilment.paidAt,
+    amount_received: d.fulfilment.amountReceived,
     created_at: d.createdAt,
   };
 }

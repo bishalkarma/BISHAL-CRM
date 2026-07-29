@@ -12,8 +12,10 @@ import {
   approachAlert,
   isStalled,
   suggestSpancopStage,
+  fulfilmentSignals,
   type SpancopStage,
 } from "@/lib/spancop";
+import type { Deal } from "@/lib/deals";
 import { useData } from "@/components/providers/data-provider";
 
 export type CompanyFilters = {
@@ -65,16 +67,26 @@ export function alertFor(company: Company): CompanyAlert | null {
   return null;
 }
 
-/** The stage the engine thinks a company should be at. */
-export function suggestionFor(company: Company) {
+/**
+ * The stage the engine thinks a company should be at.
+ *
+ * `deals` is optional so existing callers keep working, but when it is given
+ * the PO / delivery / payment flags are derived from the deals themselves
+ * rather than trusting stored booleans that nothing ever wrote to.
+ */
+export function suggestionFor(company: Company, deals?: Deal[]) {
+  const derived = deals
+    ? fulfilmentSignals(deals.filter((d) => d.companyId === company.id))
+    : null;
+
   return suggestSpancopStage({
     profileComplete: Boolean(company.email && company.remarks),
     activityCount: company.activityCount,
     openDealCount: company.openDealIds.length,
     lastClosedDealOutcome: company.lastClosedDealOutcome,
-    hasPurchaseOrder: company.hasPurchaseOrder,
-    awaitingPayment: company.awaitingPayment,
-    hasEverOrdered: company.hasEverOrdered,
+    hasPurchaseOrder: derived?.hasPurchaseOrder ?? company.hasPurchaseOrder,
+    awaitingPayment: derived?.awaitingPayment ?? company.awaitingPayment,
+    hasEverOrdered: derived?.hasEverOrdered ?? company.hasEverOrdered,
   });
 }
 

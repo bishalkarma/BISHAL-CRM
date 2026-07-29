@@ -11,11 +11,12 @@ import type { DealStage } from "./pipeline";
 import type {
   ActivePeriod,
   ContactTrailEntry,
+  Fulfilment,
   LineItem,
   LostReason,
   SampleRecord,
 } from "./deal-model";
-import { dealValue } from "./deal-model";
+import { dealValue, EMPTY_FULFILMENT } from "./deal-model";
 
 export type AccountType =
   | "Hotel"
@@ -80,6 +81,11 @@ export type Deal = {
   sample: SampleRecord | null;
   /** Active work periods; dormant gaps between them are not counted. */
   periods: ActivePeriod[];
+  /**
+   * PO, delivery and payment. Only meaningful once the deal is won, but
+   * always present so nothing has to null-check it.
+   */
+  fulfilment: Fulfilment;
 };
 
 const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
@@ -157,6 +163,7 @@ export const DEALS: Deal[] = [
     remarks: "Renewal of last year's contract. Deliveries before 10am only.",
     sample: null,
     periods: [{ openedAt: days(-48), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1038",
@@ -193,6 +200,7 @@ export const DEALS: Deal[] = [
     remarks: "Hotel opens in ~4 months. Order 3 months prior.",
     sample: null,
     periods: [{ openedAt: days(-30), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1035",
@@ -232,6 +240,7 @@ export const DEALS: Deal[] = [
       feedback: "Liked the Ethiopia; house blend needs a darker roast.",
     },
     periods: [{ openedAt: days(-40), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1031",
@@ -267,6 +276,7 @@ export const DEALS: Deal[] = [
     remarks: "Rejects deliveries after 10am.",
     sample: null,
     periods: [{ openedAt: days(-26), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1029",
@@ -306,6 +316,7 @@ export const DEALS: Deal[] = [
     remarks: "Buys quarterly. Went quiet after the last order.",
     sample: null,
     periods: [{ openedAt: days(-34), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1026",
@@ -342,6 +353,7 @@ export const DEALS: Deal[] = [
     remarks: "Volumes peak during wedding season.",
     sample: null,
     periods: [{ openedAt: days(-38), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1022",
@@ -374,6 +386,7 @@ export const DEALS: Deal[] = [
     remarks: "Potential regional partner for KSA expansion.",
     sample: null,
     periods: [{ openedAt: days(-8), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1019",
@@ -409,6 +422,7 @@ export const DEALS: Deal[] = [
     remarks: "Organic-only sourcing policy.",
     sample: null,
     periods: [{ openedAt: days(-5), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1018",
@@ -446,6 +460,16 @@ export const DEALS: Deal[] = [
     remarks: "Chocolate line dropped — handled by their pastry supplier.",
     sample: null,
     periods: [{ openedAt: days(-62), closedAt: days(-3) }],
+    fulfilment: {
+      // Delivered and half paid — sits in PAYMENT with a real balance.
+      poNumber: "PO-2026-0642",
+      poDate: days(-40),
+      deliveredAt: days(-34),
+      partialDelivery: false,
+      deliveryNote: null,
+      paidAt: null,
+      amountReceived: 120000,
+    },
   },
   {
     id: "D-1015",
@@ -486,6 +510,16 @@ export const DEALS: Deal[] = [
       feedback: "Approved both blends after tasting.",
     },
     periods: [{ openedAt: days(-44), closedAt: days(-8) }],
+    fulfilment: {
+      // PO in hand, nothing shipped yet — this customer sits in ORDER.
+      poNumber: "PO-2026-0731",
+      poDate: days(-6),
+      deliveredAt: null,
+      partialDelivery: false,
+      deliveryNote: null,
+      paidAt: null,
+      amountReceived: 0,
+    },
   },
   {
     id: "D-1012",
@@ -524,6 +558,7 @@ export const DEALS: Deal[] = [
     remarks: "Price-driven buyer.",
     sample: null,
     periods: [{ openedAt: days(-70), closedAt: days(-12) }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1009",
@@ -560,6 +595,7 @@ export const DEALS: Deal[] = [
       { openedAt: days(-120), closedAt: days(-60) },
       { openedAt: days(-33), closedAt: null },
     ],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
   {
     id: "D-1007",
@@ -595,6 +631,7 @@ export const DEALS: Deal[] = [
     remarks: "",
     sample: null,
     periods: [{ openedAt: days(-14), closedAt: null }],
+    fulfilment: { ...EMPTY_FULFILMENT },
   },
 ];
 

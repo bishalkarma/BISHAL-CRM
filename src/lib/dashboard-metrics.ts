@@ -13,7 +13,17 @@
 import type { Company } from "./companies";
 import type { Deal } from "./deals";
 import type { CurrencyCode } from "./currency";
-import { LOST_REASONS, lineCounts, lineTotal, type LostReason } from "./deal-model";
+import {
+  LOST_REASONS,
+  ageingTone,
+  balanceOutstanding,
+  daysSinceDelivery,
+  isAwaitingPayment,
+  lineCounts,
+  lineTotal,
+  type AgeingTone,
+  type LostReason,
+} from "./deal-model";
 import { STAGE_MAP, isOpenStage } from "./pipeline";
 import { isOpenTask, taskCounts, type Activity } from "./activities";
 
@@ -538,16 +548,25 @@ export function samplesAwaiting(
 
 export type CashRow = {
   company: Company;
+  /** What is still owed, not what the deal was worth. */
   value: number;
   daysOutstanding: number;
+  /** Worst ageing across this customer's unpaid orders. */
+  tone: AgeingTone;
+  /** How many separate orders make up the balance. */
+  orderCount: number;
 };
 
 /**
  * Money earned but not yet in the bank.
  *
- * The user's definition: the deal is WON, the purchase order is in, delivery
- * is done, payment is not. There is no delivery flag in the CRM yet, so this
- * uses purchase order + awaiting payment, which is as close as the data goes.
+ * Rewritten to read the deals rather than the company's stored flags. The old
+ * version summed every won deal, so a customer who had paid half still showed
+ * the full invoice — the one number on the dashboard you would act on was
+ * overstated. It now subtracts what has actually been received.
+ *
+ * Ageing is counted from the DELIVERY date: money is only really due once the
+ * customer has the goods.
  */
 export function cashToCollect(
   companies: Company[],
@@ -556,31 +575,49 @@ export function cashToCollect(
   convert: (amount: number, from: CurrencyCode) => number,
   now = Date.now(),
 ): CashRow[] {
-  return companies
-    .filter(
-      (c) =>
-        c.hasPurchaseOrder &&
-        c.awaitingPayment &&
-        withinPeriod(c.lastOrderAt ?? c.createdAt, period, now),
-    )
-    .map((company) => {
-      // Value the won deals for this customer rather than trusting a
-      // lifetime figure that includes money already collected.
-      const won = deals.filter(
-        (d) => d.companyId === company.id && d.stage === "won",
-      );
-      const value = won.reduce(
-        (sum, d) => sum + convert(d.value, d.currency),
-        0,
-      );
-      const since = company.lastOrderAt
-        ? new Date(company.lastOrderAt).getTime()
-        : new Date(company.createdAt).getTime();
-      return {
-        company,
-        value,
-        daysOutstanding: Math.floor((now - since) / 86_400_000),
-      };
-    })
-    .sort((a, b) => b.value - a.value);
+  const owing = deals.filter(
+    (d) =>
+      d.stage === "won" &&
+      isAwaitingPayment(d.fulfilment) &&
+      withinPeriod(d.fulfilment.deliveredAt, period, now),
+  );
+
+  const byCompany = new Map<string, Deal[]>();
+  for (const deal of owing) {
+    byCompany.set(deal.companyId, [
+      ...(byCompany.get(deal.companyId) ?? []),
+      deal,
+    ]);
+  }
+
+  const rows: CashRow[] = [];
+  for (const [companyId, companyDeals] of byCompany) {
+    const company = companies.find((c) => c.id === companyId);
+    if (!company) continue;
+
+    const value = companyDeals.reduce(
+      (sum, d) =>
+        sum + convert(balanceOutstanding(d.value, d.fulfilment), d.currency),
+      0,
+    );
+    // Nothing to chase once the balance is clear.
+    if (value <= 0) continue;
+
+    // The oldest unpaid order sets the tone — that is the one at risk.
+    const ages = companyDeals
+      .map((d) => daysSinceDelivery(d.fulfilment, now))
+      .filter((n): n is number => n !== null);
+    const daysOutstanding = ages.length > 0 ? Math.max(...ages) : 0;
+
+    rows.push({
+      company,
+      value,
+      daysOutstanding,
+      tone: ageingTone(daysOutstanding),
+      orderCount: companyDeals.length,
+    });
+  }
+
+  return rows.sort((a, b) => b.value - a.value);
 }
+

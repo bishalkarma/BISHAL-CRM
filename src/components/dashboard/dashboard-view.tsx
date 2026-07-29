@@ -484,7 +484,7 @@ export function DashboardView() {
               <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
                 <div className="min-w-0">
                   <CardTitle>Cash to collect</CardTitle>
-                  <CardDescription>Won · PO received · not paid</CardDescription>
+                  <CardDescription>Delivered · not fully paid</CardDescription>
                 </div>
                 <CashSummary rows={cash} formatMoney={money} />
               </CardHeader>

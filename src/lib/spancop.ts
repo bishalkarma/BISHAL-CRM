@@ -136,7 +136,30 @@ export type SpancopSuggestion = {
 export function suggestSpancopStage(
   signals: SpancopSignals,
 ): SpancopSuggestion {
-  // 1. Any open deal outranks everything else.
+  /*
+    Order of precedence: FURTHEST POINT WINS.
+
+    An open enquiry used to outrank everything, which meant a customer who
+    owed money but sent a fresh query was dragged back to Negotiate — and
+    Close, Order and Payment could never fill up for anyone who kept buying.
+
+    Money already committed now outranks money merely hoped for: delivered
+    goods awaiting payment, then a purchase order in hand, then an open
+    enquiry. The new enquiry is not lost — it is still on the deal board,
+    which is where deals belong.
+  */
+
+  // 1. Delivered, cash outstanding. The strongest claim on your attention.
+  if (signals.awaitingPayment) {
+    return { stage: "payment", reason: "Delivered — payment outstanding" };
+  }
+
+  // 2. PO received, not yet delivered.
+  if (signals.hasPurchaseOrder) {
+    return { stage: "order", reason: "Purchase order received" };
+  }
+
+  // 3. Any open deal.
   if (signals.openDealCount > 0) {
     return {
       stage: "negotiate",
@@ -145,16 +168,6 @@ export function suggestSpancopStage(
           ? "1 open deal"
           : `${signals.openDealCount} open deals`,
     };
-  }
-
-  // 2. Delivered, cash outstanding.
-  if (signals.awaitingPayment) {
-    return { stage: "payment", reason: "Delivered — payment outstanding" };
-  }
-
-  // 3. PO received, not yet delivered.
-  if (signals.hasPurchaseOrder) {
-    return { stage: "order", reason: "Purchase order received" };
   }
 
   // 4. Won, but no PO yet.
@@ -278,4 +291,41 @@ export function stageAfterDelete(
   if (after.stage === currentStage) return null;
 
   return { from: currentStage, to: after.stage };
+}
+
+/* ------------------------------------------------------------------ */
+/* Company signals derived from deals                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Roll a customer's deals up into the two flags the ladder reads.
+ *
+ * These used to be stored on the company and written by nobody, so Order and
+ * Payment were permanently empty. Deriving them means the flags can never
+ * drift out of step with the deals they describe.
+ */
+export function fulfilmentSignals(
+  deals: {
+    stage: string;
+    fulfilment: {
+      poNumber: string | null;
+      deliveredAt: string | null;
+      paidAt: string | null;
+    };
+  }[],
+) {
+  const won = deals.filter((d) => d.stage === "won");
+
+  return {
+    // Shipped and not settled — the customer owes money.
+    awaitingPayment: won.some(
+      (d) => d.fulfilment.deliveredAt !== null && d.fulfilment.paidAt === null,
+    ),
+    // PO in hand but nothing shipped yet.
+    hasPurchaseOrder: won.some(
+      (d) => d.fulfilment.poNumber !== null && d.fulfilment.deliveredAt === null,
+    ),
+    // Any completed cycle, ever.
+    hasEverOrdered: won.some((d) => d.fulfilment.paidAt !== null),
+  };
 }
