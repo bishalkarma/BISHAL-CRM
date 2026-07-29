@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Check, LayoutGrid, RotateCcw } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  LayoutGrid,
+  RotateCcw,
+} from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiBlock } from "@/components/dashboard/kpi-block";
 import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
@@ -73,7 +79,14 @@ export function DashboardView() {
    * silently means all time, which is not a number anyone can act on.
    * SPANCOP keeps its own filter, since it answers a different question.
    */
-  const [period, setPeriod] = React.useState<DashboardPeriod>("month");
+  const [period, setPeriod] = React.useState<DashboardPeriod>("all");
+
+  /* One phrase reused by every tile, so nothing claims "in this period"
+     while the filter says All. */
+  const periodLabel =
+    period === "all"
+      ? "All time"
+      : (DASHBOARD_PERIODS.find((p) => p.id === period)?.label ?? "");
 
   /* The target is read on the client only — localStorage does not exist during
      the server render, and reading it inline would mismatch the markup. */
@@ -220,9 +233,11 @@ export function DashboardView() {
             {p.label}
           </button>
         ))}
-        <span className="ml-1 text-[11px] text-muted-foreground">
-          {scopedDeals.length} of {deals.length} deals
-        </span>
+        {period !== "all" && (
+          <span className="ml-1 text-[11px] text-muted-foreground">
+            {scopedDeals.length} of {deals.length} deals
+          </span>
+        )}
       </div>
 
       {editing && (
@@ -249,6 +264,7 @@ export function DashboardView() {
               totalCustomers={scopedCompanies.length}
               totals={totals}
               formatMoney={money}
+              periodLabel={period === "all" ? "all time" : "in this period"}
             />
           ),
 
@@ -271,12 +287,23 @@ export function DashboardView() {
 
           pipeline: (
             <Card className="flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle>Pipeline by stage</CardTitle>
-                <CardDescription>Open deals across the board</CardDescription>
+              {/* The way to the full board lives here in the header, once —
+                  not repeated inside every stage pop-up. */}
+              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle>Pipeline by stage</CardTitle>
+                  <CardDescription>Open deals across the board</CardDescription>
+                </div>
+                <Link
+                  href="/pipeline"
+                  className="flex shrink-0 items-center gap-1 text-xs font-medium text-accent transition-opacity hover:opacity-80"
+                >
+                  Full board
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <PipelineFunnel deals={scopedDeals} />
+                <PipelineFunnel deals={scopedDeals} periodLabel={periodLabel} />
               </CardContent>
             </Card>
           ),
@@ -309,7 +336,9 @@ export function DashboardView() {
             <Card className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle>Activity mix</CardTitle>
-                <CardDescription>How contact time is spent</CardDescription>
+                <CardDescription>
+                  How contact time is spent · {periodLabel}
+                </CardDescription>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
                 <DistributionChart
@@ -327,7 +356,7 @@ export function DashboardView() {
               <CardHeader className="pb-2">
                 <CardTitle>Customers by type</CardTitle>
                 <CardDescription>
-                  Star rating, new, old, renovation
+                  Star rating, new, old, renovation · {periodLabel}
                 </CardDescription>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">

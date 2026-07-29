@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Building2, Handshake, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import type { DealTotals } from "@/lib/dashboard-metrics";
+import { AnimatedNumber } from "@/components/dashboard/animated-number";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -19,18 +20,21 @@ export function KpiBlock({
   totalCustomers,
   totals,
   formatMoney,
+  periodLabel = "in this period",
 }: {
   totalCustomers: number;
   totals: DealTotals;
   formatMoney: (amount: number) => string;
+  /** Reads "all time" on the All filter, so the tile never lies. */
+  periodLabel?: string;
 }) {
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <Tile
         icon={Building2}
         label="Total customer"
-        value={String(totalCustomers)}
-        support="in this period"
+        value={totalCustomers}
+        support={periodLabel}
         tone="accent"
         /* Spans the full height of the 2x2 beside it, so the number is
            centred in real space rather than stranded at the top. */
@@ -38,20 +42,17 @@ export function KpiBlock({
       />
 
       <div className="grid grid-cols-2 gap-3">
-        <Tile
-          icon={Handshake}
-          label="Total Deal"
-          value={String(totals.totalDeals)}
-        />
+        <Tile icon={Handshake} label="Total Deal" value={totals.totalDeals} />
         <Tile
           icon={Wallet}
           label="Total Deal worth"
-          value={formatMoney(totals.totalValue)}
+          value={totals.totalValue}
+          formatValue={formatMoney}
         />
         <Tile
           icon={TrendingUp}
           label="Deal Won"
-          value={String(totals.wonCount)}
+          value={totals.wonCount}
           support={formatMoney(totals.wonValue)}
           rateLabel="Win rate"
           rate={totals.winRate}
@@ -60,7 +61,7 @@ export function KpiBlock({
         <Tile
           icon={TrendingDown}
           label="Deal Loss"
-          value={String(totals.lostCount)}
+          value={totals.lostCount}
           support={formatMoney(totals.lostValue)}
           rateLabel="Loss rate"
           rate={totals.lossRate}
@@ -75,6 +76,7 @@ function Tile({
   icon: Icon,
   label,
   value,
+  formatValue,
   support,
   rateLabel,
   rate,
@@ -83,7 +85,9 @@ function Tile({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: string;
+  value: number;
+  /** Money tiles format on every animation frame; counts need no formatter. */
+  formatValue?: (value: number) => string;
   /** The money behind the count — kept in the same tile as its count. */
   support?: string;
   rateLabel?: string;
@@ -108,17 +112,18 @@ function Tile({
         tone === "danger" && "border-destructive/25 bg-destructive/[0.04]",
       )}
     >
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      {/* Centred, like every other tile in the block. Previously only the
+          tall tile was centred and the four beside it were left aligned,
+          which read as two competing rules in one card. */}
+      <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Icon className={cn("size-3.5 shrink-0", accent)} />
-        <span className="min-w-0 break-words">{label}</span>
+        <span className="min-w-0 break-words text-center">{label}</span>
       </div>
 
-      {/* Centred in whatever space the tile has, so a tall tile is not
-          mostly empty and a short one still reads clearly. */}
       <div
         className={cn(
-          "flex flex-1 flex-col justify-center",
-          tall ? "items-center py-4 text-center" : "mt-1.5",
+          "flex flex-1 flex-col items-center justify-center text-center",
+          tall ? "py-4" : "mt-1.5",
         )}
       >
         <motion.div
@@ -130,7 +135,7 @@ function Tile({
             tall ? "text-5xl" : "text-3xl",
           )}
         >
-          {value}
+          <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
 
         {support && (

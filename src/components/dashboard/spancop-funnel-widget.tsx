@@ -12,6 +12,7 @@ import {
   type PeriodType,
 } from "@/lib/spancop-periods";
 import { useData } from "@/components/providers/data-provider";
+import { AnimatedNumber } from "@/components/dashboard/animated-number";
 import {
   Card,
   CardContent,
@@ -30,7 +31,9 @@ const PERIODS: { id: PeriodType; label: string }[] = [
 
 export function SpancopFunnelWidget() {
   const { companies, transitions } = useData();
-  const [periodType, setPeriodType] = React.useState<PeriodType>("month");
+  /* Opens on Year, matching the "All" default the rest of the dashboard uses:
+     a wider window is the honest starting view. */
+  const [periodType, setPeriodType] = React.useState<PeriodType>("year");
 
   const period = React.useMemo(() => buildPeriod(periodType), [periodType]);
 
@@ -102,7 +105,18 @@ export function SpancopFunnelWidget() {
         a glance instead of as a list.
       */}
       <CardContent className="flex flex-1 flex-col">
-        <div className="flex flex-1 items-end gap-1.5 pt-2">
+        {/*
+          Two different questions sit in this one widget, and unlabelled they
+          looked broken: the count is a snapshot of today and never moves with
+          the filter, while the +N/-N figures below are movements inside the
+          period. Naming both stops the top number looking stuck.
+        */}
+        <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span>{useFurthest ? "Furthest" : "Now"}</span>
+          <span>{period.label}</span>
+        </div>
+
+        <div className="flex flex-1 items-end gap-1.5 pt-1">
           {flows.map((flow, index) => {
             const def = SPANCOP_MAP[flow.stage];
             const count = countFor(flow);
@@ -116,7 +130,7 @@ export function SpancopFunnelWidget() {
                 title={`${def.label} · ${count}`}
               >
                 <span className="text-sm font-semibold tabular-nums">
-                  {count}
+                  <AnimatedNumber value={count} />
                 </span>
 
                 <div className="flex h-[120px] w-full items-end">
