@@ -61,7 +61,13 @@ export function SpancopFunnelWidget() {
   const totalMovements = flows.reduce((sum, f) => sum + f.in, 0);
 
   return (
-    <Card>
+    /*
+      flex flex-col is load-bearing, and its absence was a real bug: every
+      other dashboard tile has it, so its body fills the card. Without it this
+      card sat at its natural height and left a band of dead space beneath the
+      conversion line whenever the tile was taller than the content.
+    */
+    <Card className="flex flex-col">
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle>SPANCOP</CardTitle>
@@ -126,14 +132,17 @@ export function SpancopFunnelWidget() {
             return (
               <div
                 key={flow.stage}
-                className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                className="flex h-full min-w-0 flex-1 flex-col items-center gap-1"
                 title={`${def.label} · ${count}`}
               >
                 <span className="text-sm font-semibold tabular-nums">
                   <AnimatedNumber value={count} />
                 </span>
 
-                <div className="flex h-[120px] w-full items-end">
+                {/* min-h keeps the shape readable in a short tile; flex-1
+                    lets the bars grow into a tall one instead of stopping at
+                    a fixed 120px and leaving the rest of the card empty. */}
+                <div className="flex h-full min-h-[80px] w-full flex-1 items-end">
                   <motion.div
                     initial={{ height: 0 }}
                     animate={{ height: `${heightPct}%` }}
@@ -168,7 +177,7 @@ export function SpancopFunnelWidget() {
           })}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-2.5 text-xs">
+        <div className="mt-3 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-2.5 text-xs">
           <span className="text-muted-foreground">
             Approach → Negotiate{" "}
             <strong className="font-semibold text-foreground">

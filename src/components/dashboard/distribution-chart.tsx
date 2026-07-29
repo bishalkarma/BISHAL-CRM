@@ -41,6 +41,10 @@ const LABEL_MIN_SHARE = 8;
 const MAX_SLICES = 6;
 /** Tile width under which chart and legend stack instead of sitting side by side. */
 const STACK_BELOW = 340;
+/** The donut scales between these, rather than sitting at a fixed size. */
+const DONUT_MIN = 110;
+const DONUT_MAX = 190;
+const DONUT_DEFAULT = 160;
 
 /** Long tails become one "Other" row rather than a fan of 1% slivers. */
 function groupTail(slices: Slice[]): Slice[] {
@@ -82,11 +86,26 @@ export function DistributionChart({
      this particular dashboard widget had been dragged. */
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = React.useState(false);
+  /* The donut used to be a fixed 160px, so a tall tile left a band of dead
+     space beneath the chart. It now scales to whatever the tile gives it,
+     clamped so it never dominates a short tile or vanishes in a narrow one. */
+  const [size, setSize] = React.useState(DONUT_DEFAULT);
   React.useEffect(() => {
     const node = hostRef.current;
     if (!node || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => {
-      setStacked(entry.contentRect.width < STACK_BELOW);
+      const { width, height } = entry.contentRect;
+      const isStacked = width < STACK_BELOW;
+      setStacked(isStacked);
+      // Stacked: the donut shares height with the legend below it.
+      // Side by side: it may use the full height, but never more than
+      // half the width, or the legend gets squeezed out again.
+      const budget = isStacked
+        ? Math.min(height * 0.5, width)
+        : Math.min(height, width * 0.5);
+      setSize(
+        Math.round(Math.max(DONUT_MIN, Math.min(DONUT_MAX, budget))),
+      );
     });
     observer.observe(node);
     return () => observer.disconnect();
@@ -109,16 +128,18 @@ export function DistributionChart({
   return (
     <div
       ref={hostRef}
+      /* h-full + justify-between: the content stretches to the card instead
+         of parking in the middle and leaving a gap underneath. */
       className={cn(
-        "flex min-w-0 gap-4",
-        stacked ? "flex-col items-center" : "flex-row items-center",
+        "flex h-full min-h-0 min-w-0 gap-4",
+        stacked
+          ? "flex-col items-center justify-center"
+          : "flex-row items-center",
       )}
     >
       <div
-        className={cn(
-          "relative shrink-0",
-          stacked ? "h-[150px] w-[150px]" : "h-[160px] w-[160px]",
-        )}
+        className="relative shrink-0"
+        style={{ height: size, width: size }}
       >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -216,7 +237,13 @@ export function DistributionChart({
         </div>
       </div>
 
-      <ul className="w-full min-w-0 flex-1 space-y-1">
+      <ul
+        className={cn(
+          "w-full min-w-0 flex-1",
+          // Rows share any spare height rather than bunching at the top.
+          stacked ? "space-y-1" : "flex flex-col justify-center gap-0.5",
+        )}
+      >
         {slices.map((slice, i) => (
           <li key={slice.key}>
             <button

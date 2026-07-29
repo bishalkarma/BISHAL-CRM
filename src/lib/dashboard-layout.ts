@@ -39,20 +39,23 @@ export const DEFAULT_LAYOUT: WidgetBox[] = [
   { i: "kpi", x: 0, y: 0, w: 12, h: 5, minW: 6, minH: 4 },
   { i: "revenue", x: 0, y: 5, w: 8, h: 8, minW: 4, minH: 6 },
   { i: "pipeline", x: 8, y: 5, w: 4, h: 8, minW: 3, minH: 6 },
-  { i: "today", x: 0, y: 13, w: 8, h: 8, minW: 4, minH: 5 },
-  { i: "mix", x: 8, y: 13, w: 4, h: 8, minW: 3, minH: 6 },
-  { i: "spancop", x: 0, y: 21, w: 6, h: 10, minW: 4, minH: 8 },
-  // Full height beside SPANCOP now that Revenue by segment has gone.
-  { i: "types", x: 6, y: 21, w: 6, h: 10, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 13, w: 12, h: 8, minW: 4, minH: 5 },
 
-  /* The analytical pair: both answer "what is happening across the book". */
-  { i: "loss", x: 0, y: 31, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "products", x: 6, y: 31, w: 6, h: 8, minW: 3, minH: 5 },
+  /* SPANCOP does not move. Top products sits beside it because it is a
+     scrolling list — it fills a tall tile without leaving a gap, which a
+     four-bar chart could not. */
+  { i: "spancop", x: 0, y: 21, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 21, w: 6, h: 9, minW: 3, minH: 5 },
 
-  /* The three work lists — narrower, since each is a short queue. */
-  { i: "expected", x: 0, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 4, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "cash", x: 8, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
+  /* The two donuts, side by side and equal, so neither has to stack. */
+  { i: "mix", x: 0, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "types", x: 6, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
+
+  { i: "loss", x: 0, y: 38, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "expected", x: 6, y: 38, w: 6, h: 8, minW: 3, minH: 5 },
+
+  { i: "samples", x: 0, y: 46, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 6, y: 46, w: 6, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
