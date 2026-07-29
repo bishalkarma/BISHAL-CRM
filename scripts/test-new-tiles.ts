@@ -54,8 +54,15 @@ check("oldest first", samples.every((s, i) => i === 0 || samples[i-1].daysWaitin
 
 console.log("\nCash to collect");
 const cash = cashToCollect(COMPANIES, DEALS, "all", id);
-check("all have a PO", cash.every(c => c.company.hasPurchaseOrder));
-check("all awaiting payment", cash.every(c => c.company.awaitingPayment));
+/* Cash to collect now derives from the DEALS, not the stored company flags
+   that nothing ever wrote to. Assert against the real source of truth. */
+check("every row has a delivered, unpaid deal", cash.every((c) =>
+  DEALS.some((d) =>
+    d.companyId === c.company.id &&
+    d.stage === "won" &&
+    d.fulfilment.deliveredAt !== null &&
+    d.fulfilment.paidAt === null)));
+check("every row shows a positive balance", cash.every((c) => c.value > 0));
 check("days outstanding positive", cash.every(c => c.daysOutstanding >= 0));
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
