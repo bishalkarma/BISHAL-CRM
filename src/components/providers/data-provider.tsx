@@ -74,6 +74,7 @@ type DataContextValue = {
 
   addActivity: (activity: Activity) => void;
   updateActivity: (id: string, patch: Partial<Activity>) => void;
+  deleteActivity: (id: string) => void;
   activitiesFor: (opts: { companyId?: string; dealId?: string }) => Activity[];
 
   addDeal: (deal: Deal) => void;
@@ -391,6 +392,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  /**
+   * Removing an entry also decrements the owning company's activity count,
+   * which is what SPANCOP reads. Without that the ladder would keep claiming
+   * contact that no longer exists anywhere in the journal.
+   */
+  const deleteActivity = React.useCallback(
+    (id: string) => {
+      setActivities((current) => {
+        const doomed = current.find((a) => a.id === id);
+        if (!doomed) return current;
+        const next = current.filter((a) => a.id !== id);
+
+        setCompanies((cs) =>
+          cs.map((c) => {
+            if (c.id !== doomed.companyId) return c;
+            // The newest survivor becomes the last contact date; none left
+            // means the company genuinely has no recorded contact.
+            const remaining = next
+              .filter((a) => a.companyId === c.id)
+              .sort(
+                (a, b) =>
+                  new Date(b.occurredAt).getTime() -
+                  new Date(a.occurredAt).getTime(),
+              );
+            return {
+              ...c,
+              activityCount: Math.max(0, c.activityCount - 1),
+              lastActivityAt: remaining[0]?.occurredAt ?? null,
+            };
+          }),
+        );
+
+        void persist("activity", async () =>
+          supabase!.from("activities").delete().eq("id", id),
+        );
+        return next;
+      });
+    },
+    [persist],
+  );
+
   /** Deal-scoped when a dealId is given, otherwise the whole customer. */
   const activitiesFor = React.useCallback(
     ({ companyId, dealId }: { companyId?: string; dealId?: string }) =>
@@ -548,6 +590,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contactById: contactByIdFn,
       addActivity,
       updateActivity,
+      deleteActivity,
       activitiesFor,
       addDeal,
       updateDeal,
@@ -576,6 +619,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contactByIdFn,
       addActivity,
       updateActivity,
+      deleteActivity,
       activitiesFor,
       addDeal,
       updateDeal,

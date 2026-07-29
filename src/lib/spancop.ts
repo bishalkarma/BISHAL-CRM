@@ -247,3 +247,35 @@ export function isStalled(stage: SpancopStage, daysInStage: number) {
   if (stage === "approach") return false; // handled by approachAlert
   return daysInStage >= def.stallDays;
 }
+
+/**
+ * What deleting one activity would do to a company's SPANCOP stage.
+ *
+ * Deleting a journal entry is not a neutral act: the ladder reads
+ * `activityCount`, so removing a company's only logged contact silently drops
+ * it from Approach back to Prospect or Suspect. The confirmation dialog names
+ * that consequence instead of letting it happen quietly.
+ *
+ * Returns null when nothing would move — the common case, and the dialog
+ * stays short.
+ */
+export function stageAfterDelete(
+  signals: SpancopSignals,
+  currentStage: SpancopStage,
+): { from: SpancopStage; to: SpancopStage } | null {
+  if (signals.activityCount <= 0) return null;
+
+  const after = suggestSpancopStage({
+    ...signals,
+    activityCount: signals.activityCount - 1,
+  });
+
+  // Only warn about a real move, and only when today's stage is the one the
+  // engine put the company at. A manually placed stage is the user's own
+  // decision and deleting an entry does not override it.
+  const now = suggestSpancopStage(signals);
+  if (now.stage !== currentStage) return null;
+  if (after.stage === currentStage) return null;
+
+  return { from: currentStage, to: after.stage };
+}

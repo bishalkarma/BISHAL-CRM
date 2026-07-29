@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import {
   ArrowRight,
   Banknote,
@@ -7,8 +8,10 @@ import {
   MapPin,
   MessageCircle,
   MessageSquare,
+  MoreHorizontal,
   Package,
   Phone,
+  Trash2,
   Users,
 } from "lucide-react";
 import {
@@ -21,7 +24,14 @@ import {
 import { useData } from "@/components/providers/data-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ClampedText } from "./clamped-text";
+import { DeleteActivityDialog } from "./delete-activity-dialog";
 import { cn, initials, relativeTime } from "@/lib/utils";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -50,12 +60,16 @@ export function ActivityRow({
    * then has to carry its own date.
    */
   showDate = false,
+  /** Journals inside pop-ups are read-only, so the menu is suppressed. */
+  deletable = true,
 }: {
   activity: Activity;
   compact?: boolean;
   showCompany?: boolean;
   showDate?: boolean;
+  deletable?: boolean;
 }) {
+  const [confirming, setConfirming] = React.useState(false);
   const { companies, contactById, deals } = useData();
   const def = ACTIVITY_MAP[activity.type];
   const Icon = ICONS[def.icon] ?? Phone;
@@ -75,9 +89,10 @@ export function ActivityRow({
   const upcoming = new Date(activity.occurredAt).getTime() > Date.now();
 
   return (
+    <>
     <div
       className={cn(
-        "flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50",
+        "group/activity flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50",
         compact && "px-2 py-2",
         upcoming && "opacity-70",
       )}
@@ -116,6 +131,32 @@ export function ActivityRow({
                 })
               : relativeTime(activity.occurredAt)}
           </span>
+
+          {deletable && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Activity options"
+                  /* Hidden until the row is hovered or the button is focused,
+                     so a long journal is not a wall of icons. Always visible
+                     on touch, where there is no hover. */
+                  className="-mr-1 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover/activity:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onSelect={() => setConfirming(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/*
@@ -181,5 +222,14 @@ export function ActivityRow({
         </Avatar>
       )}
     </div>
+
+    {deletable && (
+      <DeleteActivityDialog
+        activity={confirming ? activity : null}
+        open={confirming}
+        onOpenChange={setConfirming}
+      />
+    )}
+    </>
   );
 }
