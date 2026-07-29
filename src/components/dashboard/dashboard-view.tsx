@@ -30,9 +30,31 @@ import {
   revenueTrend,
   todaySummary,
   periodStart,
+  lossReasons,
+  topProducts,
+  productsByCustomer,
+  expectedToClose,
+  samplesAwaiting,
+  cashToCollect,
   DASHBOARD_PERIODS,
   type DashboardPeriod,
 } from "@/lib/dashboard-metrics";
+import {
+  LossReasonsTile,
+  LossReasonsSummary,
+} from "@/components/dashboard/loss-reasons-tile";
+import {
+  TopProductsTile,
+  ProductViewToggle,
+  type ProductView,
+} from "@/components/dashboard/top-products-tile";
+import {
+  ExpectedCloseTile,
+  ExpectedCloseSummary,
+  SamplesAwaitingTile,
+  CashToCollectTile,
+  CashSummary,
+} from "@/components/dashboard/work-tiles";
 import {
   readLayout,
   writeLayout,
@@ -115,6 +137,9 @@ export function DashboardView() {
     setLayout(DEFAULT_LAYOUT);
   }, []);
 
+  /** Which of Value / Qty / Customer the Top products tile is showing. */
+  const [productView, setProductView] = React.useState<ProductView>("value");
+
   const [openCompanyId, setOpenCompanyId] = React.useState<string | null>(null);
   const openCompany =
     managedCompanies.find((c) => c.id === openCompanyId) ?? null;
@@ -167,6 +192,33 @@ export function DashboardView() {
   const trend = React.useMemo(
     () => revenueTrend(deals, convert, target),
     [deals, convert, target],
+  );
+
+  /* Each of these filters on the date its own question implies — lost date
+     for losses, expected close for the forecast, created for the rest. */
+  const losses = React.useMemo(
+    () => lossReasons(deals, period, convert),
+    [deals, period, convert],
+  );
+  const products = React.useMemo(
+    () => topProducts(deals, period, convert),
+    [deals, period, convert],
+  );
+  const productsByCust = React.useMemo(
+    () => productsByCustomer(deals, period, convert),
+    [deals, period, convert],
+  );
+  const expected = React.useMemo(
+    () => expectedToClose(deals, period, convert),
+    [deals, period, convert],
+  );
+  const samples = React.useMemo(
+    () => samplesAwaiting(deals, period),
+    [deals, period],
+  );
+  const cash = React.useMemo(
+    () => cashToCollect(companies, deals, period, convert),
+    [companies, deals, period, convert],
   );
 
   const companyName = React.useCallback(
@@ -350,6 +402,97 @@ export function DashboardView() {
           ),
 
           spancop: <SpancopFunnelWidget />,
+
+          loss: (
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle>Why we lose</CardTitle>
+                  <CardDescription>
+                    Lost deals by reason · {periodLabel}
+                  </CardDescription>
+                </div>
+                <LossReasonsSummary rows={losses} formatMoney={money} />
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <LossReasonsTile
+                  rows={losses}
+                  formatMoney={money}
+                  periodLabel={periodLabel}
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          products: (
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle>Top products</CardTitle>
+                  <CardDescription>
+                    Open deals · {periodLabel}
+                  </CardDescription>
+                </div>
+                <ProductViewToggle
+                  view={productView}
+                  onChange={setProductView}
+                />
+              </CardHeader>
+              {/* Fixed tile, scrolling list — switching view must never
+                  resize the card or shove its neighbours. */}
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <TopProductsTile
+                  view={productView}
+                  products={products}
+                  byCustomer={productsByCust}
+                  formatMoney={money}
+                  periodLabel={periodLabel}
+                />
+              </CardContent>
+            </Card>
+          ),
+
+          expected: (
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle>Expected to close</CardTitle>
+                  <CardDescription>By expected close date</CardDescription>
+                </div>
+                <ExpectedCloseSummary rows={expected} formatMoney={money} />
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <ExpectedCloseTile rows={expected} formatMoney={money} />
+              </CardContent>
+            </Card>
+          ),
+
+          samples: (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle>Samples awaiting feedback</CardTitle>
+                <CardDescription>Sent, no response yet</CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <SamplesAwaitingTile rows={samples} />
+              </CardContent>
+            </Card>
+          ),
+
+          cash: (
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle>Cash to collect</CardTitle>
+                  <CardDescription>Won · PO received · not paid</CardDescription>
+                </div>
+                <CashSummary rows={cash} formatMoney={money} />
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                <CashToCollectTile rows={cash} formatMoney={money} />
+              </CardContent>
+            </Card>
+          ),
 
           types: (
             <Card className="flex flex-col">

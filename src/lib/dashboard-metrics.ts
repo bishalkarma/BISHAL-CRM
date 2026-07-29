@@ -13,6 +13,8 @@
 import type { Company } from "./companies";
 import type { Deal } from "./deals";
 import type { CurrencyCode } from "./currency";
+import { LOST_REASONS, lineCounts, lineTotal, type LostReason } from "./deal-model";
+import { STAGE_MAP, isOpenStage } from "./pipeline";
 import { isOpenTask, taskCounts, type Activity } from "./activities";
 
 /* ------------------------------------------------------------------ */
@@ -273,4 +275,312 @@ export function revenueTrend(
   }
 
   return buckets;
+}
+
+/* ------------------------------------------------------------------ */
+/* New tiles — Why we lose, Top products, Expected to close,           */
+/* Samples awaiting feedback, Cash to collect                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A deal carries three dates and they answer different questions.
+ *
+ * Filtering everything by `createdAt` looked consistent but produced false
+ * answers: a deal created last year and lost this week vanished from "this
+ * month", so "Why we lose" could show nothing during a week we lost real
+ * money. Each tile therefore filters on the date its own question implies.
+ */
+function withinPeriod(
+  iso: string | null | undefined,
+  period: DashboardPeriod,
+  now = Date.now(),
+) {
+  const from = periodStart(period, now);
+  if (from === null) return true;
+  if (!iso) return false;
+  return new Date(iso).getTime() >= from;
+}
+
+/** The day a deal was closed — the end of its last active period. */
+export function closedAt(deal: Deal): string | null {
+  const last = deal.periods[deal.periods.length - 1];
+  return last?.closedAt ?? null;
+}
+
+export type LossReasonRow = {
+  reason: LostReason;
+  count: number;
+  value: number;
+  deals: Deal[];
+};
+
+/**
+ * Lost deals grouped by reason, filtered by the date they were LOST.
+ * Reasons with no deals are kept so the tile shows the full set of four.
+ */
+export function lossReasons(
+  deals: Deal[],
+  period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number,
+  now = Date.now(),
+): LossReasonRow[] {
+  const lost = deals.filter(
+    (d) =>
+      d.stage === "lost" &&
+      d.lostReason &&
+      withinPeriod(closedAt(d) ?? d.createdAt, period, now),
+  );
+
+  return LOST_REASONS.map((reason) => {
+    const matching = lost.filter((d) => d.lostReason === reason);
+    return {
+      reason,
+      count: matching.length,
+      value: matching.reduce((sum, d) => sum + convert(d.value, d.currency), 0),
+      deals: matching,
+    };
+  }).sort((a, b) => b.value - a.value || b.count - a.count);
+}
+
+export type ProductRow = {
+  key: string;
+  product: string;
+  brand: string;
+  quantity: number;
+  value: number;
+  /** Deals this product appears on — powers the drill-down. */
+  deals: { deal: Deal; quantity: number; value: number }[];
+};
+
+export type CustomerProductRow = {
+  key: string;
+  company: string;
+  dealCount: number;
+  value: number;
+  lines: { label: string; quantity: number; value: number }[];
+};
+
+/** Open deals only — won and lost are a different question. */
+function openDealsIn(
+  deals: Deal[],
+  period: DashboardPeriod,
+  now = Date.now(),
+) {
+  return deals.filter(
+    (d) =>
+      isOpenStage(d.stage) && withinPeriod(d.createdAt, period, now),
+  );
+}
+
+/**
+ * Line items across open deals, grouped by product + brand.
+ *
+ * Rejected lines are skipped, matching `dealValue()` — a line the customer
+ * struck out is not something we are selling.
+ */
+export function topProducts(
+  deals: Deal[],
+  period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number,
+  now = Date.now(),
+): ProductRow[] {
+  const map = new Map<string, ProductRow>();
+
+  for (const deal of openDealsIn(deals, period, now)) {
+    for (const line of deal.lines) {
+      if (!lineCounts(line)) continue;
+      const key = `${line.product}__${line.brand}`;
+      const value = convert(lineTotal(line), deal.currency);
+      const row =
+        map.get(key) ??
+        ({
+          key,
+          product: line.product,
+          brand: line.brand,
+          quantity: 0,
+          value: 0,
+          deals: [],
+        } satisfies ProductRow);
+      row.quantity += line.quantity;
+      row.value += value;
+
+      const existing = row.deals.find((d) => d.deal.id === deal.id);
+      if (existing) {
+        existing.quantity += line.quantity;
+        existing.value += value;
+      } else {
+        row.deals.push({ deal, quantity: line.quantity, value });
+      }
+      map.set(key, row);
+    }
+  }
+
+  return [...map.values()].sort((a, b) => b.value - a.value);
+}
+
+/** The same open line items, clubbed under the customer they belong to. */
+export function productsByCustomer(
+  deals: Deal[],
+  period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number,
+  now = Date.now(),
+): CustomerProductRow[] {
+  const map = new Map<string, CustomerProductRow>();
+
+  for (const deal of openDealsIn(deals, period, now)) {
+    const row =
+      map.get(deal.companyId) ??
+      ({
+        key: deal.companyId,
+        company: deal.company,
+        dealCount: 0,
+        value: 0,
+        lines: [],
+      } satisfies CustomerProductRow);
+    row.dealCount += 1;
+
+    for (const line of deal.lines) {
+      if (!lineCounts(line)) continue;
+      const value = convert(lineTotal(line), deal.currency);
+      row.value += value;
+      const label = `${line.product} · ${line.brand}`;
+      const existing = row.lines.find((l) => l.label === label);
+      if (existing) {
+        existing.quantity += line.quantity;
+        existing.value += value;
+      } else {
+        row.lines.push({ label, quantity: line.quantity, value });
+      }
+    }
+    map.set(deal.companyId, row);
+  }
+
+  // Sorted by total value, as agreed — matching the other two views.
+  return [...map.values()]
+    .map((row) => ({
+      ...row,
+      lines: row.lines.sort((a, b) => b.value - a.value),
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+export type ExpectedCloseRow = {
+  deal: Deal;
+  value: number;
+  /** Value × probability — what a forecast should actually carry. */
+  weighted: number;
+};
+
+/**
+ * Open deals whose EXPECTED CLOSE date falls inside the period.
+ *
+ * Named "Expected to close" rather than "Closing this month": closing and
+ * closed sit at opposite ends of the deal and the old name read as both.
+ */
+export function expectedToClose(
+  deals: Deal[],
+  period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number,
+  now = Date.now(),
+): ExpectedCloseRow[] {
+  const from = periodStart(period, now);
+
+  return deals
+    .filter((deal) => {
+      if (!isOpenStage(deal.stage) || deal.onHold) return false;
+      if (from === null) return true;
+      const due = new Date(deal.expectedCloseDate).getTime();
+      // A forward-looking window: anything not yet past its close date, plus
+      // overdue ones inside the window, which still need chasing.
+      return due >= from;
+    })
+    .map((deal) => {
+      const value = convert(deal.value, deal.currency);
+      const probability =
+        deal.probability ?? STAGE_MAP[deal.stage]?.probability ?? 0;
+      return { deal, value, weighted: (value * probability) / 100 };
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.deal.expectedCloseDate).getTime() -
+        new Date(b.deal.expectedCloseDate).getTime(),
+    );
+}
+
+export type WaitingSampleRow = {
+  deal: Deal;
+  sentAt: string;
+  daysWaiting: number;
+};
+
+/** Samples sent with no feedback recorded — oldest first. */
+export function samplesAwaiting(
+  deals: Deal[],
+  period: DashboardPeriod,
+  now = Date.now(),
+): WaitingSampleRow[] {
+  return deals
+    .filter(
+      (d) =>
+        d.sample !== null &&
+        d.sample.feedbackAt === null &&
+        withinPeriod(d.sample.sentAt, period, now),
+    )
+    .map((deal) => ({
+      deal,
+      sentAt: deal.sample!.sentAt,
+      daysWaiting: Math.floor(
+        (now - new Date(deal.sample!.sentAt).getTime()) / 86_400_000,
+      ),
+    }))
+    .sort((a, b) => b.daysWaiting - a.daysWaiting);
+}
+
+export type CashRow = {
+  company: Company;
+  value: number;
+  daysOutstanding: number;
+};
+
+/**
+ * Money earned but not yet in the bank.
+ *
+ * The user's definition: the deal is WON, the purchase order is in, delivery
+ * is done, payment is not. There is no delivery flag in the CRM yet, so this
+ * uses purchase order + awaiting payment, which is as close as the data goes.
+ */
+export function cashToCollect(
+  companies: Company[],
+  deals: Deal[],
+  period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number,
+  now = Date.now(),
+): CashRow[] {
+  return companies
+    .filter(
+      (c) =>
+        c.hasPurchaseOrder &&
+        c.awaitingPayment &&
+        withinPeriod(c.lastOrderAt ?? c.createdAt, period, now),
+    )
+    .map((company) => {
+      // Value the won deals for this customer rather than trusting a
+      // lifetime figure that includes money already collected.
+      const won = deals.filter(
+        (d) => d.companyId === company.id && d.stage === "won",
+      );
+      const value = won.reduce(
+        (sum, d) => sum + convert(d.value, d.currency),
+        0,
+      );
+      const since = company.lastOrderAt
+        ? new Date(company.lastOrderAt).getTime()
+        : new Date(company.createdAt).getTime();
+      return {
+        company,
+        value,
+        daysOutstanding: Math.floor((now - since) / 86_400_000),
+      };
+    })
+    .sort((a, b) => b.value - a.value);
 }

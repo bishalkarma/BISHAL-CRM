@@ -14,7 +14,12 @@ export type WidgetId =
   | "today"
   | "mix"
   | "spancop"
-  | "types";
+  | "types"
+  | "loss"
+  | "products"
+  | "expected"
+  | "samples"
+  | "cash";
 
 export type WidgetBox = {
   i: WidgetId;
@@ -39,6 +44,15 @@ export const DEFAULT_LAYOUT: WidgetBox[] = [
   { i: "spancop", x: 0, y: 21, w: 6, h: 10, minW: 4, minH: 8 },
   // Full height beside SPANCOP now that Revenue by segment has gone.
   { i: "types", x: 6, y: 21, w: 6, h: 10, minW: 3, minH: 5 },
+
+  /* The analytical pair: both answer "what is happening across the book". */
+  { i: "loss", x: 0, y: 31, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "products", x: 6, y: 31, w: 6, h: 8, minW: 3, minH: 5 },
+
+  /* The three work lists — narrower, since each is a short queue. */
+  { i: "expected", x: 0, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 4, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 8, y: 39, w: 4, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
