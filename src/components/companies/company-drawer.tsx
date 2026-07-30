@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  Pencil,
   Phone,
   Sparkles,
   User,
@@ -21,6 +22,7 @@ import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/span
 import { alertFor, suggestionFor } from "./use-companies";
 import { DrawerJournal } from "@/components/activities/drawer-journal";
 import { useData } from "@/components/providers/data-provider";
+import { NewCompanyDialog } from "./new-company-dialog";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
 import {
@@ -55,7 +57,8 @@ export function CompanyDrawer({
   ) => void;
   onDismissSuggestion: (id: string, stage: SpancopStage) => void;
 }) {
-  const { activitiesFor } = useData();
+  const [editing, setEditing] = React.useState(false);
+  const { companies, updateCompanyWithContact, activitiesFor } = useData();
   const companyActivities = React.useMemo(
     () => (company ? activitiesFor({ companyId: company.id }) : []),
     [activitiesFor, company],
@@ -95,6 +98,15 @@ export function CompanyDrawer({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {/* Corrections happen here, in the record you are already reading. */}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="mr-1 flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+            >
+              <Pencil className="size-3" />
+              Edit
+            </button>
             <Badge variant="outline" className="gap-1">
               <Building2 />
               {company.business}
@@ -364,6 +376,26 @@ export function CompanyDrawer({
           </div>
         </div>
       </DialogContent>
+
+      {/* Reuses the create form, pre-filled. Saving writes the company and
+          its primary contact together so the two copies cannot disagree. */}
+      <NewCompanyDialog
+        open={editing}
+        onOpenChange={setEditing}
+        editing={company}
+        onCreate={() => {}}
+        onSaveEdit={(patch) =>
+          updateCompanyWithContact(company.id, patch, {
+            name: patch.contactName ?? company.contactName,
+            role: patch.contactRole ?? company.contactRole,
+            email: patch.email ?? company.email,
+            phone: patch.phone ?? company.phone,
+            whatsappSameAsPhone:
+              patch.whatsappSameAsPhone ?? company.whatsappSameAsPhone,
+          })
+        }
+        existingNames={companies.map((c) => c.name)}
+      />
     </Dialog>
   );
 }

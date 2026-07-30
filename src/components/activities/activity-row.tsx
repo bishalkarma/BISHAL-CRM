@@ -9,6 +9,7 @@ import {
   MessageCircle,
   MessageSquare,
   MoreHorizontal,
+  Pencil,
   Package,
   Phone,
   Trash2,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ClampedText } from "./clamped-text";
 import { DeleteActivityDialog } from "./delete-activity-dialog";
+import { LogActivityDialog } from "./log-activity-dialog";
 import { cn, initials, relativeTime } from "@/lib/utils";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -70,6 +72,7 @@ export function ActivityRow({
   deletable?: boolean;
 }) {
   const [confirming, setConfirming] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
   const { companies, contactById, deals } = useData();
   const def = ACTIVITY_MAP[activity.type];
   const Icon = ICONS[def.icon] ?? Phone;
@@ -147,6 +150,10 @@ export function ActivityRow({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                  <Pencil className="size-3.5" />
+                  Edit
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => setConfirming(true)}
                   className="text-destructive focus:text-destructive"
@@ -222,6 +229,14 @@ export function ActivityRow({
         </Avatar>
       )}
     </div>
+
+    {deletable && (
+      <LogActivityDialog
+        open={editing}
+        onOpenChange={setEditing}
+        editing={editing ? activity : null}
+      />
+    )}
 
     {deletable && (
       <DeleteActivityDialog

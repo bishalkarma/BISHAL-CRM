@@ -5,6 +5,7 @@ import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
+import { recomputeCounters, countersDiffer } from "@/lib/recompute";
 import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
 import { EMPTY_FULFILMENT, type Fulfilment } from "@/lib/deal-model";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
@@ -76,6 +77,18 @@ type DataContextValue = {
 
   addActivity: (activity: Activity) => void;
   updateActivity: (id: string, patch: Partial<Activity>) => void;
+  updateContact: (id: string, patch: Partial<Contact>) => void;
+  /**
+   * Edit a customer and its primary contact together.
+   *
+   * The same person is stored twice — a snapshot on `companies` and a full
+   * row in `contacts` — so editing one alone would leave the two disagreeing.
+   */
+  updateCompanyWithContact: (
+    id: string,
+    company: Partial<Company>,
+    contact?: Partial<Contact>,
+  ) => void;
   deleteActivity: (id: string) => void;
   activitiesFor: (opts: { companyId?: string; dealId?: string }) => Activity[];
 
@@ -160,6 +173,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     user never chose. That is exactly how the activities table was emptied.
     These refs let a writer compute from current data without that risk.
   */
+  /* syncCounters is defined below; a ref keeps the writers above it simple. */
+  const syncCountersRef = React.useRef<((companyId: string) => void) | null>(
+    null,
+  );
+
   const activitiesRef = React.useRef<Activity[]>([]);
   React.useEffect(() => {
     activitiesRef.current = activities;
@@ -169,6 +187,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     dealsRef.current = deals;
   }, [deals]);
+
+  const contactsRef = React.useRef<Contact[]>([]);
+  React.useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
 
   const companiesRef = React.useRef<Company[]>([]);
   React.useEffect(() => {
@@ -369,6 +392,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  /*
+    Refresh the three stored counters after any edit that could move them.
+
+    Silent by design: the user asked for edits to read as though the value had
+    always been there, so nothing is written to the journal. Only the numbers
+    the rules depend on are brought back in line.
+  */
+  const syncCounters = React.useCallback(
+    (companyId: string) => {
+      const fresh = recomputeCounters(
+        companyId,
+        activitiesRef.current,
+        dealsRef.current,
+      );
+      const company = companiesRef.current.find((c) => c.id === companyId);
+      if (!company || !countersDiffer(company, fresh)) return;
+
+      setCompanies((cs) =>
+        cs.map((c) => (c.id === companyId ? { ...c, ...fresh } : c)),
+      );
+
+      void persist("counters", async () =>
+        supabase!
+          .from("companies")
+          .update({
+            activity_count: fresh.activityCount,
+            last_activity_at: fresh.lastActivityAt,
+            lifetime_value: fresh.lifetimeValue,
+          })
+          .eq("id", companyId),
+      );
+    },
+    [persist],
+  );
+
+  syncCountersRef.current = syncCounters;
+
   const updateCompany = React.useCallback(
     (id: string, patch: Partial<Company>) => {
       // Computed outside the updater, same rule as every other writer here.
@@ -434,6 +494,61 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const updateContact = React.useCallback(
+    (id: string, patch: Partial<Contact>) => {
+      const existing = contactsRef.current.find((c) => c.id === id);
+      if (!existing) return;
+      const updated = { ...existing, ...patch };
+
+      setContacts((current) =>
+        current.map((c) => (c.id === id ? updated : c)),
+      );
+
+      void persist("contact", async () =>
+        supabase!.from("contacts").update(fromContact(updated)).eq("id", id),
+      );
+    },
+    [persist],
+  );
+
+  const updateCompanyWithContact = React.useCallback(
+    (id: string, patch: Partial<Company>, contactPatch?: Partial<Contact>) => {
+      const existing = companiesRef.current.find((c) => c.id === id);
+      if (!existing) return;
+      const updated = { ...existing, ...patch };
+
+      /*
+        The primary contact carries the same four fields the company snapshot
+        does. Both are written in one save so they can never drift apart.
+      */
+      const primary =
+        contactsRef.current.find((c) => c.companyId === id && c.isPrimary) ??
+        contactsRef.current.find((c) => c.companyId === id);
+      const nextContact =
+        primary && contactPatch ? { ...primary, ...contactPatch } : null;
+
+      setCompanies((cs) => cs.map((c) => (c.id === id ? updated : c)));
+      if (nextContact) {
+        setContacts((cs) =>
+          cs.map((c) => (c.id === nextContact.id ? nextContact : c)),
+        );
+      }
+
+      void persist("customer", async () => {
+        const res = await supabase!
+          .from("companies")
+          .update(fromCompany(updated))
+          .eq("id", id);
+        if (res.error || !nextContact) return res;
+        return supabase!
+          .from("contacts")
+          .update(fromContact(nextContact))
+          .eq("id", nextContact.id);
+      });
+    },
+    [persist],
+  );
+
   const updateActivity = React.useCallback(
     (id: string, patch: Partial<Activity>) => {
       // Same rule as deleteActivity: compute here, write once, never inside
@@ -450,6 +565,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       void persist("activity", async () =>
         supabase!.from("activities").update(fromActivity(updated)).eq("id", id),
       );
+
+      // A changed date can move an entry into the future, or change which
+      // entry is the most recent — both are stored on the company.
+      queueMicrotask(() => syncCountersRef.current?.(updated.companyId));
     },
     [persist],
   );
@@ -589,6 +708,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         return res;
       });
+
+      // Line-item edits change the deal value, which feeds lifetime value.
+      queueMicrotask(() => syncCountersRef.current?.(updated.companyId));
     },
     [persist],
   );
@@ -938,6 +1060,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addCompany,
       addCompanies,
       updateCompany,
+      updateContact,
+      updateCompanyWithContact,
       addContact,
       contactsFor,
       primaryFor,
@@ -972,6 +1096,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addCompany,
       addCompanies,
       updateCompany,
+      updateContact,
+      updateCompanyWithContact,
       addContact,
       contactsFor,
       primaryFor,

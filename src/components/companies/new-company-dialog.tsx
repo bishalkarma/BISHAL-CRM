@@ -74,12 +74,23 @@ export function NewCompanyDialog({
   open,
   onOpenChange,
   onCreate,
+  editing,
+  onSaveEdit,
   existingNames,
   prefillName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (company: Company) => void;
+  /**
+   * An existing customer being corrected.
+   *
+   * Silent by design — the record simply becomes what the user says it is.
+   * Stage, counters and order flags are never touched here; those follow from
+   * activities and deals, not from typing.
+   */
+  editing?: Company | null;
+  onSaveEdit?: (patch: Partial<Company>) => void;
   existingNames: string[];
   /** Carried over when the user was sent here from the deal flow. */
   prefillName?: string;
@@ -103,6 +114,28 @@ export function NewCompanyDialog({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  /* Fill the form from the record being edited. */
+  React.useEffect(() => {
+    if (!open || !editing) return;
+    setForm({
+      name: editing.name,
+      cluster: editing.cluster ?? "",
+      emirate: editing.emirate,
+      area: editing.area,
+      coordinates: editing.coordinates ?? null,
+      business: editing.business,
+      type: editing.type,
+      contactName: editing.contactName,
+      contactRole: editing.contactRole,
+      email: editing.email ?? "",
+      phone: editing.phone,
+      whatsappSameAsPhone: editing.whatsappSameAsPhone,
+      owner: editing.owner,
+      leadSource: editing.leadSource,
+      remarks: editing.remarks,
+    } as FormState);
+  }, [open, editing]);
+
   // Seed the name typed into the deal's company search.
   React.useEffect(() => {
     if (open && prefillName) {
@@ -117,8 +150,10 @@ export function NewCompanyDialog({
   const typeOptions = typeOptionsFor(form.business || null);
   const typeLabel = typeLabelFor(form.business || null);
 
+  /* A record must not clash with its own name while being edited. */
   const duplicate =
     form.name.trim().length > 1 &&
+    form.name.trim().toLowerCase() !== editing?.name.trim().toLowerCase() &&
     existingNames.some(
       (n) => n.toLowerCase() === form.name.trim().toLowerCase(),
     );
@@ -147,6 +182,34 @@ export function NewCompanyDialog({
     setTouched(true);
     if (!valid) return;
     const now = new Date().toISOString();
+
+    /*
+      Editing patches the record in place. Stage, counters and order flags are
+      intentionally absent — they are derived from activities and deals, and
+      overwriting them here would undo real history.
+    */
+    if (editing) {
+      onSaveEdit?.({
+        name: form.name.trim(),
+        cluster: form.cluster || null,
+        emirate: form.emirate as Emirate,
+        area: form.area.trim(),
+        coordinates: form.coordinates ?? undefined,
+        business: form.business as BusinessType,
+        type: form.type as CompanyType,
+        contactName: form.contactName.trim(),
+        contactRole: form.contactRole as ContactRole,
+        email: form.email.trim() || null,
+        phone: form.phone.trim(),
+        whatsappSameAsPhone: form.whatsappSameAsPhone,
+        owner: form.owner,
+        leadSource: (form.leadSource || "Referral") as LeadSource,
+        remarks: form.remarks.trim(),
+      });
+      onOpenChange(false);
+      return;
+    }
+
     onCreate({
       id: `C-${Date.now().toString().slice(-6)}`,
       name: form.name.trim(),
@@ -251,7 +314,7 @@ export function NewCompanyDialog({
     >
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto scrollbar-thin">
         <DialogHeader>
-          <DialogTitle>New Company</DialogTitle>
+          <DialogTitle>{editing ? "Edit customer" : "New Company"}</DialogTitle>
           <DialogDescription>
             13 fields · SPANCOP starts at Suspect and updates automatically.
           </DialogDescription>
@@ -454,7 +517,7 @@ export function NewCompanyDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={touched && !valid}>
-            Create company
+            {editing ? "Save changes" : "Create company"}
           </Button>
         </DialogFooter>
       </DialogContent>

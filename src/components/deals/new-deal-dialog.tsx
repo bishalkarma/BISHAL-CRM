@@ -41,6 +41,8 @@ export function NewDealDialog({
   onOpenChange,
   onCreate,
   onCreateCompany,
+  editing,
+  onSaveEdit,
   preselectedCompany,
   justCreatedCompany,
 }: {
@@ -48,11 +50,18 @@ export function NewDealDialog({
   onOpenChange: (open: boolean) => void;
   onCreate: (deal: Deal) => void;
   onCreateCompany: (prefillName: string) => void;
+  /**
+   * An existing deal being corrected — wrong title, wrong quantity, wrong
+   * price. Stage, fulfilment and the customer are not editable here: those
+   * change by moving the deal or recording an order step.
+   */
+  editing?: Deal | null;
+  onSaveEdit?: (patch: Partial<Deal>) => void;
   /** Set when returning from the create-customer detour. */
   preselectedCompany?: Company | null;
   justCreatedCompany?: boolean;
 }) {
-  const { contactsFor, primaryFor, deals } = useData();
+  const { contactsFor, primaryFor, deals, companies } = useData();
   const [company, setCompany] = React.useState<Company | null>(null);
   const [title, setTitle] = React.useState("");
   const [category, setCategory] = React.useState("");
@@ -76,6 +85,20 @@ export function NewDealDialog({
   const [priority, setPriority] = React.useState<DealPriority>("medium");
   const [lines, setLines] = React.useState<LineItem[]>([emptyLine()]);
   const [touched, setTouched] = React.useState(false);
+
+  /* Fill the form from the deal being corrected. */
+  React.useEffect(() => {
+    if (!open || !editing) return;
+    setCompany(companies.find((c) => c.id === editing.companyId) ?? null);
+    setTitle(editing.title);
+    setCategory(editing.category);
+    setEnquiryFromId(editing.enquiryFromId);
+    setReqDate((editing.reqDate ?? editing.expectedCloseDate ?? "").slice(0, 10));
+    setOwner(editing.owner);
+    setPriority(editing.priority);
+    setLines(editing.lines.length ? editing.lines : [emptyLine()]);
+    setTouched(false);
+  }, [open, editing, companies]);
 
   // Coming back from creating a customer: jump straight to step 2.
   React.useEffect(() => {
@@ -117,6 +140,24 @@ export function NewDealDialog({
     if (!valid || !company) return;
     const now = new Date().toISOString();
     const cleaned = validLines;
+
+    if (editing) {
+      onSaveEdit?.({
+        title: title.trim(),
+        category,
+        lines: cleaned,
+        // Recomputed from the corrected lines, so the board, the forecast and
+        // Top products all follow automatically.
+        value: dealValue(cleaned),
+        owner,
+        priority,
+        reqDate: reqDate || null,
+        expectedCloseDate: reqDate || editing.expectedCloseDate,
+      });
+      onOpenChange(false);
+      return;
+    }
+
     onCreate({
       id: `D-${Date.now().toString().slice(-4)}`,
       title: title.trim(),

@@ -58,6 +58,7 @@ export function LogActivityDialog({
   presetCompanyId,
   presetDealId,
   completing,
+  editing,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -71,6 +72,14 @@ export function LogActivityDialog({
    * decides no next step is needed.
    */
   completing?: Activity | null;
+  /**
+   * An existing entry being corrected.
+   *
+   * Edits are silent by design: no journal note, no "edited" badge. The entry
+   * simply becomes what the user says it is, and the stored counters are
+   * recomputed so a changed date cannot leave a customer at the wrong stage.
+   */
+  editing?: Activity | null;
 }) {
   const { companies, contactsFor, primaryFor, deals, addActivity, updateActivity } =
     useData();
@@ -92,19 +101,23 @@ export function LogActivityDialog({
   const [remind, setRemind] = React.useState(true);
 
   const reset = React.useCallback(() => {
-    setType(completing?.type ?? "call");
-    setCompanyId(completing?.companyId ?? presetCompanyId ?? "");
-    setContactId(completing?.contactId ?? "");
-    setDealId(completing?.dealId ?? presetDealId ?? "");
-    setReport("");
-    setOccurredAt(new Date().toISOString().slice(0, 10));
+    setType(editing?.type ?? completing?.type ?? "call");
+    setCompanyId(
+      editing?.companyId ?? completing?.companyId ?? presetCompanyId ?? "",
+    );
+    setContactId(editing?.contactId ?? completing?.contactId ?? "");
+    setDealId(editing?.dealId ?? completing?.dealId ?? presetDealId ?? "");
+    setReport(editing?.report ?? "");
+    setOccurredAt(
+      (editing?.occurredAt ?? new Date().toISOString()).slice(0, 10),
+    );
     setShowAllContacts(false);
     setTouched(false);
-    setShowTask(false);
-    setTask("");
-    setTaskDueAt("");
-    setRemind(true);
-  }, [presetCompanyId, presetDealId, completing]);
+    setShowTask(Boolean(editing?.task));
+    setTask(editing?.task ?? "");
+    setTaskDueAt(editing?.taskDueAt?.slice(0, 10) ?? "");
+    setRemind(editing?.remind ?? true);
+  }, [presetCompanyId, presetDealId, completing, editing]);
 
   React.useEffect(() => {
     if (open) reset();
@@ -112,10 +125,10 @@ export function LogActivityDialog({
 
   // Default the contact to the company primary, but never the deal.
   React.useEffect(() => {
-    if (companyId && !completing) {
+    if (companyId && !completing && !editing) {
       setContactId(primaryFor(companyId)?.id ?? "");
     }
-  }, [companyId, primaryFor, completing]);
+  }, [companyId, primaryFor, completing, editing]);
 
   const company = companies.find((c) => c.id === companyId) ?? null;
   const contacts = companyId ? contactsFor(companyId) : [];
@@ -140,6 +153,26 @@ export function LogActivityDialog({
     if (!valid) return;
     const now = new Date().toISOString();
     const trimmedTask = showTask ? task.trim() : "";
+
+    /*
+      Editing writes over the entry in place. Which customer and deal it
+      belongs to are deliberately not changed here — moving an entry between
+      customers would rewrite two histories at once.
+    */
+    if (editing) {
+      updateActivity(editing.id, {
+        type,
+        contactId: contactId || null,
+        report: report.trim(),
+        occurredAt: occurredAt ? new Date(occurredAt).toISOString() : editing.occurredAt,
+        task: trimmedTask || null,
+        taskDueAt:
+          trimmedTask && taskDueAt ? new Date(taskDueAt).toISOString() : null,
+        remind: Boolean(trimmedTask) && remind,
+      });
+      onOpenChange(false);
+      return;
+    }
 
     addActivity({
       id: `AC-${Date.now().toString().slice(-8)}`,
@@ -171,7 +204,7 @@ export function LogActivityDialog({
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle>
-            {completing ? "Complete task" : "Log activity"}
+            {editing ? "Edit activity" : completing ? "Complete task" : "Log activity"}
           </DialogTitle>
           <DialogDescription>
             Record what happened, and optionally what needs to happen next.

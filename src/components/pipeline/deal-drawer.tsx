@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Pencil,
   Building2,
   Check,
   CalendarClock,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/deal-model";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
+import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { OrderProgress } from "./order-progress";
 import {
   Dialog,
@@ -66,7 +68,8 @@ export function DealDrawer({
   onEditLostReason?: (deal: Deal) => void;
 }) {
   const { display, toDisplay, format } = useCurrency();
-  const { contactById, activitiesFor } = useData();
+  const { contactById, activitiesFor, updateDeal } = useData();
+  const [editingDeal, setEditingDeal] = React.useState(false);
   // Deal-scoped: activitiesFor filters on dealId when one is supplied.
   const dealActivities = React.useMemo(
     () => (deal ? activitiesFor({ dealId: deal.id }) : []),
@@ -114,6 +117,14 @@ export function DealDrawer({
               </Badge>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setEditingDeal(true)}
+            className="flex w-fit items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+          >
+            <Pencil className="size-3" />
+            Edit
+          </button>
           <DialogTitle className="break-words text-lg leading-snug">
             {deal.title}
           </DialogTitle>
@@ -517,6 +528,17 @@ export function DealDrawer({
           </div>
         </div>
       </DialogContent>
+
+      {/* Reuses the create form, pre-filled — including the line items, which
+          is where a wrong quantity or price gets corrected. */}
+      <NewDealDialog
+        open={editingDeal}
+        onOpenChange={setEditingDeal}
+        editing={deal}
+        onCreate={() => {}}
+        onCreateCompany={() => {}}
+        onSaveEdit={(patch) => updateDeal(deal.id, patch)}
+      />
     </Dialog>
   );
 }
