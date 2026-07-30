@@ -3,6 +3,8 @@ import {
   EMPTY_FULFILMENT,
   fulfilmentStage,
   balanceOutstanding,
+  creditBalance,
+  amountOwed,
   daysSinceDelivery,
   ageingTone,
   isAwaitingPayment,
@@ -32,7 +34,13 @@ console.log("\nBalance outstanding");
 check("nothing paid = full value", balanceOutstanding(100000, EMPTY_FULFILMENT) === 100000);
 check("part paid subtracts", balanceOutstanding(100000, f({ amountReceived: 40000 })) === 60000);
 check("paid in full = zero", balanceOutstanding(100000, f({ paidAt: ago(1), amountReceived: 100000 })) === 0);
-check("over-payment never goes negative", balanceOutstanding(100000, f({ amountReceived: 120000 })) === 0);
+// Over-payment is allowed and carried as credit, per the agreed rule.
+check("over-payment shows a negative balance", balanceOutstanding(100000, f({ amountReceived: 120000 })) === -20000);
+check("credit balance is the excess", creditBalance(100000, f({ amountReceived: 120000 })) === 20000);
+check("no credit when underpaid", creditBalance(100000, f({ amountReceived: 40000 })) === 0);
+check("amountOwed never negative", amountOwed(100000, f({ amountReceived: 120000 })) === 0);
+check("amountOwed is the shortfall", amountOwed(100000, f({ amountReceived: 40000 })) === 60000);
+check("amountOwed zero once settled", amountOwed(100000, f({ paidAt: ago(1), amountReceived: 100000 })) === 0);
 
 console.log("\nAgeing clock");
 check("no delivery = null", daysSinceDelivery(EMPTY_FULFILMENT) === null);

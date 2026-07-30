@@ -255,6 +255,23 @@ export function fulfilmentStage(f: Fulfilment): FulfilmentStep {
  * and a negative number would quietly reduce the dashboard total.
  */
 export function balanceOutstanding(value: number, f: Fulfilment) {
+  if (f.paidAt) return value - f.amountReceived;
+  return value - f.amountReceived;
+}
+
+/**
+ * Money the customer has paid beyond the invoice, or 0.
+ *
+ * Over-payment is not a data-entry slip in UAE trade — an advance frequently
+ * overshoots, and the excess is carried against the next order rather than
+ * refunded. It is kept as a credit and shown, never silently clamped away.
+ */
+export function creditBalance(value: number, f: Fulfilment) {
+  return Math.max(0, f.amountReceived - value);
+}
+
+/** What is genuinely still owed. Never negative, so credits cannot inflate totals. */
+export function amountOwed(value: number, f: Fulfilment) {
   if (f.paidAt) return 0;
   return Math.max(0, value - f.amountReceived);
 }
@@ -282,4 +299,14 @@ export function ageingTone(days: number | null): AgeingTone {
 /** A deal counts as cash owed once it has shipped and is not settled. */
 export function isAwaitingPayment(f: Fulfilment) {
   return Boolean(f.deliveredAt) && !f.paidAt;
+}
+
+/** The next fulfilment action available on a won deal, or null when settled. */
+export function nextFulfilmentAction(
+  f: Fulfilment,
+): "po" | "delivery" | "payment" | null {
+  if (f.paidAt) return null;
+  if (!f.poNumber) return "po";
+  if (!f.deliveredAt) return "delivery";
+  return "payment";
 }

@@ -16,7 +16,7 @@ import type { CurrencyCode } from "./currency";
 import {
   LOST_REASONS,
   ageingTone,
-  balanceOutstanding,
+  amountOwed,
   daysSinceDelivery,
   isAwaitingPayment,
   lineCounts,
@@ -597,7 +597,7 @@ export function cashToCollect(
 
     const value = companyDeals.reduce(
       (sum, d) =>
-        sum + convert(balanceOutstanding(d.value, d.fulfilment), d.currency),
+        sum + convert(amountOwed(d.value, d.fulfilment), d.currency),
       0,
     );
     // Nothing to chase once the balance is clear.

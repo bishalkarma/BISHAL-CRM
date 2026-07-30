@@ -209,7 +209,12 @@ export type StageTransition = {
   from: SpancopStage | null;
   to: SpancopStage;
   /** How the move happened. */
-  trigger: "manual" | "accepted-suggestion" | "seed";
+  /**
+   * "automatic" covers moves the app makes on its own — recording a purchase
+   * order, a delivery or a payment. Distinct from "manual" so the history can
+   * show who decided a move: a person, or the order chain.
+   */
+  trigger: "manual" | "accepted-suggestion" | "seed" | "automatic";
   reason: string;
   at: string;
   by: string;

@@ -38,6 +38,7 @@ import {
 } from "@/lib/deal-model";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
+import { OrderProgress } from "./order-progress";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +127,10 @@ export function DealDrawer({
 
         <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-5 overflow-y-auto p-5 lg:border-r lg:border-border">
+          {/* The order chain, on won deals only. An open deal has no PO,
+              no delivery and no payment to record. */}
+          {deal.stage === "won" && <OrderProgress deal={deal} />}
+
           {/* Value */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

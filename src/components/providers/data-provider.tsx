@@ -5,6 +5,7 @@ import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
+import { EMPTY_FULFILMENT, type Fulfilment } from "@/lib/deal-model";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
@@ -79,6 +80,17 @@ type DataContextValue = {
 
   addDeal: (deal: Deal) => void;
   updateDeal: (id: string, patch: Partial<Deal>) => void;
+  recordPurchaseOrder: (dealId: string, poNumber: string) => void;
+  recordDelivery: (
+    dealId: string,
+    partial: boolean,
+    deliveryNote: string | null,
+  ) => void;
+  recordPayment: (dealId: string, amount: number) => void;
+  undoFulfilmentStep: (
+    dealId: string,
+    step: "po" | "delivery" | "payment",
+  ) => void;
   setDeals: React.Dispatch<React.SetStateAction<Deal[]>>;
 
   moveStage: (
@@ -543,6 +555,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+
   const moveStage = React.useCallback(
     (
       companyId: string,
@@ -596,6 +609,168 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  /* ---------------------------------------------------------------- */
+  /* Order fulfilment — the C · O · P chain                            */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Apply a fulfilment change to a won deal and move the customer with it.
+   *
+   * One function behind all three buttons and their undo, so the deal write,
+   * the SPANCOP move and the journal note can never drift apart. Everything
+   * is computed here and written once — no state updater does any of it.
+   */
+  const applyFulfilment = React.useCallback(
+    (
+      dealId: string,
+      patch: Partial<Fulfilment>,
+      note: { report: string; stage: SpancopStage | null; reason: string },
+    ) => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+
+      const fulfilment = { ...deal.fulfilment, ...patch };
+      updateDeal(dealId, { fulfilment });
+
+      /* The dated trail the SPANCOP period filters count. Without this the
+         week / month / quarter figures would stay empty however many orders
+         were processed. */
+      addActivity({
+        id: `AC-${Date.now().toString().slice(-8)}`,
+        companyId: deal.companyId,
+        contactId: deal.currentContactId ?? null,
+        dealId: deal.id,
+        type: "payment_follow_up",
+        report: note.report,
+        occurredAt: new Date().toISOString(),
+        task: null,
+        taskDueAt: null,
+        taskDone: false,
+        remind: false,
+        owner: deal.owner,
+        createdAt: new Date().toISOString(),
+      });
+
+      if (note.stage) moveStage(deal.companyId, note.stage, note.reason, "automatic");
+    },
+    [updateDeal, addActivity, moveStage],
+  );
+
+  const recordPurchaseOrder = React.useCallback(
+    (dealId: string, poNumber: string) => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+      applyFulfilment(
+        dealId,
+        { poNumber, poDate: new Date().toISOString() },
+        {
+          report: `Purchase order ${poNumber} received for ${deal.title}.`,
+          stage: "order",
+          reason: `PO ${poNumber} received`,
+        },
+      );
+    },
+    [applyFulfilment],
+  );
+
+  const recordDelivery = React.useCallback(
+    (dealId: string, partial: boolean, deliveryNote: string | null) => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+      applyFulfilment(
+        dealId,
+        {
+          deliveredAt: new Date().toISOString(),
+          partialDelivery: partial,
+          deliveryNote: partial ? deliveryNote : null,
+        },
+        {
+          report: partial
+            ? `Partial delivery made for ${deal.title}.${deliveryNote ? ` Still to come: ${deliveryNote}` : ""}`
+            : `Delivery completed for ${deal.title}.`,
+          stage: "payment",
+          reason: partial ? "Partial delivery made" : "Delivered in full",
+        },
+      );
+    },
+    [applyFulfilment],
+  );
+
+  /**
+   * Record money in.
+   *
+   * Amounts accumulate, and paying more than the invoice is allowed: the
+   * excess is carried as a credit against the customer's next order rather
+   * than rejected, which is how advances actually behave in UAE trade.
+   * Reaching the invoice value settles the deal and closes the loop.
+   */
+  const recordPayment = React.useCallback(
+    (dealId: string, amount: number) => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+
+      const received = deal.fulfilment.amountReceived + amount;
+      const settled = received >= deal.value;
+      const credit = Math.max(0, received - deal.value);
+
+      applyFulfilment(
+        dealId,
+        {
+          amountReceived: received,
+          paidAt: settled ? new Date().toISOString() : null,
+        },
+        {
+          report: settled
+            ? `Payment settled for ${deal.title}.${credit > 0 ? ` Received ${credit} more than invoiced — carried as credit.` : ""}`
+            : `Part payment received for ${deal.title}. ${deal.value - received} still outstanding.`,
+          // Settling returns the customer to Approach: an existing account
+          // between deals, which is where the SPANCOP loop restarts.
+          stage: settled ? "approach" : "payment",
+          reason: settled ? "Payment collected in full" : "Part payment received",
+        },
+      );
+    },
+    [applyFulfilment],
+  );
+
+  /**
+   * Undo one fulfilment step.
+   *
+   * Clears that step and everything after it, because the later steps make no
+   * sense without it — a delivery cannot stand on a purchase order that was
+   * never received.
+   */
+  const undoFulfilmentStep = React.useCallback(
+    (dealId: string, step: "po" | "delivery" | "payment") => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+
+      const cleared: Partial<Fulfilment> =
+        step === "po"
+          ? { ...EMPTY_FULFILMENT }
+          : step === "delivery"
+            ? {
+                deliveredAt: null,
+                partialDelivery: false,
+                deliveryNote: null,
+                paidAt: null,
+                amountReceived: 0,
+              }
+            : { paidAt: null, amountReceived: 0 };
+
+      const label =
+        step === "po" ? "Purchase order" : step === "delivery" ? "Delivery" : "Payment";
+
+      applyFulfilment(dealId, cleared, {
+        report: `${label} record corrected for ${deal.title} — the entry was removed.`,
+        stage: step === "po" ? "close" : step === "delivery" ? "order" : "payment",
+        reason: `${label} entry undone`,
+      });
+    },
+    [applyFulfilment],
+  );
+
+
   const contactsFor = React.useCallback(
     (companyId: string) => contacts.filter((c) => c.companyId === companyId),
     [contacts],
@@ -642,6 +817,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       activitiesFor,
       addDeal,
       updateDeal,
+      recordPurchaseOrder,
+      recordDelivery,
+      recordPayment,
+      undoFulfilmentStep,
       setDeals,
       moveStage,
     }),
@@ -671,6 +850,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       activitiesFor,
       addDeal,
       updateDeal,
+      recordPurchaseOrder,
+      recordDelivery,
+      recordPayment,
+      undoFulfilmentStep,
       moveStage,
     ],
   );

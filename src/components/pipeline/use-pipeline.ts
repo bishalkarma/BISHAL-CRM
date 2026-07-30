@@ -16,6 +16,7 @@ import {
 } from "@/lib/pipeline";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
+import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
 
 export type PipelineFilters = {
   query: string;
@@ -47,6 +48,8 @@ export function usePipeline() {
   // A private useState here was why new deals vanished on refresh.
   const {
     deals,
+    companies,
+    moveStage,
     addDeal: addDealShared,
     updateDeal: updateDealShared,
   } = useData();
@@ -107,8 +110,47 @@ export function usePipeline() {
           : STAGE_MAP[toStage].probability,
         lastActivityAt: nowIso,
       });
+
+      /*
+        Move the customer with the deal.
+
+        This wire never existed: winning a deal wrote deals.stage and stopped,
+        while the SPANCOP tile reads companies.spancop — so Close, Order and
+        Payment could never fill up no matter how many deals were won.
+
+        Only the customer's OTHER deals are considered, because this one has
+        just changed and the store has not caught up yet.
+      */
+      const siblings = deals.filter(
+        (d) => d.companyId === deal.companyId && d.id !== dealId,
+      );
+      const company = companies.find((c) => c.id === deal.companyId);
+      if (company) {
+        const suggestion = suggestSpancopStage({
+          profileComplete: Boolean(company.email && company.remarks),
+          activityCount: company.activityCount,
+          openDealCount: siblings.filter((d) => isOpenStage(d.stage)).length +
+            (isOpenStage(toStage) ? 1 : 0),
+          lastClosedDealOutcome:
+            toStage === "won" || toStage === "lost"
+              ? toStage
+              : company.lastClosedDealOutcome,
+          ...fulfilmentSignals([
+            ...siblings,
+            { ...deal, stage: toStage },
+          ]),
+        });
+        if (suggestion.stage !== company.spancop) {
+          moveStage(
+            deal.companyId,
+            suggestion.stage,
+            suggestion.reason,
+            "automatic",
+          );
+        }
+      }
     },
-    [deals, updateDealShared],
+    [deals, companies, updateDealShared, moveStage],
   );
 
   const undoMove = React.useCallback(() => {
