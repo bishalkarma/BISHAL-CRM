@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { SPANCOP_STAGES, type SpancopStage } from "@/lib/spancop";
+import { SPANCOP_STAGES, SPANCOP_RULE, type SpancopStage } from "@/lib/spancop";
 import { cn } from "@/lib/utils";
 
 /** Live snapshot: how many companies sit at each stage right now. */
@@ -29,6 +29,9 @@ export function SpancopFunnel({
             transition={{ duration: 0.3, delay: index * 0.04 }}
             onClick={() => onToggleStage(stage.id)}
             aria-pressed={active}
+            /* Native title, so the rule is available on hover, on keyboard
+               focus and on a long press — no extra component to mount 7 times. */
+            title={`${stage.label} — ${SPANCOP_RULE[stage.id]}`}
             className={cn(
               "group rounded-xl border p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5",
               active

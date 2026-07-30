@@ -255,9 +255,14 @@ export function fulfilmentStage(f: Fulfilment): FulfilmentStep {
  * and a negative number would quietly reduce the dashboard total.
  */
 export function balanceOutstanding(value: number, f: Fulfilment) {
-  if (f.paidAt) return value - f.amountReceived;
-  return value - f.amountReceived;
+  // Settled is settled, whatever the recorded amount says.
+  if (f.paidAt) return 0;
+  // Clamped at zero: an over-payment is credit for the next order, not a
+  // negative debt. Leaving it negative would quietly reduce the dashboard
+  // total and hide money genuinely owed by other customers.
+  return Math.max(0, value - f.amountReceived);
 }
+
 
 /**
  * Money the customer has paid beyond the invoice, or 0.

@@ -5,6 +5,7 @@ import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
+import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
 import { EMPTY_FULFILMENT, type Fulfilment } from "@/lib/deal-model";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -80,6 +81,12 @@ type DataContextValue = {
 
   addDeal: (deal: Deal) => void;
   updateDeal: (id: string, patch: Partial<Deal>) => void;
+  /**
+   * Record a step in an order's life, and move the customer to match.
+   * One entry point for PO, delivery, payment and undo, so the SPANCOP
+   * stage can never drift away from what the deal actually says.
+   */
+  recordFulfilment: (dealId: string, patch: Partial<Fulfilment>) => void;
   recordPurchaseOrder: (dealId: string, poNumber: string) => void;
   recordDelivery: (
     dealId: string,
@@ -399,9 +406,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ),
       );
 
-      void persist("activity", async () =>
-        supabase!.from("activities").insert(fromActivity(activity)),
+      /*
+        The company counter has to reach the database too.
+
+        activityCount is what the SPANCOP engine reads to suggest
+        Suspect -> Approach. It used to be bumped in memory only, so the
+        suggestion appeared until the next refresh and then vanished — the
+        column reloaded as 0 while the activity rows were still there.
+      */
+      const owner = companiesRef.current.find(
+        (c) => c.id === activity.companyId,
       );
+      void persist("activity", async () => {
+        const res = await supabase!
+          .from("activities")
+          .insert(fromActivity(activity));
+        if (res.error || !owner) return res;
+        return supabase!
+          .from("companies")
+          .update({
+            activity_count: owner.activityCount + 1,
+            last_activity_at: activity.occurredAt,
+          })
+          .eq("id", activity.companyId);
+      });
     },
     [persist],
   );
@@ -444,6 +472,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       */
       const doomed = activitiesRef.current.find((a) => a.id === id);
       if (!doomed) return;
+      const owner = companiesRef.current.find((c) => c.id === doomed.companyId);
 
       const remaining = activitiesRef.current.filter((a) => a.id !== id);
       const newestForCompany = remaining
@@ -468,9 +497,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ),
       );
 
-      void persist("activity", async () =>
-        supabase!.from("activities").delete().eq("id", id),
-      );
+      void persist("activity", async () => {
+        const res = await supabase!.from("activities").delete().eq("id", id);
+        if (res.error) return res;
+        // Keep the stored counter honest, same reason as addActivity.
+        return supabase!
+          .from("companies")
+          .update({
+            activity_count: Math.max(0, (owner?.activityCount ?? 1) - 1),
+            last_activity_at: newestForCompany,
+          })
+          .eq("id", doomed.companyId);
+      });
     },
     [persist],
   );
@@ -555,6 +593,96 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+
+  /* moveStage is declared below; a ref avoids reordering the whole file. */
+  const moveStageRef = React.useRef<
+    | ((
+        companyId: string,
+        to: SpancopStage,
+        reason: string,
+        trigger: StageTransition["trigger"],
+      ) => void)
+    | null
+  >(null);
+
+  const recordFulfilment = React.useCallback(
+    (dealId: string, patch: Partial<Fulfilment>) => {
+      const deal = dealsRef.current.find((d) => d.id === dealId);
+      if (!deal) return;
+
+      const fulfilment = { ...deal.fulfilment, ...patch };
+      const updated = { ...deal, fulfilment };
+
+      setDeals((current) =>
+        current.map((d) => (d.id === dealId ? updated : d)),
+      );
+
+      /*
+        The company's stage follows from ALL of its deals, not just this one.
+        A customer with two orders — one paid, one not — must stay in Payment,
+        so the whole book for that customer is re-evaluated after every step.
+      */
+      const siblings = dealsRef.current.map((d) =>
+        d.id === dealId ? updated : d,
+      );
+      const company = companiesRef.current.find(
+        (c) => c.id === deal.companyId,
+      );
+
+      if (company) {
+        const derived = fulfilmentSignals(
+          siblings.filter((d) => d.companyId === company.id),
+        );
+        const next = suggestSpancopStage({
+          profileComplete: Boolean(company.email && company.remarks),
+          activityCount: company.activityCount,
+          openDealCount: company.openDealIds.length,
+          lastClosedDealOutcome: company.lastClosedDealOutcome,
+          ...derived,
+        });
+
+        const flags = {
+          hasPurchaseOrder: derived.hasPurchaseOrder,
+          awaitingPayment: derived.awaitingPayment,
+          hasEverOrdered: derived.hasEverOrdered || company.hasEverOrdered,
+          lastOrderAt: fulfilment.poDate ?? company.lastOrderAt,
+        };
+
+        setCompanies((cs) =>
+          cs.map((c) => (c.id === company.id ? { ...c, ...flags } : c)),
+        );
+
+        void persist("order flags", async () =>
+          supabase!
+            .from("companies")
+            .update({
+              has_purchase_order: flags.hasPurchaseOrder,
+              awaiting_payment: flags.awaitingPayment,
+              has_ever_ordered: flags.hasEverOrdered,
+              last_order_at: flags.lastOrderAt,
+            })
+            .eq("id", company.id),
+        );
+
+        // Unlike S/P/A, these moves are applied rather than suggested: the
+        // user just told us a fact about the order, so there is nothing to
+        // second-guess.
+        if (next.stage !== company.spancop) {
+          moveStageRef.current?.(
+            company.id,
+            next.stage,
+            next.reason,
+            "automatic",
+          );
+        }
+      }
+
+      void persist("order step", async () =>
+        supabase!.from("deals").update(fromDeal(updated)).eq("id", dealId),
+      );
+    },
+    [persist],
+  );
 
   const moveStage = React.useCallback(
     (
@@ -771,6 +899,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
 
+  // Now that moveStage exists, hand it to recordFulfilment.
+  moveStageRef.current = moveStage;
+
   const contactsFor = React.useCallback(
     (companyId: string) => contacts.filter((c) => c.companyId === companyId),
     [contacts],
@@ -817,6 +948,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       activitiesFor,
       addDeal,
       updateDeal,
+      recordFulfilment,
       recordPurchaseOrder,
       recordDelivery,
       recordPayment,
@@ -850,6 +982,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       activitiesFor,
       addDeal,
       updateDeal,
+      recordFulfilment,
       recordPurchaseOrder,
       recordDelivery,
       recordPayment,

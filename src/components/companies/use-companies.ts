@@ -93,6 +93,7 @@ export function suggestionFor(company: Company, deals?: Deal[]) {
 export function useCompanies() {
   const {
     companies,
+    deals,
     transitions,
     moveStage: moveStageShared,
     addCompany,
@@ -163,13 +164,18 @@ export function useCompanies() {
   const pendingSuggestions = React.useMemo(
     () =>
       companies
-        .map((company) => ({ company, suggestion: suggestionFor(company) }))
+        // Deals are passed so PO, delivery and payment are read from the
+        // deals themselves rather than stored flags nothing used to write.
+        .map((company) => ({
+          company,
+          suggestion: suggestionFor(company, deals),
+        }))
         .filter(
           ({ company, suggestion }) =>
             suggestion.stage !== company.spancop &&
             dismissed[company.id] !== suggestion.stage,
         ),
-    [companies, dismissed],
+    [companies, deals, dismissed],
   );
 
   const alerts = React.useMemo(

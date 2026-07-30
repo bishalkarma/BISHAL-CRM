@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { SPANCOP_MAP, type SpancopStage } from "@/lib/spancop";
+import { SPANCOP_MAP, SPANCOP_RULE, type SpancopStage } from "@/lib/spancop";
 import {
   buildPeriod,
   buildStageFlow,
@@ -133,7 +133,7 @@ export function SpancopFunnelWidget() {
               <div
                 key={flow.stage}
                 className="flex h-full min-w-0 flex-1 flex-col items-center gap-1"
-                title={`${def.label} · ${count}`}
+                title={`${def.label} · ${count} — ${SPANCOP_RULE[flow.stage]}`}
               >
                 <span className="text-sm font-semibold tabular-nums">
                   <AnimatedNumber value={count} />

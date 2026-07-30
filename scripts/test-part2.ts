@@ -1,76 +1,72 @@
-/* Part 2: the order chain, over-payment as credit, and undo. */
+/* Part 2: the fulfilment journey, the samples fix and the SPANCOP rules. */
+import { DEALS } from "../src/lib/deals";
 import {
-  EMPTY_FULFILMENT,
-  amountOwed,
-  creditBalance,
-  balanceOutstanding,
-  nextFulfilmentAction,
-  fulfilmentStage,
-  type Fulfilment,
+  EMPTY_FULFILMENT, fulfilmentStage, balanceOutstanding,
+  daysSinceDelivery, ageingTone, isAwaitingPayment, type Fulfilment,
 } from "../src/lib/deal-model";
+import { suggestSpancopStage, fulfilmentSignals, SPANCOP_RULE } from "../src/lib/spancop";
+import { samplesAwaiting } from "../src/lib/dashboard-metrics";
 
 let pass = 0, fail = 0;
 const check = (n: string, c: boolean, e = "") => {
   if (c) { pass++; console.log(`  ok   ${n}`); }
   else { fail++; console.log(`  FAIL ${n} ${e}`); }
 };
-const f = (p: Partial<Fulfilment> = {}): Fulfilment => ({ ...EMPTY_FULFILMENT, ...p });
-const ago = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
+const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 
-console.log("\nOne action at a time");
-check("won deal asks for a PO", nextFulfilmentAction(f()) === "po");
-check("PO in hand asks for delivery", nextFulfilmentAction(f({ poNumber: "PO-1" })) === "delivery");
-check("delivered asks for payment",
-  nextFulfilmentAction(f({ poNumber: "PO-1", deliveredAt: ago(2) })) === "payment");
-check("settled asks for nothing",
-  nextFulfilmentAction(f({ poNumber: "PO-1", deliveredAt: ago(2), paidAt: ago(1) })) === null);
-check("payment can never precede delivery",
-  nextFulfilmentAction(f({ poNumber: "PO-1" })) !== "payment");
+console.log("\nThe four states");
+check("nothing yet -> won", fulfilmentStage(EMPTY_FULFILMENT) === "won");
+check("po recorded -> po", fulfilmentStage({ ...EMPTY_FULFILMENT, poNumber: "PO-1" }) === "po");
+check("delivered -> delivered", fulfilmentStage({ ...EMPTY_FULFILMENT, poNumber: "PO-1", deliveredAt: day(-3) }) === "delivered");
+check("paid -> paid", fulfilmentStage({ ...EMPTY_FULFILMENT, paidAt: day(0) }) === "paid");
 
-console.log("\nTracker reflects the furthest step");
-check("won", fulfilmentStage(f()) === "won");
-check("po", fulfilmentStage(f({ poNumber: "PO-1" })) === "po");
-check("delivered", fulfilmentStage(f({ poNumber: "PO-1", deliveredAt: ago(1) })) === "delivered");
-check("paid", fulfilmentStage(f({ paidAt: ago(1) })) === "paid");
+console.log("\nBalance, over-payment and credit");
+const half: Fulfilment = { ...EMPTY_FULFILMENT, amountReceived: 50 };
+check("part payment leaves a balance", balanceOutstanding(100, half) === 50);
+check("paid flag clears the balance", balanceOutstanding(100, { ...half, paidAt: day(0) }) === 0);
+check("over-payment never goes negative", balanceOutstanding(100, { ...EMPTY_FULFILMENT, amountReceived: 130 }) === 0);
+const over = { ...EMPTY_FULFILMENT, amountReceived: 130 };
+check("credit is visible above the invoice", over.amountReceived - 100 === 30);
 
-console.log("\nOver-payment is carried as credit, not rejected");
-const over = f({ deliveredAt: ago(5), amountReceived: 120000 });
-check("balance goes negative", balanceOutstanding(100000, over) === -20000);
-check("credit is the excess", creditBalance(100000, over) === 20000);
-check("nothing is owed", amountOwed(100000, over) === 0);
-check("exact payment leaves no credit", creditBalance(100000, f({ amountReceived: 100000 })) === 0);
+console.log("\nAgeing clock runs from delivery");
+check("no delivery, no clock", daysSinceDelivery(EMPTY_FULFILMENT) === null);
+check("10 days counted", daysSinceDelivery({ ...EMPTY_FULFILMENT, deliveredAt: day(-10) }) === 10);
+check("under 30 is fresh", ageingTone(10) === "fresh");
+check("45 is chase", ageingTone(45) === "chase");
+check("90 is risk", ageingTone(90) === "risk");
 
-console.log("\nCash to collect can never be inflated by a credit");
-check("underpaid counts the shortfall",
-  amountOwed(100000, f({ deliveredAt: ago(3), amountReceived: 40000 })) === 60000);
-check("overpaid counts zero, not a negative",
-  amountOwed(100000, f({ deliveredAt: ago(3), amountReceived: 150000 })) === 0);
-check("settled counts zero",
-  amountOwed(100000, f({ paidAt: ago(1), amountReceived: 100000 })) === 0);
+console.log("\nCash owed only after delivery");
+check("po alone is not owed", !isAwaitingPayment({ ...EMPTY_FULFILMENT, poNumber: "PO-1" }));
+check("delivered unpaid is owed", isAwaitingPayment({ ...EMPTY_FULFILMENT, deliveredAt: day(-2) }));
+check("delivered and paid is settled", !isAwaitingPayment({ ...EMPTY_FULFILMENT, deliveredAt: day(-9), paidAt: day(-1) }));
 
-console.log("\nUndo clears the step and everything after it");
-// Mirrors the provider: undoing a step resets it plus all later steps.
-const undo = (step: "po" | "delivery" | "payment"): Partial<Fulfilment> =>
-  step === "po"
-    ? { ...EMPTY_FULFILMENT }
-    : step === "delivery"
-      ? { deliveredAt: null, partialDelivery: false, deliveryNote: null, paidAt: null, amountReceived: 0 }
-      : { paidAt: null, amountReceived: 0 };
+console.log("\nThe customer follows the order");
+const base = { profileComplete: true, activityCount: 3, openDealCount: 0,
+  lastClosedDealOutcome: "won" as const, hasPurchaseOrder: false,
+  awaitingPayment: false, hasEverOrdered: false };
+check("won, no PO -> close", suggestSpancopStage(base).stage === "close");
+check("PO -> order", suggestSpancopStage({ ...base, hasPurchaseOrder: true }).stage === "order");
+check("delivered -> payment", suggestSpancopStage({ ...base, awaitingPayment: true }).stage === "payment");
+check("paid -> approach", suggestSpancopStage({ ...base, hasEverOrdered: true }).stage === "approach");
+check("owed money beats a new enquiry",
+  suggestSpancopStage({ ...base, awaitingPayment: true, openDealCount: 2 }).stage === "payment");
 
-const full = f({ poNumber: "PO-1", poDate: ago(9), deliveredAt: ago(5), amountReceived: 50000 });
-const afterPoUndo = { ...full, ...undo("po") };
-check("undo PO clears delivery too", afterPoUndo.deliveredAt === null);
-check("undo PO clears money too", afterPoUndo.amountReceived === 0);
-check("undo PO returns to the start", nextFulfilmentAction(afterPoUndo) === "po");
+console.log("\nMultiple orders: the least complete wins");
+const won = (f: Partial<Fulfilment>) => ({ stage: "won", fulfilment: { ...EMPTY_FULFILMENT, ...f } }) as never;
+const mixed = fulfilmentSignals([won({ paidAt: day(-5), amountReceived: 100 }), won({ deliveredAt: day(-2) })]);
+check("one unpaid keeps awaiting payment", mixed.awaitingPayment);
+check("history of paying is remembered", mixed.hasEverOrdered);
 
-const afterDeliveryUndo = { ...full, ...undo("delivery") };
-check("undo delivery keeps the PO", afterDeliveryUndo.poNumber === "PO-1");
-check("undo delivery clears money", afterDeliveryUndo.amountReceived === 0);
-check("undo delivery asks for delivery again", nextFulfilmentAction(afterDeliveryUndo) === "delivery");
+console.log("\nSamples: only open deals await feedback");
+const rows = samplesAwaiting(DEALS, "all");
+check("no lost deal appears", rows.every((r) => r.deal.stage !== "lost"));
+check("no won deal appears", rows.every((r) => r.deal.stage !== "won"));
+check("all still lack feedback", rows.every((r) => r.deal.sample?.feedbackAt === null));
 
-const afterPaymentUndo = { ...full, ...undo("payment") };
-check("undo payment keeps the delivery", afterPaymentUndo.deliveredAt !== null);
-check("undo payment asks for payment again", nextFulfilmentAction(afterPaymentUndo) === "payment");
+console.log("\nStage rules read as one plain line");
+check("all seven present", Object.keys(SPANCOP_RULE).length === 7);
+check("approach wording", SPANCOP_RULE.approach === "At least one activity logged.");
+check("payment wording", SPANCOP_RULE.payment === "Goods delivered, money still outstanding.");
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

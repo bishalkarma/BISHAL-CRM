@@ -532,6 +532,12 @@ export function samplesAwaiting(
   return deals
     .filter(
       (d) =>
+        /*
+          Only a live deal can still be waiting on an answer. A lost deal has
+          its answer, and a won one does too — chasing feedback on either is
+          noise, and it put customers you had already lost into a to-do list.
+        */
+        isOpenStage(d.stage) &&
         d.sample !== null &&
         d.sample.feedbackAt === null &&
         withinPeriod(d.sample.sentAt, period, now),

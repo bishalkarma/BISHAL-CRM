@@ -170,8 +170,15 @@ export function suggestSpancopStage(
     };
   }
 
-  // 4. Won, but no PO yet.
-  if (signals.lastClosedDealOutcome === "won") {
+  /*
+    4. Won, but no PO yet.
+
+    Guarded by hasEverOrdered: a customer who has already completed a full
+    cycle keeps lastClosedDealOutcome = "won" forever, so without this they
+    would be dragged back to Close the moment their balance was settled —
+    never reaching the resting state the loop is supposed to return them to.
+  */
+  if (signals.lastClosedDealOutcome === "won" && !signals.hasEverOrdered) {
     return { stage: "close", reason: "Last deal won — awaiting PO" };
   }
 
@@ -334,3 +341,20 @@ export function fulfilmentSignals(
     hasEverOrdered: won.some((d) => d.fulfilment.paidAt !== null),
   };
 }
+
+/**
+ * One line explaining why a customer sits at each stage.
+ *
+ * Shown on hover over any SPANCOP bar or tile. Deliberately the plain
+ * business rule and nothing more — the earlier draft split each stage into
+ * "how they get here" and "what moves them on", which read as a manual.
+ */
+export const SPANCOP_RULE: Record<SpancopStage, string> = {
+  suspect: "Added to the CRM with no complete record.",
+  prospect: "Customer profile completed.",
+  approach: "At least one activity logged.",
+  negotiate: "One or more deal open.",
+  close: "Deal won, waiting for purchase order.",
+  order: "Purchase order received and out for delivery.",
+  payment: "Goods delivered, money still outstanding.",
+};

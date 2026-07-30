@@ -1,6 +1,6 @@
 "use client";
 
-import { SPANCOP_STAGES, SPANCOP_ORDER, type SpancopStage } from "@/lib/spancop";
+import { SPANCOP_STAGES, SPANCOP_ORDER, type SpancopStage , SPANCOP_RULE } from "@/lib/spancop";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -60,7 +60,7 @@ export function SpancopStrip({
             <TooltipContent>
               <span className="font-medium">{item.label}</span>
               <span className="block text-[10px] opacity-80">
-                {item.description}
+                {SPANCOP_RULE[item.id]}
               </span>
             </TooltipContent>
           </Tooltip>

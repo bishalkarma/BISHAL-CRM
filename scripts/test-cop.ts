@@ -35,7 +35,9 @@ check("nothing paid = full value", balanceOutstanding(100000, EMPTY_FULFILMENT) 
 check("part paid subtracts", balanceOutstanding(100000, f({ amountReceived: 40000 })) === 60000);
 check("paid in full = zero", balanceOutstanding(100000, f({ paidAt: ago(1), amountReceived: 100000 })) === 0);
 // Over-payment is allowed and carried as credit, per the agreed rule.
-check("over-payment shows a negative balance", balanceOutstanding(100000, f({ amountReceived: 120000 })) === -20000);
+// Clamped at zero: the excess is reported by creditBalance instead, so an
+// over-payment can never quietly reduce the total owed across the book.
+check("over-payment clamps the balance to zero", balanceOutstanding(100000, f({ amountReceived: 120000 })) === 0);
 check("credit balance is the excess", creditBalance(100000, f({ amountReceived: 120000 })) === 20000);
 check("no credit when underpaid", creditBalance(100000, f({ amountReceived: 40000 })) === 0);
 check("amountOwed never negative", amountOwed(100000, f({ amountReceived: 120000 })) === 0);
