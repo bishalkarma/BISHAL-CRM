@@ -132,11 +132,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [deals, setDeals] = React.useState<Deal[]>([]);
   const [activities, setActivities] = React.useState<Activity[]>([]);
-  /* Read by deleteActivity so the write can happen outside a state updater. */
+  /*
+    Mirrors of state, read by the write paths.
+
+    Every Supabase write must happen OUTSIDE a setState updater: React 19
+    invokes updaters twice under StrictMode, so a write nested inside one runs
+    twice — and a DELETE that runs twice against stale state removes rows the
+    user never chose. That is exactly how the activities table was emptied.
+    These refs let a writer compute from current data without that risk.
+  */
   const activitiesRef = React.useRef<Activity[]>([]);
   React.useEffect(() => {
     activitiesRef.current = activities;
   }, [activities]);
+
+  const dealsRef = React.useRef<Deal[]>([]);
+  React.useEffect(() => {
+    dealsRef.current = deals;
+  }, [deals]);
+
+  const companiesRef = React.useRef<Company[]>([]);
+  React.useEffect(() => {
+    companiesRef.current = companies;
+  }, [companies]);
   const [transitions, setTransitions] = React.useState<StageTransition[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [source, setSource] = React.useState<DataSource>("demo");
@@ -334,18 +352,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateCompany = React.useCallback(
     (id: string, patch: Partial<Company>) => {
-      setCompanies((current) => {
-        const next = current.map((c) =>
-          c.id === id ? { ...c, ...patch } : c,
-        );
-        const updated = next.find((c) => c.id === id);
-        if (updated) {
-          void persist("company", async () =>
-            supabase!.from("companies").update(fromCompany(updated)).eq("id", id),
-          );
-        }
-        return next;
-      });
+      // Computed outside the updater, same rule as every other writer here.
+      const existing = companiesRef.current.find((c) => c.id === id);
+      if (!existing) return;
+      const updated = { ...existing, ...patch };
+
+      setCompanies((current) =>
+        current.map((c) => (c.id === id ? updated : c)),
+      );
+
+      void persist("company", async () =>
+        supabase!.from("companies").update(fromCompany(updated)).eq("id", id),
+      );
     },
     [persist],
   );
@@ -482,35 +500,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateDeal = React.useCallback(
     (id: string, patch: Partial<Deal>) => {
-      setDeals((current) => {
-        const next = current.map((d) =>
-          d.id === id ? { ...d, ...patch } : d,
-        );
-        const updated = next.find((d) => d.id === id);
-        if (updated) {
-          void persist("deal", async () => {
-            const res = await supabase!
-              .from("deals")
-              .update(fromDeal(updated))
-              .eq("id", id);
-            if (res.error) return res;
+      /*
+        Computed here, outside the updater, for the reason described on the
+        refs above. This one mattered most: it runs a DELETE on deal_lines,
+        and a DELETE repeated against stale state destroys line items.
+      */
+      const existing = dealsRef.current.find((d) => d.id === id);
+      if (!existing) return;
+      const updated = { ...existing, ...patch };
+      const rewriteLines = patch.lines !== undefined;
 
-            // Line items are only rewritten when the patch touched them,
-            // so an ordinary stage change stays a single statement.
-            if (patch.lines) {
-              await supabase!.from("deal_lines").delete().eq("deal_id", id);
-              if (updated.lines.length > 0) {
-                return supabase!
-                  .from("deal_lines")
-                  .insert(
-                    updated.lines.map((l, i) => fromLineItem(l, id, i)),
-                  );
-              }
-            }
-            return res;
-          });
+      setDeals((current) =>
+        current.map((d) => (d.id === id ? updated : d)),
+      );
+
+      void persist("deal", async () => {
+        const res = await supabase!
+          .from("deals")
+          .update(fromDeal(updated))
+          .eq("id", id);
+        if (res.error) return res;
+
+        // Line items are only rewritten when the patch touched them, so an
+        // ordinary stage change stays a single statement.
+        if (rewriteLines) {
+          const cleared = await supabase!
+            .from("deal_lines")
+            .delete()
+            .eq("deal_id", id);
+          // Never insert on top of a failed delete — that would duplicate
+          // every surviving line.
+          if (cleared.error) return cleared;
+          if (updated.lines.length > 0) {
+            return supabase!
+              .from("deal_lines")
+              .insert(updated.lines.map((l, i) => fromLineItem(l, id, i)));
+          }
         }
-        return next;
+        return res;
       });
     },
     [persist],
@@ -525,36 +552,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const at = new Date().toISOString();
 
-      setCompanies((current) => {
-        const company = current.find((c) => c.id === companyId);
-        if (company) {
-          const transition: StageTransition = {
-            id: `T-${Date.now()}-${companyId}`,
-            companyId,
-            from: company.spancop,
-            to,
-            trigger,
-            reason,
-            at,
-            by: "Bishal Karma",
-          };
-          setTransitions((t) => [transition, ...t]);
+      /*
+        Built outside the updater. The id used to be minted inside one, so a
+        double invocation could produce two history rows for a single move —
+        or collide on the primary key and fail the whole save.
+      */
+      const company = companiesRef.current.find((c) => c.id === companyId);
+      if (!company) return;
+      // Same stage twice is not a movement; recording it would inflate every
+      // period report with transitions that never happened.
+      if (company.spancop === to) return;
 
-          void persist("stage change", async () => {
-            const res = await supabase!
-              .from("companies")
-              .update({ spancop: to, spancop_since: at })
-              .eq("id", companyId);
-            if (res.error) return res;
-            // History is what powers period reports, so it must land too.
-            return supabase!
-              .from("stage_transitions")
-              .insert(fromTransition(transition));
-          });
-        }
-        return current.map((c) =>
+      const transition: StageTransition = {
+        id: `T-${Date.now()}-${companyId}`,
+        companyId,
+        from: company.spancop,
+        to,
+        trigger,
+        reason,
+        at,
+        by: "Bishal Karma",
+      };
+
+      setCompanies((current) =>
+        current.map((c) =>
           c.id === companyId ? { ...c, spancop: to, spancopSince: at } : c,
-        );
+        ),
+      );
+      setTransitions((t) => [transition, ...t]);
+
+      void persist("stage change", async () => {
+        const res = await supabase!
+          .from("companies")
+          .update({ spancop: to, spancop_since: at })
+          .eq("id", companyId);
+        if (res.error) return res;
+        // History is what powers period reports, so it must land too.
+        return supabase!
+          .from("stage_transitions")
+          .insert(fromTransition(transition));
       });
     },
     [persist],

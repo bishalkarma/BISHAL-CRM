@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowLeft, Building2, CheckCircle2, PartyPopper } from "lucide-react";
 import type { Company } from "@/lib/companies";
 import { useData } from "@/components/providers/data-provider";
+import { mergeOptions } from "@/lib/option-lists";
 import { DEAL_CATEGORIES, dealValue, type LineItem,
   EMPTY_FULFILMENT,
 } from "@/lib/deal-model";
@@ -51,13 +52,24 @@ export function NewDealDialog({
   preselectedCompany?: Company | null;
   justCreatedCompany?: boolean;
 }) {
-  const { contactsFor, primaryFor } = useData();
+  const { contactsFor, primaryFor, deals } = useData();
   const [company, setCompany] = React.useState<Company | null>(null);
   const [title, setTitle] = React.useState("");
   const [category, setCategory] = React.useState("");
-  const [categories, setCategories] = React.useState<string[]>([
-    ...DEAL_CATEGORIES,
-  ]);
+  /*
+    Same fix as cluster: read the categories already used on real deals rather
+    than only the bundled list. A category invented for one deal used to be
+    saved on that deal but never offered again.
+  */
+  const savedCategories = React.useMemo(
+    () => mergeOptions(deals.map((d) => d.category), DEAL_CATEGORIES),
+    [deals],
+  );
+  const [added, setAdded] = React.useState<string[]>([]);
+  const categories = React.useMemo(
+    () => mergeOptions([...savedCategories, ...added]),
+    [savedCategories, added],
+  );
   const [enquiryFromId, setEnquiryFromId] = React.useState("");
   const [reqDate, setReqDate] = React.useState("");
   const [owner, setOwner] = React.useState<string>(DEAL_OWNERS[0]);
@@ -228,7 +240,7 @@ export function NewDealDialog({
                   value={category}
                   options={categories}
                   onChange={(v) => {
-                    if (!categories.includes(v)) setCategories((c) => [...c, v]);
+                    if (!categories.includes(v)) setAdded((c) => [...c, v]);
                     setCategory(v);
                   }}
                 />

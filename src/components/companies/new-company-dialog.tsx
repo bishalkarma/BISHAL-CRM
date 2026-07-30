@@ -20,6 +20,8 @@ import {
 import { DEAL_OWNERS } from "@/lib/deals";
 import type { GeocodeResult } from "@/lib/geocode";
 import { ClusterCombobox } from "./cluster-combobox";
+import { mergeOptions } from "@/lib/option-lists";
+import { useData } from "@/components/providers/data-provider";
 import {
   Dialog,
   DialogContent,
@@ -82,8 +84,19 @@ export function NewCompanyDialog({
   /** Carried over when the user was sent here from the deal flow. */
   prefillName?: string;
 }) {
+  const { companies } = useData();
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [touched, setTouched] = React.useState(false);
+
+  /*
+    Built from the customers already saved, not a fixed list. A cluster typed
+    once used to vanish from the dropdown forever, so the same hotel group had
+    to be retyped for every property in it.
+  */
+  const clusterOptions = React.useMemo(
+    () => mergeOptions(companies.map((c) => c.cluster), CLUSTERS),
+    [companies],
+  );
   const [locating, setLocating] = React.useState(false);
   const [geoError, setGeoError] = React.useState<string | null>(null);
 
@@ -262,7 +275,7 @@ export function NewCompanyDialog({
             <Field label="Cluster" hint="Search existing or create new">
               <ClusterCombobox
                 value={form.cluster}
-                options={CLUSTERS}
+                options={clusterOptions}
                 onChange={(v) => set("cluster", v)}
               />
             </Field>
