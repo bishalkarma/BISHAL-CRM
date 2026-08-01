@@ -60,8 +60,8 @@ check("history of paying is remembered", mixed.hasEverOrdered);
 console.log("\nSamples: only open deals await feedback");
 const rows = samplesAwaiting(DEALS, "all");
 check("no lost deal appears", rows.every((r) => r.deal.stage !== "lost"));
-check("no won deal appears", rows.every((r) => r.deal.stage !== "won"));
-check("all still lack feedback", rows.every((r) => r.deal.sample?.feedbackAt === null));
+check("only sampling deals appear", rows.every((r) => r.deal.stage === "sampling"));
+check("all still lack feedback", rows.every((r) => r.line.sample?.feedbackAt === null));
 
 console.log("\nStage rules read as one plain line");
 check("all seven present", Object.keys(SPANCOP_RULE).length === 7);

@@ -20,7 +20,9 @@ const check = (name: string, cond: boolean, extra = "") => {
 console.log("\nWhy we lose");
 const lost = lossReasons(DEALS, "all", id);
 check("returns all four reasons", lost.length === 4, `got ${lost.length}`);
-check("counts match lost deals", lost.reduce((s, r) => s + r.count, 0) === DEALS.filter(d => d.stage === "lost" && d.lostReason).length);
+// Counted per rejected LINE now, from won, lost and open deals alike.
+check("counts every rejected line", lost.reduce((s, r) => s + r.count, 0) ===
+  DEALS.flatMap(d => d.lines.filter(l => l.status === "rejected" && l.rejectReason)).length);
 check("sorted by value desc", lost.every((r, i) => i === 0 || lost[i-1].value >= r.value));
 check("week window is a subset of all", lossReasons(DEALS, "week", id).reduce((s,r)=>s+r.count,0) <= lost.reduce((s,r)=>s+r.count,0));
 
@@ -48,7 +50,8 @@ check("sorted by close date asc", exp.every((r, i) => i === 0 || new Date(exp[i-
 
 console.log("\nSamples awaiting");
 const samples = samplesAwaiting(DEALS, "all");
-check("all lack feedback", samples.every(s => s.deal.sample?.feedbackAt === null));
+// Sampling moved to the line item, so the check follows it there.
+check("all lack feedback", samples.every(s => s.line.sample?.feedbackAt === null));
 check("days waiting positive", samples.every(s => s.daysWaiting >= 0));
 check("oldest first", samples.every((s, i) => i === 0 || samples[i-1].daysWaiting >= s.daysWaiting));
 

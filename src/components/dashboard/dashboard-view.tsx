@@ -213,8 +213,8 @@ export function DashboardView() {
     [deals, period, convert],
   );
   const samples = React.useMemo(
-    () => samplesAwaiting(deals, period),
-    [deals, period],
+    () => samplesAwaiting(deals, period, convert),
+    [deals, period, convert],
   );
   const cash = React.useMemo(
     () => cashToCollect(companies, deals, period, convert),
@@ -474,7 +474,7 @@ export function DashboardView() {
                 <CardDescription>Sent, no response yet</CardDescription>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <SamplesAwaitingTile rows={samples} />
+                <SamplesAwaitingTile rows={samples} formatMoney={money} />
               </CardContent>
             </Card>
           ),

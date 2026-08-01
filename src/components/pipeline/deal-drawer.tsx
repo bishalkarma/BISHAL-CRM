@@ -41,6 +41,7 @@ import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { OrderProgress } from "./order-progress";
+import { SampleTracker } from "./sample-tracker";
 import {
   Dialog,
   DialogContent,
@@ -141,6 +142,7 @@ export function DealDrawer({
           {/* The order chain, on won deals only. An open deal has no PO,
               no delivery and no payment to record. */}
           {deal.stage === "won" && <OrderProgress deal={deal} />}
+          {deal.stage === "sampling" && <SampleTracker deal={deal} />}
 
           {/* Value */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">

@@ -89,7 +89,13 @@ export function ExpectedCloseSummary({
 }
 
 /** Samples sent with no reply — a quiet deal-killer in HORECA. */
-export function SamplesAwaitingTile({ rows }: { rows: WaitingSampleRow[] }) {
+export function SamplesAwaitingTile({
+  rows,
+  formatMoney,
+}: {
+  rows: WaitingSampleRow[];
+  formatMoney: (value: number) => string;
+}) {
   if (rows.length === 0) {
     return (
       <EmptyTile
@@ -101,26 +107,35 @@ export function SamplesAwaitingTile({ rows }: { rows: WaitingSampleRow[] }) {
 
   return (
     <ul className="space-y-1.5">
-      {rows.map(({ deal, sentAt, daysWaiting }) => (
+      {rows.map(({ deal, line, value, sentAt, daysWaiting }) => (
         <li
-          key={deal.id}
+          key={`${deal.id}-${line.id}`}
           className="flex items-start justify-between gap-2 border-b border-border/60 pb-1.5 last:border-0 last:pb-0"
         >
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{deal.title}</p>
+            {/* The line item is the subject here, not the deal — a package
+                can have one item out for sampling and seven that are not. */}
+            <p className="truncate text-sm font-medium">{line.product}</p>
             <p className="truncate text-[11px] text-muted-foreground">
               {deal.company} · sent {shortDate(sentAt)}
             </p>
           </div>
-          <span
-            className={
-              daysWaiting >= 14
-                ? "shrink-0 rounded-full bg-destructive/12 px-2 py-0.5 text-[11px] font-medium text-destructive tabular-nums"
-                : "shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning tabular-nums"
-            }
-          >
-            {daysWaiting}d
-          </span>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-semibold tabular-nums">
+              {formatMoney(value)}
+            </p>
+            <p
+              className={
+                daysWaiting >= 31
+                  ? "text-[11px] font-medium text-destructive tabular-nums"
+                  : daysWaiting >= 14
+                    ? "text-[11px] font-medium text-warning tabular-nums"
+                    : "text-[11px] text-muted-foreground tabular-nums"
+              }
+            >
+              {daysWaiting}d
+            </p>
+          </div>
         </li>
       ))}
     </ul>

@@ -109,6 +109,12 @@ const line = (
   rejectReason,
 });
 
+/** Marks a line as sampled on a date, leaving the answer open. */
+const sampled = (l: LineItem, sentAt: string): LineItem => ({
+  ...l,
+  sample: { sentAt, feedbackAt: null, feedback: null },
+});
+
 export const DEAL_OWNERS = [
   "Bishal Karma",
   "Priya Nair",
@@ -213,7 +219,12 @@ export const DEALS: Deal[] = [
     currentContactId: "P-008",
     contactTrail: [{ contactId: "P-008", at: days(-40), note: "Walked into the office" }],
     lines: [
-      line("Single-origin Ethiopia 1kg", "Bishal Roastery", 480, 210),
+      // Sampled 18 days ago and still unanswered — the ageing pill turns amber.
+      sampled(
+        line("Single-origin Ethiopia 1kg", "Bishal Roastery", 480, 210),
+        days(-18),
+      ),
+      // Never sampled: the customer only asked to taste the Ethiopia.
       line("House blend 1kg", "Bishal Roastery", 720, 145),
     ],
     value: 0,

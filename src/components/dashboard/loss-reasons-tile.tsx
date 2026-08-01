@@ -38,30 +38,37 @@ export function LossReasonsTile({
   const max = Math.max(...rows.map((r) => r.value), 1);
   const totalCount = rows.reduce((sum, r) => sum + r.count, 0);
 
+  /* One row per rejected LINE. A package can lose one item and keep the
+     rest, so listing whole deals here would overstate what walked away. */
   const detailRows: DetailRow[] = React.useMemo(() => {
     if (!active) return [];
-    return active.deals.map((deal) => ({
-      id: deal.id,
-      title: deal.title,
-      meta: `${deal.company} · ${deal.owner}`,
-      value: formatMoney(deal.value),
-      hint: (() => {
-        const at = closedAt(deal);
-        return at
-          ? `lost ${new Date(at).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-            })}`
-          : undefined;
-      })(),
-    }));
+    return active.lines
+      .slice()
+      .sort((a, b) => b.value - a.value)
+      .map(({ deal, line, value }) => ({
+        id: `${deal.id}-${line.id}`,
+        title: line.product,
+        meta: `${deal.company} · ${deal.title}`,
+        value: formatMoney(value),
+        hint: (() => {
+          const at = deal.stage === "lost" ? closedAt(deal) : null;
+          return at
+            ? `lost ${new Date(at).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })}`
+            : deal.stage === "won"
+              ? "not taken"
+              : undefined;
+        })(),
+      }));
   }, [active, formatMoney]);
 
   if (totalCount === 0) {
     return (
       <EmptyTile
-        message="No deals lost in this period."
-        hint="Good news — nothing to explain."
+        message="Nothing turned down in this period."
+        hint="Good news — no lost business to explain."
       />
     );
   }
@@ -111,9 +118,9 @@ export function LossReasonsTile({
         title={active?.reason ?? ""}
         summary={
           active
-            ? `${active.count} lost ${
-                active.count === 1 ? "deal" : "deals"
-              } · ${formatMoney(active.value)} · ${periodLabel}`
+            ? `${active.count} ${
+                active.count === 1 ? "item" : "items"
+              } not taken · ${formatMoney(active.value)} · ${periodLabel}`
             : ""
         }
         rows={detailRows}
@@ -134,7 +141,7 @@ export function LossReasonsSummary({
   const value = rows.reduce((sum, r) => sum + r.value, 0);
   return (
     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-      <AnimatedNumber value={count} /> lost · {formatMoney(value)}
+      <AnimatedNumber value={count} /> not taken · {formatMoney(value)}
     </span>
   );
 }

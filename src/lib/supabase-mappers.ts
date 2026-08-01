@@ -89,6 +89,9 @@ export type DealLineRow = {
   unit_price: number | string;
   status: string;
   reject_reason: string | null;
+  sample_sent_at?: string | null;
+  sample_feedback_at?: string | null;
+  sample_feedback?: string | null;
   position: number;
 };
 
@@ -219,6 +222,15 @@ export function toLineItem(row: DealLineRow): LineItem {
     unitPrice: num(row.unit_price),
     status: row.status as LineStatus,
     rejectReason: (row.reject_reason as LostReason) ?? undefined,
+    /* Columns added by supabase/05-line-samples.sql. Read defensively so the
+       app still works before the migration is run. */
+    sample: row.sample_sent_at
+      ? {
+          sentAt: row.sample_sent_at,
+          feedbackAt: row.sample_feedback_at ?? null,
+          feedback: row.sample_feedback ?? null,
+        }
+      : null,
   };
 }
 
@@ -401,6 +413,9 @@ export function fromLineItem(line: LineItem, dealId: string, position: number) {
     id: line.id,
     deal_id: dealId,
     product: line.product,
+    sample_sent_at: line.sample?.sentAt ?? null,
+    sample_feedback_at: line.sample?.feedbackAt ?? null,
+    sample_feedback: line.sample?.feedback ?? null,
     brand: line.brand,
     quantity: line.quantity,
     unit: line.unit,

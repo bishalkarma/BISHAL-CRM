@@ -50,6 +50,22 @@ export type LineItem = {
   status: LineStatus;
   /** Only when status is "rejected". */
   rejectReason?: LostReason;
+  /**
+   * Sampling is per line, not per deal.
+   *
+   * A customer asks for one item out of a package of eight, so a single
+   * sample record on the deal could never say which product went out or when.
+   * Null means no sample was sent for this line — which is the normal case,
+   * since sampling is optional.
+   */
+  sample?: LineSample | null;
+};
+
+/** What happened to one sampled line. Dates are stamped, never typed. */
+export type LineSample = {
+  sentAt: string;
+  feedbackAt: string | null;
+  feedback: string | null;
 };
 
 export const LINE_STATUS_META: Record<
@@ -90,6 +106,13 @@ export function dealValue(lines: LineItem[]) {
   return lines.filter(lineCounts).reduce((sum, l) => sum + lineTotal(l), 0);
 }
 
+/**
+ * Value of the lines the customer turned down.
+ *
+ * This is the money that actually walked away. `dealValue` deliberately
+ * excludes rejected lines, so a deal where every line was rejected reports a
+ * value of zero — which made the Deal Loss tile read AED 0 for a real loss.
+ */
 export function rejectedValue(lines: LineItem[]) {
   return lines
     .filter((l) => l.status === "rejected")

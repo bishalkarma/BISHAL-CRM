@@ -21,7 +21,9 @@ import {
   isAwaitingPayment,
   lineCounts,
   lineTotal,
+  rejectedValue,
   type AgeingTone,
+  type LineItem,
   type LostReason,
 } from "./deal-model";
 import { STAGE_MAP, isOpenStage } from "./pipeline";
@@ -130,7 +132,16 @@ export function dealTotals(
       wonValue += value;
     } else if (deal.stage === "lost") {
       lostCount += 1;
-      lostValue += value;
+      /*
+        The money lost is the rejected lines, not deal.value.
+
+        dealValue() excludes rejected lines by design, so a deal where the
+        customer turned everything down reported a value of zero — the tile
+        showed AED 0 for a real AED 132,000 loss. Fall back to deal.value for
+        older deals that were lost without any line being marked rejected.
+      */
+      const rejected = convert(rejectedValue(deal.lines), deal.currency);
+      lostValue += rejected > 0 ? rejected : value;
     }
   }
 
@@ -319,8 +330,12 @@ export function closedAt(deal: Deal): string | null {
 
 export type LossReasonRow = {
   reason: LostReason;
+  /** Number of rejected LINES, not deals. */
   count: number;
   value: number;
+  /** Every rejected line, with the deal it came from. */
+  lines: { deal: Deal; line: LineItem; value: number }[];
+  /** Distinct deals involved, for the drill-down. */
   deals: Deal[];
 };
 
@@ -334,20 +349,44 @@ export function lossReasons(
   convert: (amount: number, from: CurrencyCode) => number,
   now = Date.now(),
 ): LossReasonRow[] {
-  const lost = deals.filter(
-    (d) =>
-      d.stage === "lost" &&
-      d.lostReason &&
-      withinPeriod(closedAt(d) ?? d.createdAt, period, now),
-  );
+  /*
+    Counted per LINE, not per deal.
+
+    A package can be won while one item inside it is turned down — that is
+    still lost business, and counting whole deals hid it completely. Rejected
+    lines are read from won, lost and open deals alike, because a rejection is
+    a rejection wherever it happens.
+  */
+  type Hit = { deal: Deal; line: LineItem; value: number };
+  const hits: Hit[] = [];
+
+  for (const deal of deals) {
+    // A lost deal is dated by when it closed; a rejected line inside a live
+    // deal has no close date of its own, so the deal's creation date is used.
+    const when =
+      deal.stage === "lost" ? (closedAt(deal) ?? deal.createdAt) : deal.createdAt;
+    if (!withinPeriod(when, period, now)) continue;
+
+    for (const line of deal.lines) {
+      if (line.status !== "rejected" || !line.rejectReason) continue;
+      hits.push({
+        deal,
+        line,
+        value: convert(lineTotal(line), deal.currency),
+      });
+    }
+  }
 
   return LOST_REASONS.map((reason) => {
-    const matching = lost.filter((d) => d.lostReason === reason);
+    const matching = hits.filter((h) => h.line.rejectReason === reason);
     return {
       reason,
       count: matching.length,
-      value: matching.reduce((sum, d) => sum + convert(d.value, d.currency), 0),
-      deals: matching,
+      value: matching.reduce((sum, h) => sum + h.value, 0),
+      lines: matching,
+      // Distinct deals, so the drill-down does not repeat a package that
+      // had two lines rejected for the same reason.
+      deals: [...new Set(matching.map((h) => h.deal))],
     };
   }).sort((a, b) => b.value - a.value || b.count - a.count);
 }
@@ -519,37 +558,51 @@ export function expectedToClose(
 
 export type WaitingSampleRow = {
   deal: Deal;
+  line: LineItem;
+  /** Line value in the display currency. */
+  value: number;
   sentAt: string;
   daysWaiting: number;
 };
 
-/** Samples sent with no feedback recorded — oldest first. */
+/**
+ * Sampled lines still waiting on an answer.
+ *
+ * Per line, not per deal: a customer asks for one item out of a package, so
+ * only that line is chased. Restricted to deals actually in Sampling — a
+ * sample on a won or lost deal has already had its answer, one way or another.
+ */
 export function samplesAwaiting(
   deals: Deal[],
   period: DashboardPeriod,
+  convert: (amount: number, from: CurrencyCode) => number = (a) => a,
   now = Date.now(),
 ): WaitingSampleRow[] {
-  return deals
-    .filter(
-      (d) =>
-        /*
-          Only a live deal can still be waiting on an answer. A lost deal has
-          its answer, and a won one does too — chasing feedback on either is
-          noise, and it put customers you had already lost into a to-do list.
-        */
-        isOpenStage(d.stage) &&
-        d.sample !== null &&
-        d.sample.feedbackAt === null &&
-        withinPeriod(d.sample.sentAt, period, now),
-    )
-    .map((deal) => ({
-      deal,
-      sentAt: deal.sample!.sentAt,
-      daysWaiting: Math.floor(
-        (now - new Date(deal.sample!.sentAt).getTime()) / 86_400_000,
-      ),
-    }))
-    .sort((a, b) => b.daysWaiting - a.daysWaiting);
+  const rows: WaitingSampleRow[] = [];
+
+  for (const deal of deals) {
+    if (deal.stage !== "sampling") continue;
+
+    for (const line of deal.lines) {
+      const sample = line.sample;
+      if (!sample || sample.feedbackAt) continue;
+      if (!withinPeriod(sample.sentAt, period, now)) continue;
+
+      rows.push({
+        deal,
+        line,
+        value: convert(lineTotal(line), deal.currency),
+        sentAt: sample.sentAt,
+        daysWaiting: Math.floor(
+          (now - new Date(sample.sentAt).getTime()) / 86_400_000,
+        ),
+      });
+    }
+  }
+
+  // Oldest first: the sample nobody has answered for three weeks is the one
+  // that needs chasing.
+  return rows.sort((a, b) => b.daysWaiting - a.daysWaiting);
 }
 
 export type CashRow = {
