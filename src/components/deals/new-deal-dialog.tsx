@@ -13,6 +13,7 @@ import { DEAL_OWNERS } from "@/lib/deals";
 import { LineItemsEditor } from "./line-items-editor";
 import { CompanyPicker } from "./company-picker";
 import { ClusterCombobox } from "@/components/companies/cluster-combobox";
+import { OwnerCombobox } from "@/components/companies/owner-combobox";
 import {
   Dialog,
   DialogContent,
@@ -81,7 +82,22 @@ export function NewDealDialog({
   );
   const [enquiryFromId, setEnquiryFromId] = React.useState("");
   const [reqDate, setReqDate] = React.useState("");
-  const [owner, setOwner] = React.useState<string>(DEAL_OWNERS[0]);
+  
+  // Current user info (for role-based UI) - MUST be before useState that uses it
+  const currentUserId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+  const currentUserRole = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_role") ?? "Viewer" : "Viewer";
+  const currentUserDisplayName = typeof window !== "undefined" ? sessionStorage.getItem("demo_display_name") : null;
+  
+  const [owner, setOwner] = React.useState<string>(
+    currentUserRole === "Admin" || currentUserRole === "Manager" 
+      ? DEAL_OWNERS[0] 
+      : currentUserDisplayName ?? "Unknown"
+  );
+  const [ownerId, setOwnerId] = React.useState<string | null>(
+    currentUserRole === "Admin" || currentUserRole === "Manager" 
+      ? null 
+      : currentUserId
+  );
   const [priority, setPriority] = React.useState<DealPriority>("medium");
   const [lines, setLines] = React.useState<LineItem[]>([emptyLine()]);
   const [touched, setTouched] = React.useState(false);
@@ -95,6 +111,7 @@ export function NewDealDialog({
     setEnquiryFromId(editing.enquiryFromId);
     setReqDate((editing.reqDate ?? editing.expectedCloseDate ?? "").slice(0, 10));
     setOwner(editing.owner);
+    setOwnerId(editing.owner_id ?? null);
     setPriority(editing.priority);
     setLines(editing.lines.length ? editing.lines : [emptyLine()]);
     setTouched(false);
@@ -107,6 +124,22 @@ export function NewDealDialog({
       setEnquiryFromId(primaryFor(preselectedCompany.id)?.id ?? "");
     }
   }, [preselectedCompany, primaryFor]);
+
+  // Reset form when dialog opens for new deal (not editing)
+  React.useEffect(() => {
+    if (!open || editing) return;
+    // Reset to current user's info
+    setOwner(
+      currentUserRole === "Admin" || currentUserRole === "Manager"
+        ? DEAL_OWNERS[0]
+        : currentUserDisplayName ?? "Unknown"
+    );
+    setOwnerId(
+      currentUserRole === "Admin" || currentUserRole === "Manager"
+        ? null
+        : currentUserId
+    );
+  }, [open, editing, currentUserRole, currentUserDisplayName, currentUserId]);
 
   const contacts = company ? contactsFor(company.id) : [];
 
@@ -121,6 +154,8 @@ export function NewDealDialog({
     setCategory("");
     setEnquiryFromId("");
     setReqDate("");
+    setOwner(DEAL_OWNERS[0]);
+    setOwnerId(null);
     setPriority("medium");
     setLines([emptyLine()]);
     setTouched(false);
@@ -141,6 +176,16 @@ export function NewDealDialog({
     const now = new Date().toISOString();
     const cleaned = validLines;
 
+    // Determine owner_id: Admin/Manager can select owner via OwnerCombobox, others auto-assign to themselves
+    // owner_id follows the customer's current owner
+    const finalOwnerId =
+      (currentUserRole === "Admin" || currentUserRole === "Manager") && ownerId
+        ? ownerId
+        : currentUserId;
+    
+    // created_by is always the user who created this deal (immutable)
+    const createdBy = currentUserId;
+
     if (editing) {
       onSaveEdit?.({
         title: title.trim(),
@@ -150,6 +195,7 @@ export function NewDealDialog({
         // Top products all follow automatically.
         value: dealValue(cleaned),
         owner,
+        owner_id: finalOwnerId,
         priority,
         reqDate: reqDate || null,
         expectedCloseDate: reqDate || editing.expectedCloseDate,
@@ -158,24 +204,26 @@ export function NewDealDialog({
       return;
     }
 
-    onCreate({
-      id: `D-${Date.now().toString().slice(-4)}`,
-      title: title.trim(),
-      category,
-      company: company.name,
-      companyId: company.id,
-      accountType: "Hotel",
-      enquiryFromId,
-      currentContactId: enquiryFromId,
-      contactTrail: [
-        { contactId: enquiryFromId, at: now, note: "Gave us the enquiry" },
-      ],
-      lines: cleaned,
-      value: dealValue(cleaned),
-      currency: "AED",
-      stage: "lead",
-      probability: null,
-      owner,
+      onCreate({
+        id: `D-${Date.now().toString().slice(-4)}`,
+        title: title.trim(),
+        category,
+        company: company.name,
+        companyId: company.id,
+        accountType: "Hotel",
+        enquiryFromId,
+        currentContactId: enquiryFromId,
+        contactTrail: [
+          { contactId: enquiryFromId, at: now, note: "Gave us the enquiry" },
+        ],
+        lines: cleaned,
+        value: dealValue(cleaned),
+        currency: "AED",
+        stage: "lead",
+        probability: null,
+        owner,
+        owner_id: finalOwnerId,
+        created_by: createdBy,  // Immutable: who created this deal
       city: company.area,
       expectedCloseDate: reqDate || now,
       lastActivityAt: now,
@@ -328,17 +376,19 @@ export function NewDealDialog({
 
               <div>
                 <Label>Owner</Label>
-                <select
-                  value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-accent"
-                >
-                  {DEAL_OWNERS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+                {(currentUserRole === "Admin" || currentUserRole === "Manager") ? (
+                  <OwnerCombobox
+                    value={ownerId ?? ""}
+                    onChange={(uid, uname) => {
+                      setOwnerId(uid);
+                      setOwner(uname);
+                    }}
+                  />
+                ) : (
+                  <div className="h-10 w-full rounded-lg border border-input bg-secondary/30 px-3 text-sm flex items-center text-muted-foreground">
+                    Automatically assigned to you
+                  </div>
+                )}
               </div>
 
               <div>

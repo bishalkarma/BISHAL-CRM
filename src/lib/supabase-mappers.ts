@@ -49,6 +49,8 @@ export type CompanyRow = {
   phone: string;
   whatsapp_same_as_phone: boolean;
   owner: string;
+  owner_id: string | null;
+  created_by: string | null;
   lead_source: string;
   remarks: string;
   spancop: string;
@@ -112,6 +114,8 @@ export type DealRow = {
   probability: number | null;
   on_hold: boolean;
   owner: string;
+  owner_id: string | null;
+  created_by: string | null;
   city: string;
   priority: string;
   tags: string[] | null;
@@ -178,6 +182,8 @@ export function toCompany(row: CompanyRow): Company {
     phone: row.phone,
     whatsappSameAsPhone: row.whatsapp_same_as_phone,
     owner: row.owner,
+    owner_id: row.owner_id ?? null,
+    created_by: row.created_by ?? null,
     leadSource: row.lead_source as LeadSource,
     remarks: row.remarks,
     spancop: row.spancop as SpancopStage,
@@ -257,6 +263,8 @@ export function toDeal(row: DealRow): Deal {
     closedFromStage: (row.closed_from_stage as DealStage) ?? undefined,
     probability: row.probability,
     owner: row.owner,
+    owner_id: row.owner_id ?? null,
+    created_by: row.created_by ?? null,
     city: row.city,
     expectedCloseDate: row.expected_close_date ?? row.created_at,
     lastActivityAt: row.last_activity_at,
@@ -380,6 +388,8 @@ export function fromDeal(d: Deal) {
     probability: d.probability,
     on_hold: d.onHold,
     owner: d.owner,
+    owner_id: d.owner_id,
+    created_by: d.created_by,
     city: d.city,
     priority: d.priority,
     tags: d.tags,
@@ -456,6 +466,8 @@ export type ActivityRow = {
   task_done: boolean;
   remind: boolean;
   owner: string;
+  owner_id: string | null;
+  created_by: string | null;
   created_at: string;
 };
 

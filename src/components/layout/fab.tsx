@@ -5,26 +5,32 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Building2,
   CalendarPlus,
-  FileText,
   Plus,
   Target,
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ACTIONS = [
-  { label: "New deal", icon: Target, href: "/pipeline" },
-  { label: "New company", icon: Building2, href: "/companies" },
-  { label: "New contact", icon: UserPlus, href: "/contacts" },
-  { label: "New quotation", icon: FileText, href: "/quotations" },
-  { label: "Log activity", icon: CalendarPlus, href: "/activities" },
+type FabAction = "deal" | "company" | "contact" | "activity";
+
+const ACTIONS: { id: FabAction; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "deal", label: "New deal", icon: Target },
+  { id: "company", label: "New company", icon: Building2 },
+  { id: "contact", label: "New contact", icon: UserPlus },
+  { id: "activity", label: "Log activity", icon: CalendarPlus },
 ];
 
 /**
- * Floating action button with a radial speed-dial.
- * Sits above the mobile tab bar; bottom-right on desktop.
+ * Floating action button with a speed-dial menu.
+ *
+ * Each action fires an `onAction` callback — the caller decides whether to
+ * navigate or open a dialog.
  */
-export function FloatingActionButton() {
+export function FloatingActionButton({
+  onAction,
+}: {
+  onAction?: (action: FabAction) => void;
+}) {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -34,6 +40,11 @@ export function FloatingActionButton() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const tap = (id: FabAction) => {
+    setOpen(false);
+    onAction?.(id);
+  };
 
   return (
     <>
@@ -56,9 +67,10 @@ export function FloatingActionButton() {
             ACTIONS.map((action, index) => {
               const Icon = action.icon;
               return (
-                <motion.a
-                  key={action.label}
-                  href={action.href}
+                <motion.button
+                  key={action.id}
+                  type="button"
+                  onClick={() => tap(action.id)}
                   initial={{ opacity: 0, y: 12, scale: 0.85 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 12, scale: 0.85 }}
@@ -67,12 +79,11 @@ export function FloatingActionButton() {
                     delay: (ACTIONS.length - index - 1) * 0.035,
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 rounded-full border border-border bg-popover py-2 pl-3.5 pr-4 text-sm font-medium shadow-[var(--shadow-float)] transition-transform duration-150 hover:scale-[1.03] active:scale-95"
                 >
                   <Icon className="size-4 text-accent" />
                   {action.label}
-                </motion.a>
+                </motion.button>
               );
             })}
         </AnimatePresence>
@@ -82,7 +93,7 @@ export function FloatingActionButton() {
           aria-label={open ? "Close quick actions" : "Open quick actions"}
           aria-expanded={open}
           className={cn(
-            "flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[var(--shadow-float)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-[var(--shadow-glow)] active:scale-90 lg:size-13",
+            "flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[var(--shadow-float)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-[var(--shadow-glow)] active:scale-90 lg:size-16",
           )}
         >
           <motion.span

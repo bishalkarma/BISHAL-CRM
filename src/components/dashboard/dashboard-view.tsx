@@ -76,8 +76,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CURRENT_USER } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 function greeting() {
   const hour = new Date().getHours();
@@ -87,6 +87,7 @@ function greeting() {
 }
 
 export function DashboardView() {
+  const { user: currentUser } = useCurrentUser();
   const { companies, deals, activities } = useData();
   const { toDisplay, format } = useCurrency();
   const {
@@ -229,7 +230,7 @@ export function DashboardView() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
-        title={`${greeting()}, ${CURRENT_USER.name.split(" ")[0]}`}
+        title={`${greeting()}, ${currentUser?.displayName?.split(" ")[0] || "User"}`}
         description="Your customers, deals and work in one place."
         actions={
           <>

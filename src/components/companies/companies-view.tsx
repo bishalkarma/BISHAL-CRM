@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, paginate } from "@/components/ui/pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,18 @@ export function CompaniesView() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false);
   const [newOpen, setNewOpen] = React.useState(false);
+
+  // Pagination state
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const PAGE_SIZE = pageSize;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedCompanies = paginate(filtered, page, PAGE_SIZE);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [filters.query, filters.stages.join(","), filters.business.join(","), filters.emirates.join(","), filters.owners.join(","), filters.alertsOnly]);
 
   const openCompany = React.useCallback((company: Company) => {
     setSelected(company);
@@ -254,7 +267,20 @@ export function CompaniesView() {
         )}
       </div>
 
-      <CompanyTable companies={filtered} onOpen={openCompany} />
+      <CompanyTable companies={pagedCompanies} onOpen={openCompany} />
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
+        label="companies"
+      />
 
       <SuggestionsDialog
         open={suggestionsOpen}

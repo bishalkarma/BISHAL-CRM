@@ -8,6 +8,7 @@ import {
   Crown,
   Mail,
   MessageCircle,
+  Pencil,
   Phone,
   Search,
   Star,
@@ -22,15 +23,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, initials } from "@/lib/utils";
+import { EditContactDialog } from "./edit-contact-dialog";
+import { Pagination, paginate } from "@/components/ui/pagination";
 
 /** Companies with more than this many contacts collapse the remainder. */
 const VISIBLE_LIMIT = 3;
 
 export function ContactsView() {
-  const { companies, contacts: allContacts, deals, loading } = useData();
+  const { companies, contacts: allContacts, deals, loading, updateContact } = useData();
   const [query, setQuery] = React.useState("");
   const [decisionMakersOnly, setDecisionMakersOnly] = React.useState(false);
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [editingContact, setEditingContact] = React.useState<Contact | null>(null);
 
   const companyName = React.useCallback(
     (id: string) => companies.find((c) => c.id === id)?.name ?? "—",
@@ -75,6 +79,18 @@ export function ContactsView() {
       ),
     }));
   }, [filtered]);
+
+  // Pagination
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const PAGE_SIZE = pageSize;
+  const totalGroups = grouped.length;
+  const totalPages = Math.max(1, Math.ceil(totalGroups / PAGE_SIZE));
+  const pagedGroups = paginate(grouped, page, PAGE_SIZE);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [query, decisionMakersOnly]);
 
   return (
     <div className="space-y-4">
@@ -124,7 +140,7 @@ export function ContactsView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {grouped.map(({ companyId, contacts }, groupIndex) => (
+          {pagedGroups.map(({ companyId, contacts }, groupIndex) => (
             <motion.div
               key={companyId}
               initial={{ opacity: 0, y: 8 }}
@@ -214,6 +230,14 @@ export function ContactsView() {
                         )}
 
                         <div className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => setEditingContact(contact)}
+                            aria-label={`Edit ${contact.name}`}
+                          >
+                            <Pencil />
+                          </Button>
                           <Button variant="outline" size="icon-sm" asChild>
                             <a
                               href={`tel:${contact.phone.replace(/\s/g, "")}`}
@@ -283,6 +307,28 @@ export function ContactsView() {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={totalGroups}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
+        label="contact groups"
+      />
+
+      <EditContactDialog
+        open={editingContact !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingContact(null);
+        }}
+        contact={editingContact}
+        onSave={(id, patch) => updateContact(id, patch)}
+      />
     </div>
   );
 }

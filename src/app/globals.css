@@ -463,3 +463,35 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Recharts — remove focus ring on click/tap (the blue outline) */
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus-visible,
+.recharts-tooltip-wrapper:focus-visible,
+.recharts-cartesian-axis-tick:focus-visible,
+.recharts-bar-rectangle:focus-visible,
+.recharts-sector:focus-visible,
+.recharts-dot:focus-visible,
+.recharts-active-dot:focus-visible,
+svg.recharts-surface:focus,
+svg.recharts-surface:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Recharts — chart canvas adapts to theme via card background */
+.chart-canvas {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.4);
+  border-radius: 0.75rem;
+}
+
+/* Theme-aware axis colors — use muted-foreground token */
+.chart-axis text {
+  fill: hsl(var(--muted-foreground));
+  font-weight: 500;
+}
+.chart-axis line,
+.chart-axis path {
+  stroke: hsl(var(--border));
+}

@@ -31,6 +31,7 @@ import {
   type Activity,
   type ActivityType,
 } from "@/lib/activities";
+import { Pagination } from "@/components/ui/pagination";
 import {
   countThreads,
   hasHappened,
@@ -626,63 +627,12 @@ function TimelineView({
         <Pagination
           page={safePage}
           totalPages={totalPages}
+          total={history.length}
+          pageSize={perPage}
           onPageChange={onPageChange}
+          label="activities"
         />
       )}
-    </div>
-  );
-}
-
-function Pagination({
-  page,
-  totalPages,
-  onPageChange,
-}: {
-  page: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}) {
-  const btn =
-    "flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
-  return (
-    <div className="flex items-center justify-center gap-2 pt-1">
-      <span className="text-xs text-muted-foreground">
-        Page {page} of {totalPages}
-      </span>
-      <div className="flex gap-1">
-        <button
-          className={btn}
-          onClick={() => onPageChange(1)}
-          disabled={page === 1}
-          aria-label="First page"
-        >
-          <ChevronsLeft className="size-4" />
-        </button>
-        <button
-          className={btn}
-          onClick={() => onPageChange(page - 1)}
-          disabled={page === 1}
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <button
-          className={btn}
-          onClick={() => onPageChange(page + 1)}
-          disabled={page === totalPages}
-          aria-label="Next page"
-        >
-          <ChevronRightIcon className="size-4" />
-        </button>
-        <button
-          className={btn}
-          onClick={() => onPageChange(totalPages)}
-          disabled={page === totalPages}
-          aria-label="Last page"
-        >
-          <ChevronsRight className="size-4" />
-        </button>
-      </div>
     </div>
   );
 }

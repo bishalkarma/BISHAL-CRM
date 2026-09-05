@@ -25,6 +25,7 @@ import { useData } from "@/components/providers/data-provider";
 import { NewCompanyDialog } from "./new-company-dialog";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
+import { TransferHistory } from "./transfer-history";
 import {
   Dialog,
   DialogContent,
@@ -353,6 +354,11 @@ export function CompanyDrawer({
               </ul>
             )}
           </div>
+
+          <Separator />
+
+          {/* Transfer history — ownership changes */}
+          <TransferHistory customerId={company.id} />
 
             <Button
               variant="outline"

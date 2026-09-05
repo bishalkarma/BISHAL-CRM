@@ -2,10 +2,7 @@ import {
   BarChart3,
   Building2,
   CalendarCheck,
-  FileText,
-  Handshake,
   LayoutDashboard,
-  Package,
   Settings,
   Target,
   Users,
@@ -69,32 +66,6 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "Trade",
-    items: [
-      {
-        label: "Quotations",
-        href: "/quotations",
-        icon: FileText,
-        shortcut: "G Q",
-        soon: true,
-      },
-      {
-        label: "Orders",
-        href: "/orders",
-        icon: Handshake,
-        shortcut: "G R",
-        soon: true,
-      },
-      {
-        label: "Products",
-        href: "/products",
-        icon: Package,
-        shortcut: "G I",
-        soon: true,
-      },
-    ],
-  },
-  {
     title: "Insights",
     items: [
       {
@@ -102,7 +73,6 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/reports",
         icon: BarChart3,
         shortcut: "G E",
-        soon: true,
       },
       { label: "Settings", href: "/settings", icon: Settings, shortcut: "G S" },
     ],
