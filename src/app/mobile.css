@@ -1,0 +1,80 @@
+/* ============================================================
+   Mobile Optimization Styles
+   Applied automatically on screens < 640px
+   ============================================================ */
+
+@media (max-width: 640px) {
+  /* Reduce overall spacing */
+  .space-y-5 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+  }
+  
+  .space-y-6 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+  }
+
+  /* Make buttons more touch-friendly */
+  button, [role="button"] {
+    min-height: 44px; /* Apple HIG recommendation */
+  }
+  
+  /* Reduce button padding on mobile */
+  .btn-sm, button[size="sm"] {
+    min-height: 36px;
+  }
+
+  /* Optimize tables/lists for mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reduce card padding on mobile */
+  .p-6 {
+    padding: 1rem;
+  }
+  
+  .p-5 {
+    padding: 0.875rem;
+  }
+  
+  .p-4 {
+    padding: 0.75rem;
+  }
+
+  /* Optimize forms for mobile */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+
+  /* Improve touch targets */
+  a, button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Reduce modal/dialog padding on mobile */
+  [role="dialog"] {
+    margin: 0.5rem;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 380px) {
+  html {
+    font-size: 12px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Slightly reduce spacing on tablets */
+  .space-y-6 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(1.25rem * var(--tw-space-y-reverse));
+  }
+}

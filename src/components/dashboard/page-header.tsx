@@ -19,11 +19,11 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-tight sm:text-[26px]">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-[22px] lg:text-[26px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && (

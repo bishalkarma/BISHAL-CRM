@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/themes";
 import "./globals.css";
+import "./mobile.css";
 
 export const metadata: Metadata = {
   title: {

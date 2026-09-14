@@ -48,7 +48,7 @@ export function BoardColumn({
   });
 
   return (
-    <div className="group/col flex h-full w-[268px] shrink-0 flex-col sm:w-[290px]">
+    <div className="group/col flex h-full w-[240px] shrink-0 flex-col sm:w-[268px] lg:w-[290px]">
       {/* Column header */}
       <div className="mb-2 px-0.5">
         <div className="flex items-center gap-2">

@@ -81,7 +81,8 @@ export function PipelineBoard() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 180, tolerance: 8 },
+      // Lower delay and higher tolerance for easier mobile dragging
+      activationConstraint: { delay: 100, tolerance: 12 },
     }),
     useSensor(KeyboardSensor),
   );
@@ -137,7 +138,7 @@ export function PipelineBoard() {
       />
 
       {/* Summary — two headline tiles, then a 2×2 block of closed-deal metrics */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <SummaryTile
           label="Open pipeline"
           value={format(stats.openValue, { compact: true })}

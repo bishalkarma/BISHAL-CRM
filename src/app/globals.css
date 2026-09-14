@@ -7,6 +7,24 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Mobile-first responsive adjustments */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px; /* Reduce base font size on mobile */
+  }
+  
+  /* Reduce spacing on mobile */
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px; /* Even smaller on very small screens */
+  }
+}
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));

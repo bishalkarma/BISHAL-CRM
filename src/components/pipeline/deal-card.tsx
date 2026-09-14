@@ -36,7 +36,7 @@ export function DealCardContent({
     <div
       onClick={() => onOpen?.(deal)}
       className={cn(
-        "group relative overflow-hidden rounded-xl border border-border bg-card p-3 text-left shadow-[var(--shadow-soft)] transition-all duration-200",
+        "group relative overflow-hidden rounded-xl border border-border bg-card p-2.5 sm:p-3 text-left shadow-[var(--shadow-soft)] transition-all duration-200",
         dragging
           ? "rotate-[1.5deg] scale-[1.02] shadow-[var(--shadow-float)]"
           : "hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)]",

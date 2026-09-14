@@ -79,7 +79,7 @@ export function CompanyDrawer({
         scroll. Below `lg` the columns collapse into a single full-height
         column, so a phone loses the layout but not the content.
       */}
-      <DialogContent className="flex max-h-[92vh] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[92vh] sm:max-h-[90vh] w-full sm:w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
         <DialogHeader className="shrink-0 space-y-1.5 border-b border-border p-5 pr-12 text-left">
           <div className="flex items-center gap-2.5">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-sm font-semibold text-accent">
@@ -121,7 +121,7 @@ export function CompanyDrawer({
         </DialogHeader>
 
         <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-5 overflow-y-auto p-5 lg:border-r lg:border-border">
+          <div className="space-y-4 sm:space-y-5 overflow-y-auto p-4 sm:p-5 lg:border-r lg:border-border">
           {/* SPANCOP */}
           <div>
             <div className="flex items-center justify-between pb-2">
