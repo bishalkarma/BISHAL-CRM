@@ -102,7 +102,6 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/reports",
         icon: BarChart3,
         shortcut: "G E",
-        soon: true,
       },
       { label: "Settings", href: "/settings", icon: Settings, shortcut: "G S" },
     ],
