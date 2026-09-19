@@ -680,3 +680,68 @@ export function cashToCollect(
   return rows.sort((a, b) => b.value - a.value);
 }
 
+/* ------------------------------------------------------------------ */
+/* BUILD 01 — Compact KPI helpers                                     */
+/* ------------------------------------------------------------------ */
+
+/** Distinct customers represented in a set of deals */
+export function distinctCustomerCount(deals: Deal[]): number {
+  return new Set(deals.map((d) => d.companyId)).size;
+}
+
+/** Open opportunities: deals still in an open stage and not on hold */
+export function openOpportunities(deals: Deal[]): Deal[] {
+  return deals.filter((d) => isOpenStage(d.stage) && !d.onHold);
+}
+
+export function openOpportunitiesSummary(
+  deals: Deal[],
+): { count: number; customerCount: number; value: number } {
+  const open = openOpportunities(deals);
+  return {
+    count: open.length,
+    customerCount: distinctCustomerCount(open),
+    value: open.reduce((sum, d) => sum + d.value, 0),
+  };
+}
+
+export function averageDealSize(
+  deals: Deal[],
+  convert: (amount: number, from: CurrencyCode) => number,
+): number {
+  if (deals.length === 0) return 0;
+  const total = deals.reduce((sum, d) => sum + convert(d.value, d.currency), 0);
+  return total / deals.length;
+}
+
+export type OwnerPerfRow = {
+  owner: string;
+  dealCount: number;
+  totalValue: number;
+  wonCount: number;
+  openCount: number;
+};
+
+export function dealsByOwner(
+  deals: Deal[],
+  convert: (amount: number, from: CurrencyCode) => number,
+): OwnerPerfRow[] {
+  const map = new Map<string, OwnerPerfRow>();
+  for (const deal of deals) {
+    const key = deal.owner || "Unassigned";
+    const row = map.get(key) ?? {
+      owner: key,
+      dealCount: 0,
+      totalValue: 0,
+      wonCount: 0,
+      openCount: 0,
+    };
+    row.dealCount += 1;
+    row.totalValue += convert(deal.value, deal.currency);
+    if (deal.stage === "won") row.wonCount += 1;
+    if (isOpenStage(deal.stage) && !deal.onHold) row.openCount += 1;
+    map.set(key, row);
+  }
+  return [...map.values()].sort((a, b) => b.totalValue - a.totalValue);
+}
+

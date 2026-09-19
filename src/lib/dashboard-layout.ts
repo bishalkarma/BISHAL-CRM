@@ -36,26 +36,27 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  { i: "kpi", x: 0, y: 0, w: 12, h: 5, minW: 6, minH: 4 },
-  { i: "revenue", x: 0, y: 5, w: 8, h: 8, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 5, w: 4, h: 8, minW: 3, minH: 6 },
-  { i: "today", x: 0, y: 13, w: 12, h: 8, minW: 4, minH: 5 },
+  // BUILD 01 — kpi now holds 8 compact cards (2 rows × 4) → needs ~6 rows (was 5) so revenue stays above fold
+  { i: "kpi", x: 0, y: 0, w: 12, h: 6, minW: 6, minH: 5 },
+  { i: "revenue", x: 0, y: 6, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 6, w: 4, h: 7, minW: 3, minH: 6 },
+  { i: "today", x: 0, y: 13, w: 12, h: 7, minW: 4, minH: 5 },
 
   /* SPANCOP does not move. Top products sits beside it because it is a
      scrolling list — it fills a tall tile without leaving a gap, which a
      four-bar chart could not. */
-  { i: "spancop", x: 0, y: 21, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 21, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 20, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 20, w: 6, h: 9, minW: 3, minH: 5 },
 
   /* The two donuts, side by side and equal, so neither has to stack. */
-  { i: "mix", x: 0, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "types", x: 6, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "mix", x: 0, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "types", x: 6, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "loss", x: 0, y: 38, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "expected", x: 6, y: 38, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 0, y: 37, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "expected", x: 6, y: 37, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "samples", x: 0, y: 46, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "cash", x: 6, y: 46, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 0, y: 45, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 6, y: 45, w: 6, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
