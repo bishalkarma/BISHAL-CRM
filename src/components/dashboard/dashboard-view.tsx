@@ -40,9 +40,7 @@ import {
   type DashboardPeriod,
   distinctCustomerCount,
   averageDealSize,
-  dealsByOwner,
 } from "@/lib/dashboard-metrics";
-import { TeamPerformanceCard } from "@/components/dashboard/team-performance-card";
 import {
   LossReasonsTile,
   LossReasonsSummary,
@@ -181,11 +179,6 @@ export function DashboardView() {
     () => averageDealSize(scopedDeals, convert),
     [scopedDeals, convert],
   );
-  const teamRows = React.useMemo(
-    () => dealsByOwner(scopedDeals, convert),
-    [scopedDeals, convert],
-  );
-
   const today = React.useMemo(() => todaySummary(activities), [activities]);
 
   const scopedActivities = React.useMemo(() => {
@@ -340,17 +333,6 @@ export function DashboardView() {
               periodLabel={period === "all" ? "all time" : "in this period"}
             />
           ),
-          // BUILD 02 — Team just below Row 2 (kpi+pipeline), now a draggable widget
-          team: (
-            <TeamPerformanceCard
-              rows={teamRows}
-              formatMoney={money}
-              periodLabel={periodLabel}
-              viewerRole={currentUser?.roleName}
-              viewerName={currentUser?.displayName}
-            />
-          ),
-
           revenue: (
             <Card className="flex flex-col">
               <CardHeader className="pb-2">

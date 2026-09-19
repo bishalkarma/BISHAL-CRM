@@ -144,28 +144,28 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 05: ultra-tight — content fills tile, fixes "big tile, small content"
-        "flex flex-col p-1.5",
+        // BUILD 07: ultra-tight + content fills — p-1.5 but value 22-24px, min-h 72 to hug without empty
+        "flex min-h-[72px] flex-col p-1.5",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
     >
-      <div className="flex items-center justify-center gap-1 text-center text-[10px] font-medium leading-none tracking-tight text-muted-foreground">
+      <div className="flex items-center justify-center gap-1 text-center text-[9px] font-medium leading-none tracking-tight text-muted-foreground">
         <Icon className={cn("size-3 shrink-0", accent)} />
         <span className="line-clamp-1">{label}</span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center py-1 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center py-0.5 text-center">
         <motion.div
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-[20px] font-bold leading-none tabular-nums lg:text-[22px]"
+          className="text-[22px] font-black leading-none tabular-nums lg:text-[24px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
         {support && (
-          <div className="mt-0.5 text-center text-[10px] leading-none text-muted-foreground">{support}</div>
+          <div className="mt-0.5 text-center text-[9px] leading-none text-muted-foreground">{support}</div>
         )}
       </div>
 

@@ -125,5 +125,23 @@
 - **Rollback:** `git reset --hard BUILD_05` (or `f437059`) to without bars; `git reset --hard BUILD_06` is this
 - **Visual:** See `docs/dashboard-build-06-mockup.png` — clearly labels Row 1 (3 cards) + Row 2 (3 cards with green/red bars), top-right donut, team, revenue+pipeline side-by-side
 
-## Build 07 — Reserved
-- Next build will be BUILD 07
+## Build 07 — Remove Team Performance + Tighten KPI to Fill Tile — ✅ BUILT 2026-09-19
+- **Base:** BUILD 06 (`19af953`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB dashboard)
+- **Your request:** "tiles are big and the content is small and remove that team performance I dont need it" + screenshot showing 6 KPI cards with green/red bars still looking big.
+- **Fix:**
+  - **Removed Team Performance as requested:** Deleted `team` from `WidgetId` and `DEFAULT_LAYOUT` (was `x0 y4 w12 h3`). Deleted `TeamPerformanceCard` import, `teamRows` memo and `team` widget from `DashboardGrid` in `src/components/dashboard/dashboard-view.tsx`. Deleted `dealsByOwner` import (no longer needed for team). `dealsByOwner` helper kept in `src/lib/dashboard-metrics.ts` for future use but not rendered. Team Performance no longer appears anywhere (was amber bar `#1 Bishal Karma`).
+  - **Layout tightened after removal:** `revenue`/`pipeline` moved up `y7→y4` → now directly below `kpi`+`types` top row (`y0 h4`), no 120px Team gap. `today y14→y11` (+3 rows saved), `spancop/products y20→y17` etc. — saves vertical scroll, Revenue now much closer to KPI as in your fresh-pull ideal.
+  - **KPI tiles tightened to fix "big tile small content":** `Tile` now `min-h-[72px] p-1.5` (was `p-1.5` without min, now enforced 72px to hug content but not stretch), header `text-[10px]→text-[9px]`, value `text-[20px]→text-[22px] lg:text-[24px] font-black` (+2px larger, bolder, fills tile), support `mt-0.5 text-[9px]`. Cards now ~72px tall, numbers ~24px fill ~33% of tile height vs 28% before, tight like your `Marketing 123.4M` tight example where text touches borders. Grid `gap-2` kept, widget `h4` (160px) with 2 rows ×72px + gap 8 = 152px content in 160px → only 8px slack (was 28-60px), so no big empty tile.
+  - **Types top-right kept compact** to avoid clipping at `h4`: `types` still `w4 h4` at `y0` with `overflow-hidden p-2 pt-0` compact donut, no bottom cutoff.
+  - **`LAYOUT_VERSION` bumped to `build07-no-team-tight-kpi-h4`** with migration that clears old `team` layouts and old `h5` layouts (`kpi h5` or `hasTeam`) so fresh pull auto-migrates to no-team compact view.
+- **Files touched:**
+  - `src/lib/dashboard-layout.ts` — removed `team` from `WidgetId`, removed `team` entry, shifted `revenue y7→y4`, `pipeline y7→y4`, `today y14→y11`, `spancop y20→y17` etc., `LAYOUT_VERSION build07...`
+  - `src/components/dashboard/dashboard-view.tsx` — removed `TeamPerformanceCard` import, removed `dealsByOwner` import and `teamRows` memo, removed `team` slot from `DashboardGrid` (now 12 widgets)
+  - `src/components/dashboard/kpi-block.tsx` — `Tile` `min-h-[72px] p-1.5`, header `text-[9px]`, value `text-[22px] lg:text-[24px] font-black`, support `text-[9px]`, progress bar + badge kept for Won/Lost
+- **Build verified:** `npm run build` ✓ 158kB (was 159kB, -1kB from removing team), mobile `grid-cols-2 sm:grid-cols-3` no overflow
+- **Rollback:** `git reset --hard BUILD_06` (or `19af953`) to restore Team; `git reset --hard BUILD_07` is this (no team, tighter KPI)
+- **Visual:** See `docs/dashboard-build-07-mockup.png` — top `KPI (6 cards, 2 rows)` with `22-24px` numbers filling `p-1.5` tiles, no Team bar, `Revenue` + `Pipeline` directly below, `Customers by type` top-right compact
+
+## Build 08 — Reserved
+- Next build will be BUILD 08

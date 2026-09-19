@@ -1,18 +1,12 @@
 /**
  * Where each dashboard widget sits, and how big it is.
- *
- * Saved on this device, like the currency and the revenue target. A layout is
- * a personal preference rather than business data, so it does not belong in
- * the shared database — and it will become per-account for free once logins
- * exist, because it is keyed by nothing else.
  */
 
 export type WidgetId =
   | "kpi"
-  | "types" // BUILD 03: Customers by type now top-right of KPI
-  | "team"
+  | "types" // top-right of KPI
   | "revenue"
-  | "pipeline" // BUILD 03: Pipeline now beside Revenue at y7 (not top)
+  | "pipeline"
   | "today"
   | "mix"
   | "spancop"
@@ -37,33 +31,31 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 05 — keep top row compact h4 (160px) but make Types donut compact to avoid clipping; fixes "big tile small content"
-  // KPI cards now p-1.5 text-20px filling tile; Types uses compact donut (90px) + tight legend, fits in h4 without cutoff
+  // BUILD 07 — remove Team Performance as requested, tighten KPI tiles to fix "big tile small content"
+  // Top: 6 ultra-compact cards + Types donut share h4 (160px) — no Team gap, Revenue moves up to y4
   { i: "kpi", x: 0, y: 0, w: 8, h: 4, minW: 6, minH: 3 },
   { i: "types", x: 8, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
-  // Team Performance full width just below Row 2 (y4)
-  { i: "team", x: 0, y: 4, w: 12, h: 3, minW: 6, minH: 2 },
-  // Revenue + Pipeline side-by-side below Team
-  { i: "revenue", x: 0, y: 7, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 7, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "today", x: 0, y: 14, w: 12, h: 6, minW: 4, minH: 5 },
+  // Revenue + Pipeline now directly below KPI+Types (y4), no Team gap — saves 120px scroll
+  { i: "revenue", x: 0, y: 4, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 4, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 11, w: 12, h: 6, minW: 4, minH: 5 },
 
   /* SPANCOP + Top products */
-  { i: "spancop", x: 0, y: 20, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 20, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 17, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 17, w: 6, h: 9, minW: 3, minH: 5 },
 
   /* Activity mix + Why we lose */
-  { i: "mix", x: 0, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "loss", x: 6, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "mix", x: 0, y: 26, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 6, y: 26, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "expected", x: 0, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 6, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "expected", x: 0, y: 34, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 6, y: 34, w: 6, h: 7, minW: 3, minH: 5 },
 
-  { i: "cash", x: 0, y: 44, w: 12, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 0, y: 41, w: 12, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build05-compact-kpi-fill-h4";
+const LAYOUT_VERSION = "build07-no-team-tight-kpi-h4";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -85,13 +77,14 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 05 reverts to compact h4 but ensures old h5 layouts migrate back; keeps no-clipping via compact Types
+    // BUILD 07 removes Team and tightens KPI to fix "big tile small content" — bump version to clear old team layouts
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
       if (raw) {
         const parsed = JSON.parse(raw) as WidgetBox[];
-        const isOld = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 5);
-        if (isOld) {
+        const hasTeam = Array.isArray(parsed) && (parsed as unknown as { i: string }[]).some((b) => b.i === "team");
+        const kpiIsH5 = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 5);
+        if (hasTeam || kpiIsH5) {
           window.localStorage.removeItem(KEY);
           return DEFAULT_LAYOUT;
         }
