@@ -509,13 +509,13 @@ export function DashboardView() {
 
           types: (
             <Card className="flex flex-col overflow-hidden">
-              <CardHeader className="pb-1 pt-3">
+              <CardHeader className="pb-2 pt-3">
                 <CardTitle className="text-sm">Customers by type</CardTitle>
                 <CardDescription className="text-xs">
                   Star rating, new, old, renovation · {periodLabel}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-hidden p-2 pt-0">
+              <CardContent className="min-h-0 flex-1 overflow-hidden p-3 pt-0">
                 <DistributionChart
                   slices={byType}
                   emptyLabel="No customers in this period yet."

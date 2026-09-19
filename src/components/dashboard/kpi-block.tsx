@@ -144,8 +144,8 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 07: ultra-tight + content fills — p-1.5 but value 22-24px, min-h 72 to hug without empty
-        "flex min-h-[72px] flex-col p-1.5",
+        // BUILD 08: square-ish — min-h 88 p-2 makes tile ~88px tall, 22-24px number fills ~30% height, not flat 72px
+        "flex min-h-[88px] flex-col p-2",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}

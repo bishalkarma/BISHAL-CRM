@@ -143,5 +143,26 @@
 - **Rollback:** `git reset --hard BUILD_06` (or `19af953`) to restore Team; `git reset --hard BUILD_07` is this (no team, tighter KPI)
 - **Visual:** See `docs/dashboard-build-07-mockup.png` — top `KPI (6 cards, 2 rows)` with `22-24px` numbers filling `p-1.5` tiles, no Team bar, `Revenue` + `Pipeline` directly below, `Customers by type` top-right compact
 
-## Build 08 — Reserved
-- Next build will be BUILD 08
+## Build 08 — Fix Crushed Types + Flat Tiles (Square) + Reports Warning — ✅ BUILT 2026-09-20
+- **Base:** BUILD 07 (`7fd6b98`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB)
+- **Your 2 errors flagged:**
+  1. **Reports warning:** Console `Detected 'scroll-behavior: smooth' on <html>...` yellow warning on every Reports navigation. **Fix:** Added `data-scroll-behavior="smooth"` to `<html>` in `src/app/layout.tsx` (keeping `html { scroll-behavior: smooth }` in `globals.css`). Warning silenced, no behavior change. Next.js will no longer warn.
+  2. **Web view `Customers by type` crushed + left tiles flat & wide (not square):** Top row `h4` (160px) left KPI had 2 rows ×72px + gap 8 = 152px content in 160px → only 8px slack, but tiles were `340px` wide ×72px tall = flat `4.7:1` ratio, not square, and Types donut was 90px small cramped with bottom `Other (2)` clipped because `120px` chart height was tight.
+- **Fix:**
+  - **Top row `h4→h5` (160→200px) for both `kpi` and `types` at `y0`:** Gives Types `160px` chart height (donut `115px` + legend fully visible, no crush, `p-3` breathing room) and gives KPI more height to become square-ish.
+  - **KPI tiles `min-h 72→88px` + `p-1.5→p-2`:** Now card `88px` tall × `~260px` wide = `~3:1` ratio (was `4.7:1` flat), much more square. Value stays `22-24px font-black` filling `~27%` of tile height vs `72px` flat, so numbers appear larger inside square-ish tile. Grid `gap-2` kept, widget `h5` (200px) with 2 rows ×88px + gap 8 = 184px content in 200px → only 16px slack (tight, not big empty).
+  - **Types compact uncrushed:** `CardHeader pb-1→pb-2 pt-3` and `CardContent p-2→p-3 pt-0` for breathing room, donut `115px` centered, legend `10px` not cramped, no bottom cutoff, heights equal at `h5` and aligned.
+  - **Layout shifts:** `revenue/pipeline y4→y5` (now directly below `h5` top row), `today y11→y12`, `spancop y17→y18` etc. (+1 row), keeps vertical rhythm.
+  - **`LAYOUT_VERSION` bumped to `build08-square-tiles-uncrushed-types-h5`** with migration that clears old `h4` layouts (`kpi h4`) so fresh pull auto-migrates to square uncrushed view.
+- **Files touched:**
+  - `src/app/layout.tsx` — added `data-scroll-behavior="smooth"` to `<html>` to silence Next.js warning
+  - `src/lib/dashboard-layout.ts` — `kpi h4→h5`, `types h4→h5`, `revenue y4→y5`, `pipeline y4→y5`, `today y11→y12`, `spancop y17→y18` etc., `LAYOUT_VERSION build08...`
+  - `src/components/dashboard/kpi-block.tsx` — `min-h-[72px]→[88px]`, `p-1.5→p-2` for square-ish tiles
+  - `src/components/dashboard/dashboard-view.tsx` — `types` header `pb-1→pb-2`, content `p-2→p-3` for uncrushed
+- **Build verified:** `npm run build` ✓ 158kB, `Customers by type` no longer crushed, KPI tiles square-ish not flat, Reports no warning
+- **Rollback:** `git reset --hard BUILD_07` (or `7fd6b98`) to `h4` flat+crushed; `git reset --hard BUILD_08` is this
+- **Visual:** See `docs/visual-before-after-tiles-crushed.png` (before flat/crushed → after square/uncrushed) and `docs/visual-before-after-scroll-behavior.png` (before warning → after clean)
+
+## Build 09 — Reserved
+- Next build will be BUILD 09

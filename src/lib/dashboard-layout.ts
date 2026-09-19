@@ -31,31 +31,31 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 07 — remove Team Performance as requested, tighten KPI tiles to fix "big tile small content"
-  // Top: 6 ultra-compact cards + Types donut share h4 (160px) — no Team gap, Revenue moves up to y4
-  { i: "kpi", x: 0, y: 0, w: 8, h: 4, minW: 6, minH: 3 },
-  { i: "types", x: 8, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
-  // Revenue + Pipeline now directly below KPI+Types (y4), no Team gap — saves 120px scroll
-  { i: "revenue", x: 0, y: 4, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 4, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "today", x: 0, y: 11, w: 12, h: 6, minW: 4, minH: 5 },
+  // BUILD 08 — fix crushed Types + flat tiles: top row h4->h5 (160->200px) gives Types breathing room, KPI tiles more square
+  // KPI tiles min-h 72->88px + p-1.5->p-2 makes them square-ish (88px tall vs ~260px wide = ~3:1 not 4.7:1 flat), content fills tile
+  { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 4 },
+  { i: "types", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
+  // Revenue + Pipeline now directly below KPI+Types (y5), no Team gap
+  { i: "revenue", x: 0, y: 5, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 5, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 12, w: 12, h: 6, minW: 4, minH: 5 },
 
   /* SPANCOP + Top products */
-  { i: "spancop", x: 0, y: 17, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 17, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 18, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 18, w: 6, h: 9, minW: 3, minH: 5 },
 
   /* Activity mix + Why we lose */
-  { i: "mix", x: 0, y: 26, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "loss", x: 6, y: 26, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "mix", x: 0, y: 27, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 6, y: 27, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "expected", x: 0, y: 34, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 6, y: 34, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "expected", x: 0, y: 35, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 6, y: 35, w: 6, h: 7, minW: 3, minH: 5 },
 
-  { i: "cash", x: 0, y: 41, w: 12, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 0, y: 42, w: 12, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build07-no-team-tight-kpi-h4";
+const LAYOUT_VERSION = "build08-square-tiles-uncrushed-types-h5";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -77,14 +77,13 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 07 removes Team and tightens KPI to fix "big tile small content" — bump version to clear old team layouts
+    // BUILD 08: top row h4->h5 to make tiles square + uncrush Types, remove Team — bump version
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
       if (raw) {
         const parsed = JSON.parse(raw) as WidgetBox[];
-        const hasTeam = Array.isArray(parsed) && (parsed as unknown as { i: string }[]).some((b) => b.i === "team");
-        const kpiIsH5 = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 5);
-        if (hasTeam || kpiIsH5) {
+        const isOld = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 4);
+        if (isOld) {
           window.localStorage.removeItem(KEY);
           return DEFAULT_LAYOUT;
         }
