@@ -77,5 +77,21 @@
   - This BUILD 03: this commit
 - **Build verified:** `npm run build` ✓ 159kB, `DashboardGrid` lg breakpoint, mobile `grid-cols-2` → `sm:grid-cols-3` no overflow
 
-## Build 04 — Reserved
-- Next build will be BUILD 04
+## Build 04 — Fix Clipping of Customers by Type on Fresh Pull — ✅ BUILT 2026-09-19
+- **Base:** BUILD 03 (`2d5038a`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 159kB)
+- **Issue seen in your fresh-pull screenshot:** `Customers by type` donut clipped at bottom (legend `Other (2)` cut off, right edge clipped) because top row was `h4` (160px). KPI 6 ultra-compact cards need ~136px, but donut with legend needs ~190px, so `h4` forced overflow hidden.
+- **Fix:**
+  - **Top row height `h4 → h5` (160px → 200px)** for both `kpi` and `types` at `y0` — gives donut breathing room, no bottom cutoff, right edge fully visible. KPI stays content-hugging (`p-2`, `text-[19px]`) but now has 40px extra slack instead of being edge-to-edge, so no clipping on any screen.
+  - **`team` shifted `y4 → y5`**, **`revenue`/`pipeline` shifted `y7 → y8`**, **`today` `y14 → y15`**, **`spancop` `y20 → y21`**, **`mix/loss` `y29 → y30`**, **`expected/samples` `y37 → y38`**, **`cash` `y44 → y45`** — keeps vertical rhythm, no overlap.
+  - **`LAYOUT_VERSION` bumped to `build04-fix-types-clipping-h5`** with auto-migration: old `h4` layouts (kpi `h4` or types `h4`) are detected and cleared on next load, so your fresh pull (with old `h4` in localStorage) will automatically reset to the fixed `h5` layout without manual `Clear layout`. Prevents the clipped view you saw.
+  - **No KPI card size increase** — cards remain `p-2 gap-0.5 text-[19px]` content-hugging (~64-68px); the extra 40px is row padding, not card padding, so cards still look tight like `Marketing 123.4M` reference, just the container is taller to fit the donut.
+- **Files touched:**
+  - `src/lib/dashboard-layout.ts` — `kpi h4→h5`, `types h4→h5`, `team y4→y5`, `revenue/pipeline y7→y8`, `today y14→y15`, shift later sections +1, `LAYOUT_VERSION` bump with migration check for old `h4`
+  - `src/components/dashboard/kpi-block.tsx` — no change (already ultra-compact)
+- **Visual check:** After pull, top `Customers by type` now fully shows `Total 33` center, legend `New/Old/5*/4*/Renovation/Other (2)` with percentages, no cutoff. KPI cards no change in compactness, just more row breathing room.
+- **Rollback:** `git reset --hard BUILD_03` (or `2d5038a`) to go back to `h4` (clipped) view; `git reset --hard BUILD_04` is this fix
+- **Build verified:** `npm run build` ✓ 159kB, mobile still `grid-cols-2 → sm:grid-cols-3`, no overflow
+
+## Build 05 — Reserved
+- Next build will be BUILD 05

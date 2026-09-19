@@ -37,33 +37,33 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 03 — matches latest user image: KPI (ultra-compact, content-hugging) + Customers by type at top, Team below, Revenue full width
-  // Top: 6 compact cards hugging content → h4 (160px) is enough for 2 rows of ~68px cards; donut on right same height
-  { i: "kpi", x: 0, y: 0, w: 8, h: 4, minW: 6, minH: 3 },
-  { i: "types", x: 8, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
-  // Team Performance full width just below Row 2 (y4)
-  { i: "team", x: 0, y: 4, w: 12, h: 3, minW: 6, minH: 2 },
+  // BUILD 04 — fix clipping seen in fresh pull screenshot: top row too short (h4=160px clips Types donut)
+  // Increase to h5 (200px) for breathing room; KPI stays compact but types now fully visible, no bottom cutoff
+  { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 3 },
+  { i: "types", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
+  // Team Performance full width just below Row 2 (y5)
+  { i: "team", x: 0, y: 5, w: 12, h: 3, minW: 6, minH: 2 },
   // Revenue + Pipeline side-by-side below Team (as in 2nd reference: Revenue large left, Pipeline narrow right)
-  { i: "revenue", x: 0, y: 7, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 7, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "today", x: 0, y: 14, w: 12, h: 6, minW: 4, minH: 5 },
+  { i: "revenue", x: 0, y: 8, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 8, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 15, w: 12, h: 6, minW: 4, minH: 5 },
 
   /* SPANCOP + Top products */
-  { i: "spancop", x: 0, y: 20, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 20, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 21, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 21, w: 6, h: 9, minW: 3, minH: 5 },
 
   /* Activity mix + Why we lose — both on same row now (cleaner) */
-  { i: "mix", x: 0, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "loss", x: 6, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "mix", x: 0, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 6, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "expected", x: 0, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 6, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "expected", x: 0, y: 38, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 6, y: 38, w: 6, h: 7, minW: 3, minH: 5 },
 
-  { i: "cash", x: 0, y: 44, w: 12, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 0, y: 45, w: 12, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build03-kpi-hug-types-top-pipeline-revenue";
+const LAYOUT_VERSION = "build04-fix-types-clipping-h5";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -85,14 +85,13 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 03 swaps top-right Pipeline→Customers by type and tightens KPI to content-hugging
+    // BUILD 04 fixes clipping where types donut was cut off at h4 — bump to h5, invalidate old h4 layouts
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
       if (raw) {
         const parsed = JSON.parse(raw) as WidgetBox[];
-        const topIsPipeline = Array.isArray(parsed) && parsed.some((b) => b.i === "pipeline" && b.y === 0);
-        const kpiIsTall = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h >= 5);
-        if (topIsPipeline || kpiIsTall) {
+        const isOld = Array.isArray(parsed) && parsed.some((b) => (b.i === "types" && b.h === 4) || (b.i === "kpi" && b.h === 4));
+        if (isOld) {
           window.localStorage.removeItem(KEY);
           return DEFAULT_LAYOUT;
         }
