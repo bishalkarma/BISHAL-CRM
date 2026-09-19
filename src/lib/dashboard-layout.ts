@@ -9,6 +9,7 @@
 
 export type WidgetId =
   | "kpi"
+  | "team"
   | "revenue"
   | "pipeline"
   | "today"
@@ -36,30 +37,35 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 01 — kpi now holds 8 compact cards (2 rows × 4) → needs ~6 rows (was 5) so revenue stays above fold
-  { i: "kpi", x: 0, y: 0, w: 12, h: 6, minW: 6, minH: 5 },
-  { i: "revenue", x: 0, y: 6, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 6, w: 4, h: 7, minW: 3, minH: 6 },
-  { i: "today", x: 0, y: 13, w: 12, h: 7, minW: 4, minH: 5 },
+  // BUILD 02 — KPI (6 cards, 3×2, compact 96px) + Pipeline on the right share top row
+  // User 2nd image reference: KPI left 8cols, Pipeline right 4cols, Team below, then Revenue+Types
+  { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 4 },
+  { i: "pipeline", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
+  // Team Performance now a draggable widget just below Row 2
+  { i: "team", x: 0, y: 5, w: 12, h: 4, minW: 6, minH: 3 },
+  // Revenue + Customers by type side-by-side as in reference image
+  { i: "revenue", x: 0, y: 9, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "types", x: 8, y: 9, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 16, w: 12, h: 7, minW: 4, minH: 5 },
 
   /* SPANCOP does not move. Top products sits beside it because it is a
      scrolling list — it fills a tall tile without leaving a gap, which a
      four-bar chart could not. */
-  { i: "spancop", x: 0, y: 20, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 20, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 23, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 23, w: 6, h: 9, minW: 3, minH: 5 },
 
-  /* The two donuts, side by side and equal, so neither has to stack. */
-  { i: "mix", x: 0, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "types", x: 6, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
+  /* Activity mix + Why we lose */
+  { i: "mix", x: 0, y: 32, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 6, y: 32, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "loss", x: 0, y: 37, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "expected", x: 6, y: 37, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "expected", x: 0, y: 40, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 6, y: 40, w: 6, h: 7, minW: 3, minH: 5 },
 
-  { i: "samples", x: 0, y: 45, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "cash", x: 6, y: 45, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 0, y: 47, w: 12, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
+const LAYOUT_VERSION = "build02-6card-pipeline-right";
 
 /** Widgets are added over time; an old saved layout must not hide a new one. */
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
@@ -82,7 +88,24 @@ function reconcile(saved: WidgetBox[]): WidgetBox[] {
 export function readLayout(): WidgetBox[] {
   if (typeof window === "undefined") return DEFAULT_LAYOUT;
   try {
+    const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
+    // BUILD 02 changed the top row to KPI+Pipeline side-by-side and added Team.
+    // Invalidate old saved layouts that predate this version so the new arrangement shows.
+    if (version !== LAYOUT_VERSION) {
+      window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
+      if (raw) {
+        const parsed = JSON.parse(raw) as WidgetBox[];
+        const hasTeam = Array.isArray(parsed) && parsed.some((b) => b.i === "team");
+        const kpiIsFullWidth = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.w === 12);
+        if (!hasTeam || kpiIsFullWidth) {
+          window.localStorage.removeItem(KEY);
+          return DEFAULT_LAYOUT;
+        }
+      } else {
+        return DEFAULT_LAYOUT;
+      }
+    }
     if (!raw) return DEFAULT_LAYOUT;
     const parsed = JSON.parse(raw) as WidgetBox[];
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_LAYOUT;
@@ -119,6 +142,7 @@ export function clearLayout() {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(KEY);
+    window.localStorage.removeItem(`${KEY}:version`);
   } catch {
     /* nothing to undo */
   }

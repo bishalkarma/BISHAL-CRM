@@ -39,7 +39,6 @@ import {
   DASHBOARD_PERIODS,
   type DashboardPeriod,
   distinctCustomerCount,
-  openOpportunities,
   averageDealSize,
   dealsByOwner,
 } from "@/lib/dashboard-metrics";
@@ -173,19 +172,10 @@ export function DashboardView() {
     () => dealTotals(scopedDeals, convert),
     [scopedDeals, convert],
   );
-  // BUILD 01 — compact KPI extra figures
+  // BUILD 02 — 6 compact KPI cards (removed Activity Mix + Open Opp duplicates)
   const distinctDealCustomers = React.useMemo(
     () => distinctCustomerCount(scopedDeals),
     [scopedDeals],
-  );
-  const openDeals = React.useMemo(() => openOpportunities(scopedDeals), [scopedDeals]);
-  const openCustomers = React.useMemo(
-    () => distinctCustomerCount(openDeals),
-    [openDeals],
-  );
-  const openValue = React.useMemo(
-    () => openDeals.reduce((s, d) => s + convert(d.value, d.currency), 0),
-    [openDeals, convert],
   );
   const avgDealSize = React.useMemo(
     () => averageDealSize(scopedDeals, convert),
@@ -334,26 +324,6 @@ export function DashboardView() {
         </div>
       )}
 
-      {/* BUILD 01 — Team strip: Admin/Manager see whole team, Sales Rep sees personal */}
-      {(currentUser?.roleName === "Admin" || currentUser?.roleName === "Manager") && (
-        <TeamPerformanceCard
-          rows={teamRows}
-          formatMoney={money}
-          periodLabel={periodLabel}
-          viewerRole={currentUser?.roleName}
-          viewerName={currentUser?.displayName}
-        />
-      )}
-      {currentUser?.roleName === "Sales Rep" && scopedDeals.length > 0 && (
-        <TeamPerformanceCard
-          rows={teamRows}
-          formatMoney={money}
-          periodLabel={periodLabel}
-          viewerRole={currentUser?.roleName}
-          viewerName={currentUser?.displayName}
-        />
-      )}
-
       <DashboardGrid
         layout={layout}
         editing={editing}
@@ -364,14 +334,20 @@ export function DashboardView() {
             <KpiBlock
               totalCustomers={scopedCompanies.length}
               totals={totals}
-              openCount={openDeals.length}
-              openCustomers={openCustomers}
-              openValue={openValue}
               distinctDealCustomers={distinctDealCustomers}
               avgDealSize={avgDealSize}
-              activityMixSlices={mix}
               formatMoney={money}
               periodLabel={period === "all" ? "all time" : "in this period"}
+            />
+          ),
+          // BUILD 02 — Team just below Row 2 (kpi+pipeline), now a draggable widget
+          team: (
+            <TeamPerformanceCard
+              rows={teamRows}
+              formatMoney={money}
+              periodLabel={periodLabel}
+              viewerRole={currentUser?.roleName}
+              viewerName={currentUser?.displayName}
             />
           ),
 
