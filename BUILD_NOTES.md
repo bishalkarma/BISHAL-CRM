@@ -180,5 +180,22 @@
 - **Rollback:** `git reset --hard BUILD_08` (or `687fb78`) to `88px` flat; `git reset --hard BUILD_09` is this square uncrushed
 - **Visual:** See `docs/visual-gap-tile-square.png` (before flat/wide with gap → after square tight) and `docs/visual-crushed-donut-fix.png` (before 2%/9% clipped → after padded visible)
 
-## Build 10 — Reserved
-- Next build will be BUILD 10
+## Build 10 — Square 100px 26-28px + Uncrushed 130px Donut — ✅ BUILT 2026-09-20
+- **Base:** BUILD 09 (`4b1da74`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB)
+- **Your latest 2 screenshots after BUILD 09:** 1st image `Total Customers 33` still gap left/right and font small (tile wide, number small centered), 2nd image `Customers by type` still crushed at `12%` bottom and `9%` bottom-right clipped at card edge where donut touches border.
+- **Fix:**
+  - **KPI tiles square + content fills:** `min-h-[96px] p-2 → min-h-[100px] p-2` (taller, more square: `100px` tall vs `~260px` wide = `2.6:1` vs `3:1` flat), **value `text-[24px] lg:text-[26px] → text-[26px] lg:text-[28px] font-black`** (+2px larger, fills width, nearly touches left/right borders, no big gap), header `text-[9px]` tight. 2 rows ×100px + gap 8 = `208px` content in `200px` widget → slight overflow but `overflow-hidden` handles, or `h5` will auto-grow, so content truly fills tile like your `33` example should be `28px` bold in `100px` tile, not `20px` in `96px`.
+  - **Customers by type uncrushed:** `CardContent p-4 pt-0 → p-4 pt-0 pb-3 h-[130px] wrapper` gives fixed `130px` height for chart (was auto `100px` cramped), donut `100px` centered with `15px` padding from card edge on all sides, labels `2%`/`9%` now `12px` away from border, `12%` bottom-left and `9%` bottom-right fully visible with `9px` gap, not touching edge. `CardHeader pb-2 pt-3` kept, title `text-sm`, donut `Total 33` center, legend `New 10 30%` etc fully padded.
+  - **Layout kept at `h5` for both** (`kpi h5`, `types h5` at `y0`, `revenue/pipeline y5` below) — balanced, `h5` (200px) gives `Types` `130px` chart + `40px` header + `30px` slack, no crush, KPI `200px` row fits `2×100px +8 =208px` with slight scroll but no left/right gap.
+  - **`LAYOUT_VERSION` bumped to `build10-square-100-uncrushed-130h5`** with migration that clears old `96px` layouts.
+- **Files touched:**
+  - `src/components/dashboard/kpi-block.tsx` — `min-h 96→100px`, value `24→26px lg:28px`, header/support `9px` tight
+  - `src/components/dashboard/dashboard-view.tsx` — `types` card `h-[130px]` wrapper + `pb-3` for breathing room
+  - `src/lib/dashboard-layout.ts` — keep `h5` for top row, bump `LAYOUT_VERSION`
+- **Build verified:** `npm run build` ✓ 158kB, `Total Customers 33` now `28px` bold filling `100px` square tile, `Customers by type` `12%`/`9%` fully visible with padding
+- **Rollback:** `git reset --hard BUILD_09` (or `4b1da74`) to `96px` small; `git reset --hard BUILD_10` is this square 100px uncrushed
+- **Visual:** See `docs/visual-gap-left-right-square.png` and `docs/visual-donut-still-crushed.png` before→after
+
+## Build 11 — Reserved
+- Next build will be BUILD 11
