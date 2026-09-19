@@ -58,5 +58,24 @@
   - To **BUILD 02** (this): this commit
 - **Next build:** BUILD 03 will be numbered sequentially
 
-## Build 03 - Next Planned (Reserved)
-- Awaiting user direction
+## Build 03 - Ultra-Compact Content-Hugging Cards + Top Layout Reflow — ✅ BUILT 2026-09-19 (per latest screenshots)
+- **Base:** BUILD 02 (`93ce36f` / `f5ba49a`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 159kB dashboard, 0 TS errors)
+- **User feedback addressed (latest 2 images):**
+  1. **As per 1st image layout:** Replicated exact top arrangement: **KPI (6 compact cards) left 8 cols + `Customers by type` donut right 4 cols at same `y0`** (was `Pipeline` on top-right, now `Types` on top-right). Middle: **Team Performance full width just below Row 2** (`y4`). Bottom: **`Revenue vs target` left 8 cols + `Pipeline by stage` right 4 cols at same `y7`** (pipeline moved from top to beside revenue, matching your 2nd reference where pipeline sits beside revenue). All draggable via `DashboardGrid`.
+  2. **Fix "card big, content small" (2nd image `Marketing 123.4M` reference):** Cards were `min-h-[96px] p-2.5` with small `text-lg` inside big card → lots of empty padding. Now **content-hugging:** `min-h` removed, `p-2 gap-0.5` (tight), `py-1` inside, **numbers enlarged to `text-[19px] lg:text-[20px] font-bold`** so value fills card height (~64-68px auto height, not forced 96px). Support text tight `10px leading-none opacity-60`. Gap inside `0.5`, gap between cards `gap-2` — cards now wrap tightly around content like your `Marketing` example, not big empty boxes.
+  3. **Layout tightened further:** `kpi: w8 h4` (was `h5`/`h6` → now `h4` = 160px, enough for 2 rows of 68px cards + gaps, saves 40px vs BUILD 02). `types: w4 h4` same top. `team: w12 h3` (was h4, now 120px, compact). `revenue w8 h7` + `pipeline w4 h7` at `y7`, `today w12 h6` at `y14` etc. — moves `Revenue` up above fold, reduces scroll.
+  4. **All widgets still draggable/resizable:** `WidgetId` now `kpi | types | team | revenue | pipeline | today | mix | spancop | loss | products | expected | samples | cash` (13). `DEFAULT_LAYOUT` updated, `LAYOUT_VERSION = build03-kpi-hug-types-top-pipeline-revenue` with auto-migration (clears old saved layouts where `pipeline.y===0` or `kpi.h>=5`). `Edit layout` hint updated. Future tiles you add will be draggable too — noted.
+- **Files touched:**
+  - `src/components/dashboard/kpi-block.tsx` — rewrote Tile to `p-2 gap-0.5` content-hugging, `text-[19px] font-bold`, no `min-h-96`, `leading-none`, `py-1` tight, matches Marketing card reference
+  - `src/lib/dashboard-layout.ts` — swapped top-right `pipeline→types`, moved `pipeline` to `y7` beside `revenue`, tightened `kpi h5→h4`, `team h4→h3`, set `types y0 w4 h4`, added `LAYOUT_VERSION build03...` migration
+  - `src/components/dashboard/dashboard-view.tsx` — no code change needed (grid auto-positions by layout y); types vs pipeline swap handled by layout alone
+- **Rollback:**
+  - To BUILD 02: `git reset --hard BUILD_02` (or `93ce36f`)
+  - To BUILD 01: `git reset --hard BUILD_01`
+  - To BUILD 00: `git reset --hard BUILD_00`
+  - This BUILD 03: this commit
+- **Build verified:** `npm run build` ✓ 159kB, `DashboardGrid` lg breakpoint, mobile `grid-cols-2` → `sm:grid-cols-3` no overflow
+
+## Build 04 — Reserved
+- Next build will be BUILD 04

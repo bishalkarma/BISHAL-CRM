@@ -16,14 +16,11 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
- * BUILD 02 — Compact 6-card KPI block (removed Activity Mix + Open Opportunities duplicates)
- *
- * 3 cols × 2 rows inside an 8-col wide KPI widget (Pipeline sits on the right 4 cols).
- * Each card min-h-[96px] p-2.5 — tighter than BUILD 01's 118px, so the whole top block
- * stays above the fold and pipeline fits on the right.
- * - Row 1: Total Customers | Total Deals (from X customers) | Total Deal Worth
- * - Row 2: Deals Won (worth + Win Rate) | Deals Lost (worth + Loss Rate) | Avg Deal Size
- * Mobile: 2 cols (3 rows). Desktop: 3 cols (2 rows).
+ * BUILD 03 — Ultra-compact 6-card KPI (content-hugging, fixes "card big, content small")
+ * Cards hug content: no forced 96px, py-2 px-2, gap-0.5, numbers larger vs. card
+ * - Each card is h-auto (min ~62-68px), value text-[19px] fills card, support 10px tight
+ * - Grid: 3 cols × 2 rows inside 8-col KPI widget, gap-2, Pipeline moved off top
+ * - Matches latest user image: KPI left 8 cols + Customers by type donut right 4 cols at y0
  */
 
 export function KpiBlock({
@@ -48,7 +45,7 @@ export function KpiBlock({
         icon={Building2}
         label="Total Customers"
         value={totalCustomers}
-        support={<span className="text-[10px] opacity-70">{periodLabel}</span>}
+        support={<span className="text-[10px] leading-none opacity-70">{periodLabel}</span>}
         tone="accent"
       />
       <Tile
@@ -56,9 +53,9 @@ export function KpiBlock({
         label="Total Deals"
         value={totals.totalDeals}
         support={
-          <span className="flex flex-col items-center leading-tight">
-            <span className="text-[11px]">from {distinctDealCustomers} customers</span>
-            <span className="text-[10px] opacity-70">{periodLabel}</span>
+          <span className="flex flex-col items-center leading-none">
+            <span className="text-[10px]">from {distinctDealCustomers} customers</span>
+            <span className="text-[10px] opacity-60">{periodLabel}</span>
           </span>
         }
       />
@@ -67,7 +64,7 @@ export function KpiBlock({
         label="Total Deal Worth"
         value={totals.totalValue}
         formatValue={formatMoney}
-        support={<span className="text-[10px] opacity-70">{periodLabel}</span>}
+        support={<span className="text-[10px] leading-none opacity-60">{periodLabel}</span>}
       />
 
       {/* Row 2 */}
@@ -77,8 +74,8 @@ export function KpiBlock({
         value={totals.wonCount}
         support={
           <span className="flex flex-col items-center leading-none">
-            <span className="text-[11px] font-medium text-foreground">{formatMoney(totals.wonValue)}</span>
-            <span className="text-[10px]">worth</span>
+            <span className="text-[11px] font-semibold leading-none text-foreground">{formatMoney(totals.wonValue)}</span>
+            <span className="text-[10px] leading-none opacity-70">worth</span>
           </span>
         }
         rateLabel="Win rate"
@@ -91,8 +88,8 @@ export function KpiBlock({
         value={totals.lostCount}
         support={
           <span className="flex flex-col items-center leading-none">
-            <span className="text-[11px] font-medium text-foreground">{formatMoney(totals.lostValue)}</span>
-            <span className="text-[10px]">worth</span>
+            <span className="text-[11px] font-semibold leading-none text-foreground">{formatMoney(totals.lostValue)}</span>
+            <span className="text-[10px] leading-none opacity-70">worth</span>
           </span>
         }
         rateLabel="Loss rate"
@@ -105,7 +102,7 @@ export function KpiBlock({
         value={avgDealSize}
         formatValue={formatMoney}
         support={
-          <span className="text-[10px] leading-tight opacity-70">
+          <span className="text-[10px] leading-none opacity-60">
             across {totals.totalDeals || 0} deals · {periodLabel}
           </span>
         }
@@ -145,7 +142,8 @@ function Tile({
   return (
     <Card
       className={cn(
-        "flex min-h-[96px] flex-col p-2.5",
+        // BUILD 03: content-hugging — no min-h 96, auto height, tight py-2, gap makes number fill card
+        "flex flex-col gap-0.5 p-2",
         tone === "success" && "border-success/25 bg-success/[0.04]",
         tone === "danger" && "border-destructive/25 bg-destructive/[0.04]",
       )}
@@ -155,26 +153,24 @@ function Tile({
         <span className="line-clamp-1">{label}</span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center py-1 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22 }}
-          className="text-lg font-semibold tabular-nums leading-none lg:text-xl"
+          transition={{ duration: 0.2 }}
+          className="text-[19px] font-bold leading-none tabular-nums lg:text-[20px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
         {support && (
-          <div className="mt-1 text-center text-[11px] leading-tight text-muted-foreground">
-            {support}
-          </div>
+          <div className="text-center text-[10px] leading-none text-muted-foreground">{support}</div>
         )}
       </div>
 
       {rateLabel && rate !== undefined && (
-        <div className="mt-auto flex items-baseline justify-between gap-2 border-t border-border/60 pt-1">
+        <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border/50 pt-1">
           <span className="text-[10px] leading-none text-muted-foreground">{rateLabel}</span>
-          <span className={cn("text-xs font-semibold tabular-nums", accent)}>{rate}%</span>
+          <span className={cn("text-[11px] font-bold tabular-nums", accent)}>{rate}%</span>
         </div>
       )}
     </Card>
