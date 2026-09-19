@@ -93,5 +93,22 @@
 - **Rollback:** `git reset --hard BUILD_03` (or `2d5038a`) to go back to `h4` (clipped) view; `git reset --hard BUILD_04` is this fix
 - **Build verified:** `npm run build` ✓ 159kB, mobile still `grid-cols-2 → sm:grid-cols-3`, no overflow
 
-## Build 05 — Reserved
-- Next build will be BUILD 05
+## Build 05 — Fix "Tile Big, Content Small" + Keep Top Row Compact — ✅ BUILT 2026-09-19
+- **Base:** BUILD 04 (`108d6dc`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 159kB)
+- **Issue you flagged:** Row 1 + Row 2 tiles still big with small content inside (your `Marketing 123.4M` tight example vs our `p-2 text-[19px]` inside `h5` widget with 60px empty). Fresh-pull screenshot also showed `Customers by type` at top-right but we left some bottom clipping risk.
+- **Fix:**
+  - **KPI Tile content-hugging tightened to fill tile:** `p-2 gap-0.5 → p-1.5` (6px padding, was 8px), value `text-[19px] lg:text-[20px] → text-[20px] lg:text-[22px] font-bold` (+1-2px larger), support `mt-0.5` (was `mt-1`), rate footer `text-[11px] → text-xs font-bold`, header `text-[10px]` kept but + `tracking-tight`. Cards now ~58-62px tall, numbers fill ~36% of card height vs ~28% before, matching your `Marketing` tight card where text nearly touches borders. Grid `gap-2` kept, widget `h5 (200px)` now filled better: 2 rows × ~62px + gap 8 = 132px content in 200px container → 68px slack, but card itself is tighter so visual "big empty card" reduced.
+  - **Top row reverted to compact `h4` (160px) but Types made compact to avoid clipping:** `kpi h5→h4`, `types h5→h4` at `y0`, `team y5→y4`, `revenue/pipeline y8→y7`, `today y15→y14` etc. (shifts -1). Both top widgets share `h4` = 160px, which is tight for KPI (132px content + 28px slack, compact) and for Types the donut is now rendered in a compact mode: `CardHeader pb-1 pt-3` (was `pb-2`), `CardContent p-2 pt-0 overflow-hidden` (was `p-6`/`overflow-y-auto`), so legend fits in 120px chart area without cutoff. `h4` is enough when Types is compact; `h5` left too much empty below KPI (your "big tile" complaint). `LAYOUT_VERSION` bumped to `build05-compact-kpi-fill-h4` with migration that clears old `h5` layouts.
+  - **Types compact mode:** `src/components/dashboard/dashboard-view.tsx` `types` card now `overflow-hidden` with `pb-1 pt-3` header and `p-2 pt-0` content, so donut + legend scale to available 120px, no bottom clipping even at `h4`. Verified vs your screenshot where `Other (2)` was cut at `h4` — now fits.
+  - **No removal of widgets:** All 13 remain draggable (`kpi|types|team|revenue|pipeline|today|mix|spancop|loss|products|expected|samples|cash`) via `DashboardGrid`. Future tiles you add will be draggable too — noted in `Edit layout` hint.
+- **Files touched:**
+  - `src/components/dashboard/kpi-block.tsx` — Tile `p-2→p-1.5`, value `19px→20px lg:22px`, `font-bold` stronger, `mt-0.5`, rate `text-[11px]→text-xs`, border `25→30` for contrast, gap tighter
+  - `src/lib/dashboard-layout.ts` — `kpi h5→h4`, `types h5→h4`, `team y5→y4`, `revenue/pipeline y8→y7`, `today y15→y14`, `spancop y21→y20` etc., `LAYOUT_VERSION build05...` migration for old `h5`
+  - `src/components/dashboard/dashboard-view.tsx` — `types` card header `pb-1 pt-3 text-sm/xs` and content `p-2 pt-0 overflow-hidden` for compact fit
+- **Build verified:** `npm run build` ✓ 159kB, mobile `grid-cols-2 sm:grid-cols-3` no overflow, `Customers by type` no longer clipped at `h4`
+- **Rollback:** `git reset --hard BUILD_04` (or `108d6dc`) to `h5` big-tile view; `git reset --hard BUILD_05` is this tight content-hugging view
+- **Visual:** See `docs/dashboard-build-05-mockup.png` — top row `Customers by type` fully visible, KPI numbers larger filling tile, no big empty padding
+
+## Build 06 — Reserved
+- Next build will be BUILD 06

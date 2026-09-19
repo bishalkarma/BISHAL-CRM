@@ -142,10 +142,10 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 03: content-hugging — no min-h 96, auto height, tight py-2, gap makes number fill card
-        "flex flex-col gap-0.5 p-2",
-        tone === "success" && "border-success/25 bg-success/[0.04]",
-        tone === "danger" && "border-destructive/25 bg-destructive/[0.04]",
+        // BUILD 05: ultra-tight — content fills tile, fixes "big tile, small content"
+        "flex flex-col p-1.5",
+        tone === "success" && "border-success/30 bg-success/[0.06]",
+        tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
     >
       <div className="flex items-center justify-center gap-1 text-center text-[10px] font-medium leading-none tracking-tight text-muted-foreground">
@@ -153,24 +153,24 @@ function Tile({
         <span className="line-clamp-1">{label}</span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center py-1 text-center">
         <motion.div
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-[19px] font-bold leading-none tabular-nums lg:text-[20px]"
+          className="text-[20px] font-bold leading-none tabular-nums lg:text-[22px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
         {support && (
-          <div className="text-center text-[10px] leading-none text-muted-foreground">{support}</div>
+          <div className="mt-0.5 text-center text-[10px] leading-none text-muted-foreground">{support}</div>
         )}
       </div>
 
       {rateLabel && rate !== undefined && (
-        <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border/50 pt-1">
+        <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border/60 pt-1">
           <span className="text-[10px] leading-none text-muted-foreground">{rateLabel}</span>
-          <span className={cn("text-[11px] font-bold tabular-nums", accent)}>{rate}%</span>
+          <span className={cn("text-xs font-bold tabular-nums", accent)}>{rate}%</span>
         </div>
       )}
     </Card>

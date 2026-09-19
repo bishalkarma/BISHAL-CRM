@@ -37,33 +37,33 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 04 — fix clipping seen in fresh pull screenshot: top row too short (h4=160px clips Types donut)
-  // Increase to h5 (200px) for breathing room; KPI stays compact but types now fully visible, no bottom cutoff
-  { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 3 },
-  { i: "types", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
-  // Team Performance full width just below Row 2 (y5)
-  { i: "team", x: 0, y: 5, w: 12, h: 3, minW: 6, minH: 2 },
-  // Revenue + Pipeline side-by-side below Team (as in 2nd reference: Revenue large left, Pipeline narrow right)
-  { i: "revenue", x: 0, y: 8, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 8, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "today", x: 0, y: 15, w: 12, h: 6, minW: 4, minH: 5 },
+  // BUILD 05 — keep top row compact h4 (160px) but make Types donut compact to avoid clipping; fixes "big tile small content"
+  // KPI cards now p-1.5 text-20px filling tile; Types uses compact donut (90px) + tight legend, fits in h4 without cutoff
+  { i: "kpi", x: 0, y: 0, w: 8, h: 4, minW: 6, minH: 3 },
+  { i: "types", x: 8, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
+  // Team Performance full width just below Row 2 (y4)
+  { i: "team", x: 0, y: 4, w: 12, h: 3, minW: 6, minH: 2 },
+  // Revenue + Pipeline side-by-side below Team
+  { i: "revenue", x: 0, y: 7, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 7, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 14, w: 12, h: 6, minW: 4, minH: 5 },
 
   /* SPANCOP + Top products */
-  { i: "spancop", x: 0, y: 21, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 21, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: "spancop", x: 0, y: 20, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 20, w: 6, h: 9, minW: 3, minH: 5 },
 
-  /* Activity mix + Why we lose — both on same row now (cleaner) */
-  { i: "mix", x: 0, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "loss", x: 6, y: 30, w: 6, h: 8, minW: 3, minH: 5 },
+  /* Activity mix + Why we lose */
+  { i: "mix", x: 0, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
+  { i: "loss", x: 6, y: 29, w: 6, h: 8, minW: 3, minH: 5 },
 
-  { i: "expected", x: 0, y: 38, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 6, y: 38, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "expected", x: 0, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 6, y: 37, w: 6, h: 7, minW: 3, minH: 5 },
 
-  { i: "cash", x: 0, y: 45, w: 12, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 0, y: 44, w: 12, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build04-fix-types-clipping-h5";
+const LAYOUT_VERSION = "build05-compact-kpi-fill-h4";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -85,12 +85,12 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 04 fixes clipping where types donut was cut off at h4 — bump to h5, invalidate old h4 layouts
+    // BUILD 05 reverts to compact h4 but ensures old h5 layouts migrate back; keeps no-clipping via compact Types
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
       if (raw) {
         const parsed = JSON.parse(raw) as WidgetBox[];
-        const isOld = Array.isArray(parsed) && parsed.some((b) => (b.i === "types" && b.h === 4) || (b.i === "kpi" && b.h === 4));
+        const isOld = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 5);
         if (isOld) {
           window.localStorage.removeItem(KEY);
           return DEFAULT_LAYOUT;
