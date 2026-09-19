@@ -299,6 +299,8 @@ export function buildImportPreview(
         phone,
         whatsappSameAsPhone: true,
         owner: get("Account Owner") || "Bishal Karma",
+        owner_id: null,
+        created_by: null,
         leadSource: leadSource ?? "Referral",
         remarks: get("Remarks"),
         spancop: "suspect",

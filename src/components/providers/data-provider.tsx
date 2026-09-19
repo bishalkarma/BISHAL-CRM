@@ -282,13 +282,215 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (failure) throw failure;
 
       const loadedDeals = ((dealRes.data ?? []) as DealRow[]).map(toDeal);
-      const loadedCompanies = ((companyRes.data ?? []) as CompanyRow[]).map(
+      let loadedCompanies = ((companyRes.data ?? []) as CompanyRow[]).map(
         toCompany,
       );
 
-      setCompanies(withOpenDeals(loadedCompanies, loadedDeals));
-      setContacts(((contactRes.data ?? []) as ContactRow[]).map(toContact));
-      setDeals(loadedDeals);
+      // Resolve owner names from owner_id for all companies and deals.
+      // When a user is deleted, their records' owner_id is transferred to the admin,
+      // but the denormalized "owner" string field may still hold the old deleted name.
+      // This fixes stale owner names on records that were transferred before the
+      // DELETE endpoint was updated to also sync the owner name field.
+      //
+      // SELF-HEALING: Also calls the fix-stale-owners API to repair the database
+      // so this never happens again on subsequent loads.
+      let adminIdForRepair: string | null = null;
+      let adminNameForRepair: string | null = null;
+      try {
+        const currentUserId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (currentUserId) headers["x-demo-user-id"] = currentUserId;
+        const usersRes = await fetch("/api/team/users", { headers });
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          const usersById = new Map<string, string>();
+          (usersData.users ?? []).forEach((u: { id: string; display_name?: string; displayName?: string; username?: string }) => {
+            usersById.set(u.id, u.display_name || u.displayName || u.username || u.id);
+          });
+          console.log("[DataProvider] Resolved users:", usersById.size);
+
+          // Build set of active owner names (lowercase) for stale detection
+          const activeOwnerNames = new Set(
+            (usersData.users ?? [])
+              .map((u: { display_name?: string; displayName?: string; username?: string }) => 
+                (u.display_name || u.displayName || u.username || "").toLowerCase()
+              )
+              .filter(Boolean)
+          );
+          const adminUser = (usersData.users ?? []).find((u: { roleName?: string }) => u.roleName === "Admin");
+          if (adminUser) {
+            adminIdForRepair = adminUser.id;
+            adminNameForRepair = adminUser.displayName || adminUser.display_name || adminUser.username || "Admin";
+          }
+
+          // Fix company owner names — resolve by owner_id
+          loadedCompanies = loadedCompanies.map((c) => {
+            if (c.owner_id && usersById.has(c.owner_id)) {
+              const resolvedName = usersById.get(c.owner_id)!;
+              if (c.owner !== resolvedName) {
+                return { ...c, owner: resolvedName };
+              }
+            }
+            // Also fix: owner_id is null but owner name doesn't match any active user
+            // This catches records from before the UUID system or from old deletions
+            if (!c.owner_id && c.owner && !activeOwnerNames.has(c.owner.toLowerCase())) {
+              return { ...c, owner: adminNameForRepair || c.owner };
+            }
+            return c;
+          });
+
+          // Fix deal owner names
+          const loadedDealsFixed = loadedDeals.map((d) => {
+            if (d.owner_id && usersById.has(d.owner_id)) {
+              const resolvedName = usersById.get(d.owner_id)!;
+              if (d.owner !== resolvedName) {
+                return { ...d, owner: resolvedName };
+              }
+            }
+            // Also fix: owner_id is null but owner name doesn't match any active user
+            if (!d.owner_id && d.owner && !activeOwnerNames.has(d.owner.toLowerCase())) {
+              return { ...d, owner: adminNameForRepair || d.owner };
+            }
+            return d;
+          });
+          loadedDeals.length = 0;
+          loadedDeals.push(...loadedDealsFixed);
+
+          // Fix activity owner names (for display consistency)
+          // (activities don't have owner in the model, skip)
+
+          // SELF-HEAL: Call the fix-stale-owners API to repair the database
+          // This ensures the fix persists across page loads and for all users.
+          // Runs silently in the background — non-blocking.
+          if (adminIdForRepair && adminNameForRepair) {
+            void (async () => {
+              try {
+                const fixHeaders: HeadersInit = { "Content-Type": "application/json" };
+                if (currentUserId) fixHeaders["x-demo-user-id"] = currentUserId;
+                const fixRes = await fetch("/api/team/fix-stale-owners", {
+                  method: "POST",
+                  headers: fixHeaders,
+                });
+                if (fixRes.ok) {
+                  const fixData = await fixRes.json();
+                  console.log("[DataProvider] Self-healed stale owners:", fixData.fixed);
+                }
+              } catch {
+                // Non-critical — UI already fixed in-memory above
+              }
+            })();
+          }
+        }
+      } catch {
+        // Non-critical — owner names may be stale but the app still works
+      }
+
+      // Get current user info for role-based filtering
+      const userId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+      const userName = typeof window !== "undefined" ? sessionStorage.getItem("demo_user") : null;
+      const userDisplayName = typeof window !== "undefined" ? sessionStorage.getItem("demo_display_name") : null;
+      const userRole = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_role") ?? "Viewer" : "Viewer";
+
+      // Filter data based on role
+      let filteredCompanies = loadedCompanies;
+      let filteredDeals = loadedDeals;
+      let filteredContacts = ((contactRes.data ?? []) as ContactRow[]).map(toContact);
+      let filteredActivities = activityRes.error ? [] : ((activityRes.data ?? []) as ActivityRow[]).map(toActivity);
+
+      // PHASE 1 VISIBILITY LOGIC
+      // Admin: Sees ALL records
+      // Manager: Sees Team records (Sales Reps) + Unassigned records
+      // Sales Rep: Sees ONLY their own assigned records
+      // Viewer: Sees read-only permitted records (same as Sales Rep for now)
+
+      // DEBUG: Log filtering details
+      if (typeof window !== "undefined") {
+        console.log("[DataFilter] User ID:", userId);
+        console.log("[DataFilter] User Role:", userRole);
+        console.log("[DataFilter] Loaded Companies:", loadedCompanies.length);
+        console.log("[DataFilter] Loaded Deals:", loadedDeals.length);
+      }
+
+      if (userRole === "Admin") {
+        // Admin sees everything - no filtering needed
+        // filteredCompanies, filteredDeals, etc. already set to loaded data
+      } else if (userRole === "Manager") {
+        // Manager sees: own records + records from assigned Sales Reps
+        if (userId) {
+          console.log("[DataFilter] Manager filter for:", userId);
+          
+          // Fetch team member IDs (Sales Reps assigned to this Manager)
+          const teamRes = await fetch("/api/team/users", {
+            headers: userId ? { "x-demo-user-id": userId } : {},
+          });
+          let teamMemberIds: string[] = [];
+          
+          if (teamRes.ok) {
+            const teamData = await teamRes.json();
+            teamMemberIds = (teamData.users ?? [])
+              .filter((u: { managerId?: string }) => u.managerId === userId)
+              .map((u: { id: string }) => u.id);
+            console.log("[DataFilter] Manager's team:", teamMemberIds);
+          }
+          
+          // Filter: own records + team's records
+          filteredCompanies = loadedCompanies.filter(c => 
+            c.owner_id === userId || teamMemberIds.includes(c.owner_id || "")
+          );
+          
+          filteredDeals = loadedDeals.filter(d => {
+            const companyOwned = filteredCompanies.some(c => c.id === d.companyId);
+            return d.owner_id === userId || 
+                   teamMemberIds.includes(d.owner_id || "") ||
+                   companyOwned;
+          });
+
+          // Filter contacts by company ownership
+          const ownedCompanyIds = new Set(filteredCompanies.map(c => c.id));
+          filteredContacts = filteredContacts.filter(c => ownedCompanyIds.has(c.companyId));
+          
+          // Filter activities by company ownership
+          filteredActivities = filteredActivities.filter(a => ownedCompanyIds.has(a.companyId));
+
+          console.log("[DataFilter] Manager filtered Companies:", filteredCompanies.length);
+        } else {
+          // No user ID - show nothing
+          filteredCompanies = [];
+          filteredDeals = [];
+          filteredContacts = [];
+          filteredActivities = [];
+        }
+      } else if (userRole === "Sales Rep" || userRole === "Viewer") {
+        // Sales Rep and Viewer see ONLY their own assigned records (UUID-only filter)
+        if (userId) {
+          console.log("[DataFilter] UUID-only filter for:", userId);
+          
+          filteredCompanies = loadedCompanies.filter(c => c.owner_id === userId);
+          
+          filteredDeals = loadedDeals.filter(d => {
+            const companyOwned = filteredCompanies.some(c => c.id === d.companyId);
+            return d.owner_id === userId || companyOwned;
+          });
+
+          // Filter contacts by company ownership
+          const ownedCompanyIds = new Set(filteredCompanies.map(c => c.id));
+          filteredContacts = filteredContacts.filter(c => ownedCompanyIds.has(c.companyId));
+          // Filter activities by company ownership
+          filteredActivities = filteredActivities.filter(a => ownedCompanyIds.has(a.companyId));
+
+          console.log("[DataFilter] Filtered Companies:", filteredCompanies.length);
+        } else {
+          // No user ID - show nothing
+          filteredCompanies = [];
+          filteredDeals = [];
+          filteredContacts = [];
+          filteredActivities = [];
+        }
+      }
+
+      setCompanies(withOpenDeals(filteredCompanies, filteredDeals));
+      setContacts(filteredContacts);
+      setDeals(filteredDeals);
       setTransitions(
         ((transitionRes.data ?? []) as TransitionRow[]).map(toTransition),
       );
@@ -300,9 +502,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           "Activities are not saved yet — run supabase/03-activities.sql in the Supabase SQL editor. Everything else is loading normally.",
         );
       } else {
-        setActivities(
-          ((activityRes.data ?? []) as ActivityRow[]).map(toActivity),
-        );
+        setActivities(filteredActivities);
       }
       setSource("supabase");
     } catch (err) {
@@ -351,6 +551,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     void persist("company", async () => {
       const res = await supabase!.from("companies").insert(fromCompany(company));
       if (res.error) return res;
+      // Set owner_id and created_by separately (not in base mapper to avoid constraint issues)
+      await supabase!
+        .from("companies")
+        .update({ owner_id: company.owner_id, created_by: company.created_by })
+        .eq("id", company.id);
       await supabase!.from("contacts").insert(fromContact(contact));
       return supabase!
         .from("stage_transitions")
@@ -383,6 +588,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           .from("companies")
           .insert(list.map(fromCompany));
         if (res.error) return res;
+        // Set owner_id and created_by for each imported company
+        for (const company of list) {
+          await supabase!
+            .from("companies")
+            .update({ owner_id: company.owner_id, created_by: company.created_by })
+            .eq("id", company.id);
+        }
         await supabase!.from("contacts").insert(newContacts.map(fromContact));
         return supabase!
           .from("stage_transitions")
@@ -440,9 +652,71 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         current.map((c) => (c.id === id ? updated : c)),
       );
 
-      void persist("company", async () =>
-        supabase!.from("companies").update(fromCompany(updated)).eq("id", id),
-      );
+      // If ownership changed, auto-update all linked deals and log transfer
+      const ownershipChanged = patch.owner_id !== undefined && patch.owner_id !== existing.owner_id;
+
+      void persist("company", async () => {
+        const res = await supabase!.from("companies").update(fromCompany(updated)).eq("id", id);
+        if (res.error) return res;
+        
+        // Update owner_id separately (ownership change). Never touch created_by.
+        if (patch.owner_id !== undefined) {
+          await supabase!
+            .from("companies")
+            .update({ owner_id: updated.owner_id, owner: updated.owner })
+            .eq("id", id);
+          
+          // Auto-transfer all linked deals to new owner
+          if (ownershipChanged && updated.owner_id) {
+            await supabase!
+              .from("deals")
+              .update({ owner_id: updated.owner_id, owner: updated.owner })
+              .eq("company_id", id);
+            
+            // Log transfer in transfer_history table
+            await supabase!.from("transfer_history").insert({
+              id: `TH-${Date.now()}`,
+              customer_id: id,
+              from_owner_id: existing.owner_id,
+              to_owner_id: updated.owner_id,
+              transferred_by: typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null,
+              transferred_at: new Date().toISOString(),
+              reason: "Ownership transfer"
+            });
+            
+            // Create notifications for both old and new owner
+            console.log("[Transfer] Creating notifications for:", existing.owner_id, "and", updated.owner_id);
+            const notifications = [
+              {
+                id: `N-${Date.now()}-1`,
+                user_id: existing.owner_id,
+                type: "transfer_out",
+                title: "Customer Transferred",
+                message: `${updated.name} has been transferred to ${updated.owner} by Admin`,
+                customer_id: id,
+                is_read: false,
+                created_at: new Date().toISOString()
+              },
+              {
+                id: `N-${Date.now()}-2`,
+                user_id: updated.owner_id,
+                type: "transfer_in",
+                title: "Customer Assigned",
+                message: `${existing.name || 'A customer'} has been transferred to you by Admin`,
+                customer_id: id,
+                is_read: false,
+                created_at: new Date().toISOString()
+              }
+            ];
+            const { error: notifError } = await supabase!.from("notifications").insert(notifications);
+            if (notifError) {
+              console.error("[Transfer] Failed to create notifications:", notifError);
+            } else {
+              console.log("[Transfer] Notifications created successfully");
+            }
+          }
+        }
+      });
     },
     [persist],
   );
@@ -539,7 +813,64 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           .from("companies")
           .update(fromCompany(updated))
           .eq("id", id);
-        if (res.error || !nextContact) return res;
+        if (res.error) return res;
+        
+        // Check if ownership changed
+        const ownershipChanged = patch.owner_id !== undefined && patch.owner_id !== existing.owner_id;
+        
+        // Update owner_id separately (ownership change). Never touch created_by.
+        if (patch.owner_id !== undefined) {
+          await supabase!
+            .from("companies")
+            .update({ owner_id: updated.owner_id, owner: updated.owner })
+            .eq("id", id);
+          
+          // If ownership changed, create transfer history and notifications
+          if (ownershipChanged && updated.owner_id) {
+            // Log transfer in transfer_history table
+            await supabase!.from("transfer_history").insert({
+              id: `TH-${Date.now()}`,
+              customer_id: id,
+              from_owner_id: existing.owner_id,
+              to_owner_id: updated.owner_id,
+              transferred_by: typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null,
+              transferred_at: new Date().toISOString(),
+              reason: "Ownership transfer"
+            });
+            
+            // Create notifications for both old and new owner
+            console.log("[Transfer] Creating notifications for:", existing.owner_id, "and", updated.owner_id);
+            const notifications = [
+              {
+                id: `N-${Date.now()}-1`,
+                user_id: existing.owner_id,
+                type: "transfer_out",
+                title: "Customer Transferred",
+                message: `${updated.name} has been transferred to ${updated.owner} by Admin`,
+                customer_id: id,
+                is_read: false,
+                created_at: new Date().toISOString()
+              },
+              {
+                id: `N-${Date.now()}-2`,
+                user_id: updated.owner_id,
+                type: "transfer_in",
+                title: "Customer Assigned",
+                message: `${existing.name || 'A customer'} has been transferred to you by Admin`,
+                customer_id: id,
+                is_read: false,
+                created_at: new Date().toISOString()
+              }
+            ];
+            const { error: notifError } = await supabase!.from("notifications").insert(notifications);
+            if (notifError) {
+              console.error("[Transfer] Failed to create notifications:", notifError);
+            } else {
+              console.log("[Transfer] Notifications created successfully");
+            }
+          }
+        }
+        if (!nextContact) return;
         return supabase!
           .from("contacts")
           .update(fromContact(nextContact))

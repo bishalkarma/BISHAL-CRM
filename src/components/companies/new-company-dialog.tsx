@@ -20,6 +20,7 @@ import {
 import { DEAL_OWNERS } from "@/lib/deals";
 import type { GeocodeResult } from "@/lib/geocode";
 import { ClusterCombobox } from "./cluster-combobox";
+import { OwnerCombobox } from "./owner-combobox";
 import { mergeOptions } from "@/lib/option-lists";
 import { useData } from "@/components/providers/data-provider";
 import {
@@ -47,28 +48,37 @@ type FormState = {
   phone: string;
   whatsappSameAsPhone: boolean;
   owner: string;
+  owner_id: string | null;
+  created_by: string | null;
   leadSource: LeadSource | "";
   remarks: string;
   coordinates: { lat: number; lng: number } | null;
 };
 
-const EMPTY: FormState = {
-  name: "",
-  cluster: "",
-  emirate: "",
-  area: "",
-  business: "",
-  type: "",
-  contactName: "",
-  contactRole: "",
-  email: "",
-  phone: "",
-  whatsappSameAsPhone: true,
-  owner: DEAL_OWNERS[0],
-  leadSource: "",
-  remarks: "",
-  coordinates: null,
-};
+function getInitialFormState(): FormState {
+  const displayName = typeof window !== "undefined" ? sessionStorage.getItem("demo_display_name") ?? null : null;
+  return {
+    name: "",
+    cluster: "",
+    emirate: "",
+    area: "",
+    business: "",
+    type: "",
+    contactName: "",
+    contactRole: "",
+    email: "",
+    phone: "",
+    whatsappSameAsPhone: true,
+    owner: displayName ?? DEAL_OWNERS[0],
+    owner_id: null,
+    created_by: null,
+    leadSource: "",
+    remarks: "",
+    coordinates: null,
+  };
+}
+
+const EMPTY: FormState = getInitialFormState();
 
 export function NewCompanyDialog({
   open,
@@ -98,6 +108,66 @@ export function NewCompanyDialog({
   const { companies } = useData();
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [touched, setTouched] = React.useState(false);
+  const [ownershipChanged, setOwnershipChanged] = React.useState(false);
+  const [originalOwnerId, setOriginalOwnerId] = React.useState<string | null>(null);
+
+  // Get current user info for role-based UI
+  const currentUserId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+  const currentUserRole = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_role") ?? "Viewer" : "Viewer";
+  const currentUserDisplayName = typeof window !== "undefined" ? sessionStorage.getItem("demo_display_name") ?? null : null;
+
+  // Resolve creator UUID → display name (so we never show a raw UUID)
+  const [creatorName, setCreatorName] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Reset when dialog opens without editing (new company)
+    if (!editing) {
+      setCreatorName(null);
+      return;
+    }
+    
+    // If created_by UUID exists, resolve it to a real name via API
+    if (editing.created_by) {
+      console.log('[CreatedBy] Resolving UUID:', editing.created_by);
+
+      const userId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+      const userName = typeof window !== "undefined" ? sessionStorage.getItem("demo_user") : null;
+
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (userId) headers["x-demo-user-id"] = userId;
+      if (userName) headers["x-demo-user"] = userName;
+
+      setCreatorName("Loading...");
+
+      fetch("/api/team/users", { headers })
+        .then((res) => {
+          console.log('[CreatedBy] API response status:', res.status);
+          return res.ok ? res.json() : null;
+        })
+        .then((data) => {
+          if (data?.users) {
+            const creator = data.users.find((u: { id: string }) => u.id === editing.created_by);
+            if (creator) {
+              console.log('[CreatedBy] Found creator:', creator.displayName || creator.username);
+              setCreatorName(creator.displayName || creator.username);
+            } else {
+              console.log('[CreatedBy] UUID not found in user list, falling back to owner');
+              console.log('[CreatedBy] Available user IDs:', data.users.map((u: { id: string }) => u.id));
+              setCreatorName(editing.owner || "Unknown");
+            }
+          } else {
+            setCreatorName(editing.owner || "Unknown");
+          }
+        })
+        .catch(() => {
+          setCreatorName(editing.owner || "Unknown");
+        });
+    } else {
+      // No created_by UUID stored (pre-fix records). Show owner as best available info.
+      console.log('[CreatedBy] No created_by UUID — showing owner as fallback:', editing.owner);
+      setCreatorName(editing.owner || "Unknown");
+    }
+  }, [editing?.created_by, editing]);
 
   /*
     Built from the customers already saved, not a fixed list. A cluster typed
@@ -131,9 +201,13 @@ export function NewCompanyDialog({
       phone: editing.phone,
       whatsappSameAsPhone: editing.whatsappSameAsPhone,
       owner: editing.owner,
+      owner_id: editing.owner_id ?? null,
+      created_by: editing.created_by ?? null,
       leadSource: editing.leadSource,
       remarks: editing.remarks,
     } as FormState);
+    setOriginalOwnerId(editing.owner_id ?? null);
+    setOwnershipChanged(false);
   }, [open, editing]);
 
   // Seed the name typed into the deal's company search.
@@ -183,6 +257,19 @@ export function NewCompanyDialog({
     if (!valid) return;
     const now = new Date().toISOString();
 
+    // Determine owner_id: Admin/Manager can select owner, others auto-assign to themselves
+    // form.owner_id contains the selected owner's UUID (set by OwnerCombobox onChange)
+    const ownerId =
+      (currentUserRole === "Admin" || currentUserRole === "Manager") && form.owner_id
+        ? form.owner_id
+        : currentUserId;
+
+    // Always store display name in owner field (never UUID)
+    const ownerName =
+      (currentUserRole === "Admin" || currentUserRole === "Manager") && form.owner
+        ? form.owner  // Use the display name from OwnerCombobox
+        : currentUserDisplayName ?? "Unknown";
+
     /*
       Editing patches the record in place. Stage, counters and order flags are
       intentionally absent — they are derived from activities and deals, and
@@ -202,7 +289,8 @@ export function NewCompanyDialog({
         email: form.email.trim() || null,
         phone: form.phone.trim(),
         whatsappSameAsPhone: form.whatsappSameAsPhone,
-        owner: form.owner,
+        owner: ownerName,
+        owner_id: ownerId,
         leadSource: (form.leadSource || "Referral") as LeadSource,
         remarks: form.remarks.trim(),
       });
@@ -224,7 +312,9 @@ export function NewCompanyDialog({
       email: form.email.trim() || null,
       phone: form.phone.trim(),
       whatsappSameAsPhone: form.whatsappSameAsPhone,
-      owner: form.owner,
+      owner: ownerName,
+      owner_id: ownerId,
+      created_by: currentUserId,
       leadSource: (form.leadSource || "Referral") as LeadSource,
       remarks: form.remarks.trim(),
       // Every new company starts at Suspect by definition.
@@ -475,35 +565,78 @@ export function NewCompanyDialog({
             </Field>
           </Section>
 
-          <Section title="Ownership">
-            <Field label="Account owner">
-              <Select
-                value={form.owner}
-                onChange={(v) => set("owner", v)}
-                placeholder="Select owner"
-                options={[...DEAL_OWNERS]}
-              />
-            </Field>
-            <Field label="Lead source">
-              <Select
-                value={form.leadSource}
-                onChange={(v) => set("leadSource", v as LeadSource)}
-                placeholder="Select source"
-                options={LEAD_SOURCES}
-              />
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Remarks">
-                <textarea
-                  value={form.remarks}
-                  onChange={(e) => set("remarks", e.target.value)}
-                  rows={2}
-                  placeholder="Delivery preferences, sourcing policy, anything useful…"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-[var(--shadow-soft)] outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/25"
+          {currentUserRole === "Admin" || currentUserRole === "Manager" ? (
+            <Section title="Ownership">
+              <Field label="Account owner">
+                <OwnerCombobox
+                  value={form.owner_id ?? ""}
+                  selectedLabel={form.owner}
+                  onChange={(userId, userName) => {
+                    set("owner_id", userId);
+                    set("owner", userName);
+                    if (editing && originalOwnerId && userId !== originalOwnerId) {
+                      setOwnershipChanged(true);
+                    }
+                  }}
                 />
               </Field>
-            </div>
-          </Section>
+              <Field label="Lead source">
+                <Select
+                  value={form.leadSource}
+                  onChange={(v) => set("leadSource", v as LeadSource)}
+                  placeholder="Select source"
+                  options={LEAD_SOURCES}
+                />
+              </Field>
+              <div className="sm:col-span-2 flex items-end gap-2 rounded-lg bg-accent/5 border border-accent/20 px-3 py-2.5 h-10">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Created by:</span>
+                <span className="text-xs font-medium text-foreground truncate">
+                  {creatorName ?? "Loading..."}
+                </span>
+              </div>
+              {ownershipChanged && (
+                <div className="sm:col-span-2 mt-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <div className="flex items-center gap-2">
+                    <svg className="size-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="text-xs font-medium text-green-700 dark:text-green-400">
+                      Ownership will be transferred to <strong>{form.owner}</strong> when you save
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Section>
+          ) : (
+            <Section title="Lead source">
+              <Field label="Source">
+                <Select
+                  value={form.leadSource}
+                  onChange={(v) => set("leadSource", v as LeadSource)}
+                  placeholder="Select source"
+                  options={LEAD_SOURCES}
+                />
+              </Field>
+              <div className="flex items-end gap-2 rounded-lg bg-accent/5 border border-accent/20 px-3 py-2.5 h-10">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Created by:</span>
+                <span className="text-xs font-medium text-foreground truncate">
+                  {creatorName ?? "Loading..."}
+                </span>
+              </div>
+            </Section>
+          )}
+
+          <div className="sm:col-span-2">
+            <Field label="Remarks">
+              <textarea
+                value={form.remarks}
+                onChange={(e) => set("remarks", e.target.value)}
+                rows={2}
+                placeholder="Delivery preferences, sourcing policy, anything useful…"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-[var(--shadow-soft)] outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/25"
+              />
+            </Field>
+          </div>
 
           <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-2.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
@@ -573,6 +706,11 @@ function Field({
   );
 }
 
+type SelectOption = {
+  label: string;
+  value: string;
+};
+
 function Select({
   value,
   onChange,
@@ -582,10 +720,15 @@ function Select({
 }: {
   value: string;
   onChange: (value: string) => void;
-  options: readonly string[];
+  options: readonly string[] | SelectOption[];
   placeholder: string;
   disabled?: boolean;
 }) {
+  // Normalize options to {label, value} format
+  const normalizedOptions: SelectOption[] = options.map(opt => 
+    typeof opt === "string" ? { label: opt, value: opt } : opt
+  );
+
   return (
     <select
       value={value}
@@ -598,9 +741,9 @@ function Select({
       )}
     >
       <option value="">{placeholder}</option>
-      {options.map((option) => (
-        <option key={option} value={option} className="text-foreground">
-          {option}
+      {normalizedOptions.map((option) => (
+        <option key={option.value} value={option.value} className="text-foreground">
+          {option.label}
         </option>
       ))}
     </select>

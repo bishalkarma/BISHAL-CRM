@@ -7,13 +7,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { TodayPopup } from "./today-popup";
+import { PipelinePopup } from "./pipeline-popup";
+import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+import { NewCompanyDialog } from "@/components/companies/new-company-dialog";
+import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
+import { LogActivityDialog } from "@/components/activities/log-activity-dialog";
 import { CompanyDrawer } from "@/components/companies/company-drawer";
 import { useCompanies } from "@/components/companies/use-companies";
+import { useData } from "@/components/providers/data-provider";
 import { MobileTabBar } from "./mobile-nav";
 import { FloatingActionButton } from "./fab";
 import { CommandPalette } from "./command-palette";
 import { SaveErrorBanner } from "./save-error-banner";
 import { ShortcutsDialog } from "./shortcuts-dialog";
+import { NotificationToast } from "./notification-toast";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "bishal-crm-sidebar-collapsed";
@@ -35,8 +43,9 @@ const GOTO_MAP: Record<string, string> = {
 export function AppShell({ children }: { children: React.ReactNode }) {
   /** Set by the notification bell; cleared when the pop-up closes. */
   const [bellCompanyId, setBellCompanyId] = React.useState<string | null>(null);
-  const { companies, transitions, moveStage, dismissSuggestion } =
+  const { companies, transitions, moveStage, dismissSuggestion, addCompany } =
     useCompanies();
+  const { addContact, addDeal } = useData();
   const bellCompany =
     companies.find((c) => c.id === bellCompanyId) ?? null;
   const router = useRouter();
@@ -46,6 +55,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [activePopup, setActivePopup] = React.useState<"today" | "pipeline" | null>(null);
+
+  /* FAB dialog state */
+  const [newDealOpen, setNewDealOpen] = React.useState(false);
+  const [newCompanyOpen, setNewCompanyOpen] = React.useState(false);
+  const [newContactOpen, setNewContactOpen] = React.useState(false);
+  const [logActivityOpen, setLogActivityOpen] = React.useState(false);
+
+  const handleFabAction = React.useCallback((action: string) => {
+    if (action === "deal") setNewDealOpen(true);
+    else if (action === "company") setNewCompanyOpen(true);
+    else if (action === "contact") setNewContactOpen(true);
+    else if (action === "activity") setLogActivityOpen(true);
+  }, []);
 
   // Restore sidebar preference
   React.useEffect(() => {
@@ -144,10 +167,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div
           className={cn(
             "sticky top-0 hidden h-dvh shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block",
-            collapsed ? "w-[72px]" : "w-[264px]",
+            collapsed ? "w-[72px]" : "w-[280px]",
           )}
         >
-          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} />
+          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} onOpenPopup={setActivePopup} />
         </div>
 
         {/* Mobile drawer */}
@@ -186,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <SaveErrorBanner />
         <MobileTabBar />
-        <FloatingActionButton />
+        <FloatingActionButton onAction={handleFabAction} />
 
         <CommandPalette
           open={paletteOpen}
@@ -197,6 +220,50 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           open={shortcutsOpen}
           onOpenChange={setShortcutsOpen}
         />
+
+        {/* Detail popups — overlay the main content */}
+        {activePopup === "today" && (
+          <TodayPopup onClose={() => setActivePopup(null)} />
+        )}
+        {activePopup === "pipeline" && (
+          <PipelinePopup onClose={() => setActivePopup(null)} />
+        )}
+
+        {/* FAB dialogs */}
+        <NewDealDialog
+          open={newDealOpen}
+          onOpenChange={setNewDealOpen}
+          onCreate={(deal) => {
+            addDeal(deal);
+            setNewDealOpen(false);
+          }}
+          onCreateCompany={() => {}}
+        />
+        <NewCompanyDialog
+          open={newCompanyOpen}
+          onOpenChange={setNewCompanyOpen}
+          onCreate={(company) => {
+            addCompany(company);
+            setNewCompanyOpen(false);
+          }}
+          existingNames={companies.map((c) => c.name)}
+        />
+        <NewContactDialog
+          open={newContactOpen}
+          onOpenChange={setNewContactOpen}
+          onCreate={(contact) => {
+            addContact(contact);
+            setNewContactOpen(false);
+          }}
+        />
+        {/* LogActivityDialog is self-contained — it manages its own addActivity call. */}
+        <LogActivityDialog
+          open={logActivityOpen}
+          onOpenChange={setLogActivityOpen}
+        />
+        
+        {/* Notification Toast - Shows unread notifications on login */}
+        <NotificationToast />
       </div>
     </TooltipProvider>
   );
