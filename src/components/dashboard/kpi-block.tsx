@@ -16,11 +16,9 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
- * BUILD 03 — Ultra-compact 6-card KPI (content-hugging, fixes "card big, content small")
- * Cards hug content: no forced 96px, py-2 px-2, gap-0.5, numbers larger vs. card
- * - Each card is h-auto (min ~62-68px), value text-[19px] fills card, support 10px tight
- * - Grid: 3 cols × 2 rows inside 8-col KPI widget, gap-2, Pipeline moved off top
- * - Matches latest user image: KPI left 8 cols + Customers by type donut right 4 cols at y0
+ * BUILD 05 — Ultra-compact 6-card KPI (content-hugging, fixes "card big, content small")
+ * 2 rows ×3 cols: Row 1 (Customers, Deals, Worth) and Row 2 (Won, Lost, Avg) clearly separated
+ * Each card p-1.5, value 20-22px filling tile, Won/Lost have green/red progress bar + badge as in 2nd image
  */
 
 export function KpiBlock({
@@ -81,6 +79,7 @@ export function KpiBlock({
         rateLabel="Win rate"
         rate={totals.winRate}
         tone="success"
+        showBar
       />
       <Tile
         icon={TrendingDown}
@@ -95,6 +94,7 @@ export function KpiBlock({
         rateLabel="Loss rate"
         rate={totals.lossRate}
         tone="danger"
+        showBar
       />
       <Tile
         icon={Calculator}
@@ -120,6 +120,7 @@ function Tile({
   rateLabel,
   rate,
   tone = "neutral",
+  showBar = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -129,6 +130,7 @@ function Tile({
   rateLabel?: string;
   rate?: number;
   tone?: "neutral" | "accent" | "success" | "danger";
+  showBar?: boolean;
 }) {
   const accent =
     tone === "success"
@@ -168,9 +170,19 @@ function Tile({
       </div>
 
       {rateLabel && rate !== undefined && (
-        <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-border/60 pt-1">
-          <span className="text-[10px] leading-none text-muted-foreground">{rateLabel}</span>
-          <span className={cn("text-xs font-bold tabular-nums", accent)}>{rate}%</span>
+        <div className="mt-1 space-y-1">
+          {showBar && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div
+                className={cn("h-full rounded-full transition-all", tone === "success" ? "bg-success" : "bg-destructive")}
+                style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
+              />
+            </div>
+          )}
+          <div className="flex items-baseline justify-between gap-2 border-t border-border/60 pt-1">
+            <span className="text-[10px] leading-none text-muted-foreground">{rateLabel}</span>
+            <span className={cn("rounded px-1.5 py-0.5 text-xs font-bold tabular-nums", tone === "success" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>{rate}%</span>
+          </div>
         </div>
       )}
     </Card>
