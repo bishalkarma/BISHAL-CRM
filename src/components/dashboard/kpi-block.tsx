@@ -144,8 +144,8 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 08: square-ish — min-h 88 p-2 makes tile ~88px tall, 22-24px number fills ~30% height, not flat 72px
-        "flex min-h-[88px] flex-col p-2",
+        // BUILD 09: proper square — min-h 96 p-2, value 24px fills tile, removes left/right gap, square not flat width
+        "flex min-h-[96px] flex-col p-2",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
@@ -160,7 +160,7 @@ function Tile({
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-[22px] font-black leading-none tabular-nums lg:text-[24px]"
+          className="text-[24px] font-black leading-none tabular-nums lg:text-[26px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>

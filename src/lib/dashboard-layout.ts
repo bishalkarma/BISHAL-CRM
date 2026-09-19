@@ -31,8 +31,7 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 08 — fix crushed Types + flat tiles: top row h4->h5 (160->200px) gives Types breathing room, KPI tiles more square
-  // KPI tiles min-h 72->88px + p-1.5->p-2 makes them square-ish (88px tall vs ~260px wide = ~3:1 not 4.7:1 flat), content fills tile
+  // BUILD 09 — proper square tiles + uncrushed donut: KPI min-h 88->96px makes tile 96px tall ~= square-ish, Types donut compact with p-3 and 100px donut
   { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 4 },
   { i: "types", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
   // Revenue + Pipeline now directly below KPI+Types (y5), no Team gap
@@ -55,7 +54,7 @@ export const DEFAULT_LAYOUT: WidgetBox[] = [
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build08-square-tiles-uncrushed-types-h5";
+const LAYOUT_VERSION = "build09-square-96-uncrushed-h5";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -77,7 +76,7 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 08: top row h4->h5 to make tiles square + uncrush Types, remove Team — bump version
+    // BUILD 09: square 96px tiles + uncrushed 100px donut, h5 kept
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
       if (raw) {

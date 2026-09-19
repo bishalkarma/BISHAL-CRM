@@ -515,7 +515,7 @@ export function DashboardView() {
                   Star rating, new, old, renovation · {periodLabel}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-hidden p-3 pt-0">
+              <CardContent className="min-h-0 flex-1 overflow-hidden p-4 pt-0">
                 <DistributionChart
                   slices={byType}
                   emptyLabel="No customers in this period yet."

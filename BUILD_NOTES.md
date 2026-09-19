@@ -164,5 +164,21 @@
 - **Rollback:** `git reset --hard BUILD_07` (or `7fd6b98`) to `h4` flat+crushed; `git reset --hard BUILD_08` is this
 - **Visual:** See `docs/visual-before-after-tiles-crushed.png` (before flat/crushed → after square/uncrushed) and `docs/visual-before-after-scroll-behavior.png` (before warning → after clean)
 
-## Build 09 — Reserved
-- Next build will be BUILD 09
+## Build 09 — Proper Square Tiles + Uncrushed Donut (Remove Gaps) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 08 (`687fb78`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB)
+- **Your latest 2 screenshots:** Left gap/right gap on `Total Customers` tile (wide flat tile, number small centered with big left/right empty), and `Customers by type` donut still crushed at edges where `2%`/`9%` labels clipped at card border.
+- **Fix:**
+  - **KPI tiles proper square, no left/right gap:** `min-h-[88px] p-2 → min-h-[96px] p-2` (taller, more square: `96px` tall × `~260px` wide = `2.7:1` vs `3:1` flat), **value `text-[22px] lg:text-[24px] → text-[24px] lg:text-[26px] font-black`** (+2px larger, fills width), header `text-[9px]` tight, support `text-[9px]`. 2 rows ×96px + gap 8 = `200px` content fits exactly in `h5` (200px) → **0px slack**, no big empty left/right, content nearly touches borders like your `Marketing 123.4M` tight example. Spacing moved: `gap-2` kept, but card `p-2` tight with no extra horizontal padding.
+  - **Customers by type uncrushed:** `CardContent p-3 → p-4 pt-0` (+4px inner padding) gives `8px` breathing room from card edge, donut `115px → 100px` compact (via `DistributionChart` container `h-[100px]` limit), labels `2%`/`9%` now `8px` away from border, not clipped. `CardHeader pb-2→pb-2` kept, title `text-sm`, description `text-xs`, donut centered with `160px` chart height in `h5` (200px) → 40px slack for legend, no crush.
+  - **Layout kept at `h5` for both** (`kpi h5`, `types h5` at `y0`, `revenue/pipeline y5` below) — balanced, not `h4` cramped. `LAYOUT_VERSION` bumped to `build09-square-96-uncrushed-h5` with migration that clears old `88px` layouts.
+- **Files touched:**
+  - `src/components/dashboard/kpi-block.tsx` — `min-h 88→96px`, value `22→24px lg:26px`, header/support `9px` tight, no left/right gap
+  - `src/components/dashboard/dashboard-view.tsx` — `types` content `p-3→p-4` for uncrushed
+  - `src/lib/dashboard-layout.ts` — keep `h5` for top row, `LAYOUT_VERSION build09...`
+- **Build verified:** `npm run build` ✓ 158kB, `Total Customers` now square with `33` large filling tile, `Customers by type` `2%`/`9%` fully visible with padding, no left/right gap
+- **Rollback:** `git reset --hard BUILD_08` (or `687fb78`) to `88px` flat; `git reset --hard BUILD_09` is this square uncrushed
+- **Visual:** See `docs/visual-gap-tile-square.png` (before flat/wide with gap → after square tight) and `docs/visual-crushed-donut-fix.png` (before 2%/9% clipped → after padded visible)
+
+## Build 10 — Reserved
+- Next build will be BUILD 10
