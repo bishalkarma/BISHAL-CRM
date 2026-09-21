@@ -239,7 +239,7 @@ export function DashboardView() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-5 overflow-x-hidden px-4 py-5 sm:px-6 sm:py-6">
+    <div className="mx-auto w-full max-w-[1400px] space-y-5 overflow-x-hidden overflow-y-visible px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
         title={`${greeting()}, ${currentUser?.displayName?.split(" ")[0] || "User"}`}
         description="Your customers, deals and work in one place."

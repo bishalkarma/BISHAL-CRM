@@ -142,8 +142,8 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 11: square + balanced labels — min-h 88 p-2, header 11px value 22-24px balanced, not tiny
-        "flex min-h-[96px] flex-col p-2 aspect-[1.15] sm:aspect-square",
+        // HOTFIX: remove aspect-square that caused overlapping (grid miscalc), revert to min-h 88 p-2 compact, square via content not aspect
+        "flex min-h-[88px] flex-col p-2",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
