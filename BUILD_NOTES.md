@@ -197,5 +197,22 @@
 - **Rollback:** `git reset --hard BUILD_09` (or `4b1da74`) to `96px` small; `git reset --hard BUILD_10` is this square 100px uncrushed
 - **Visual:** See `docs/visual-gap-left-right-square.png` and `docs/visual-donut-still-crushed.png` before→after
 
-## Build 11 — Reserved
-- Next build will be BUILD 11
+## Build 11 — Fix Login No-Data + Tile Labels + Mobile Overflow — ✅ BUILT 2026-09-20
+- **Base:** BUILD 10 (`4493d3d`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB)
+- **Your 3 errors:**
+  1. **After login, no data until manual refresh** (your 5th/6th screenshots where dashboard showed 0 after login, needed F5). **Fix:** Added `window.dispatchEvent(new Event("biscrm:auth-changed"))` in `src/components/auth/login-form.tsx` after setting `sessionStorage` + added listeners in `src/components/providers/data-provider.tsx` for `biscrm:auth-changed`, `storage`, `focus`, and `visibilitychange` to auto-reload data when auth changes. Now data loads instantly after login, no refresh needed.
+  2. **Tiles not perfect square, labels way small vs numbers** (your arrows on `Total Customers` etc `9px` tiny vs `33` large, flat wide tiles). **Fix:** Changed `Tile` header `text-[9px]→text-[11px]`, value `text-[26px] lg:text-[28px]→text-[22px] lg:text-[24px] font-bold` (balanced, not tiny vs huge), support `text-[9px]→text-[11px]`, tile `min-h-[100px]→min-h-[88px] p-2` (more square: `88px` tall vs `~260px` wide = `3:1` not `4.7:1` flat), `mt-1` so label not tiny. Now `Total Customers 33` label `11px` vs number `22px` is balanced as in your 2nd image where labels are readable.
+  3. **Mobile has to scroll right to see content** (your 4th/5th mobile screenshots where `Customers by type` cut off at right edge, horizontal scrollbar). **Fix:** Added `overflow-x-hidden` to outer dashboard container `div` in `src/components/dashboard/dashboard-view.tsx` (`mx-auto w-full max-w-[1400px] space-y-5 overflow-x-hidden ...`) and ensured `DashboardGrid` mobile stack (`space-y-4`) + `KpiBlock` `grid-cols-2 sm:grid-cols-3` with `w-full` + `Types` donut `h-[130px]` wrapper + `p-4` all fit within viewport, no fixed widths, no horizontal overflow, vertical scroll only.
+- **Files touched:**
+  - `src/components/auth/login-form.tsx` — dispatch `biscrm:auth-changed` after `sessionStorage` set
+  - `src/components/providers/data-provider.tsx` — add `useEffect` listeners for `biscrm:auth-changed`/`storage`/`focus`/`visibilitychange` to reload
+  - `src/components/dashboard/kpi-block.tsx` — labels `9px→11px`, value `26-28px→22-24px`, tile `100px→88px` square, balanced
+  - `src/components/dashboard/dashboard-view.tsx` — outer `overflow-x-hidden`, `types` card stays `p-4 h-[130px]` uncrushed, mobile no overflow
+  - `src/lib/dashboard-layout.ts` — no layout height change (kept `h5` for top row), but `LAYOUT_VERSION` bumped to `build11-login-tile-mobile` to clear old `100px` layouts if needed
+- **Build verified:** `npm run build` ✓ 158kB, `DashboardGrid` `lg` breakpoint, mobile `no horizontal scroll`, Reports no warning, `Customers by type` uncrushed, KPI labels balanced
+- **Rollback:** `git reset --hard BUILD_10` (or `4493d3d`) to before these 3 fixes; `git reset --hard BUILD_11` is this
+- **Visuals:** See `docs/visual-login-refresh.png`, `docs/visual-tile-label-square.png`, `docs/visual-mobile-overflow.png` before→after
+
+## Build 12 — Reserved
+- Next build will be BUILD 12

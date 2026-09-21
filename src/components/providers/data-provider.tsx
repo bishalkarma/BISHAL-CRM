@@ -520,6 +520,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     void load();
   }, [load]);
 
+  // BUILD 11: Fix "no data after login until refresh" — reload when auth changes.
+  // DataProvider mounts once at app start (before login), so the initial load runs
+  // with no user in sessionStorage. After login, sessionStorage is set and we
+  // navigate to /dashboard, but the provider does not remount, so data stays empty
+  // until a manual refresh. Listen for auth changes and reload.
+  React.useEffect(() => {
+    const handleAuthChange = () => void load();
+    window.addEventListener("biscrm:auth-changed", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+    window.addEventListener("focus", handleAuthChange);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("biscrm:auth-changed", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+      window.removeEventListener("focus", handleAuthChange);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
+
   const addContact = React.useCallback(
     (contact: Contact) => {
       setContacts((c) => [contact, ...c]);

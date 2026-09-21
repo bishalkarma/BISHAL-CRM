@@ -52,8 +52,8 @@ export function KpiBlock({
         value={totals.totalDeals}
         support={
           <span className="flex flex-col items-center leading-none">
-            <span className="text-[10px]">from {distinctDealCustomers} customers</span>
-            <span className="text-[10px] opacity-60">{periodLabel}</span>
+            <span className="text-[11px]">from {distinctDealCustomers} customers</span>
+            <span className="text-[11px] opacity-60">{periodLabel}</span>
           </span>
         }
       />
@@ -73,7 +73,7 @@ export function KpiBlock({
         support={
           <span className="flex flex-col items-center leading-none">
             <span className="text-[11px] font-semibold leading-none text-foreground">{formatMoney(totals.wonValue)}</span>
-            <span className="text-[10px] leading-none opacity-70">worth</span>
+            <span className="text-[11px] leading-none opacity-70">worth</span>
           </span>
         }
         rateLabel="Win rate"
@@ -88,7 +88,7 @@ export function KpiBlock({
         support={
           <span className="flex flex-col items-center leading-none">
             <span className="text-[11px] font-semibold leading-none text-foreground">{formatMoney(totals.lostValue)}</span>
-            <span className="text-[10px] leading-none opacity-70">worth</span>
+            <span className="text-[11px] leading-none opacity-70">worth</span>
           </span>
         }
         rateLabel="Loss rate"
@@ -144,13 +144,13 @@ function Tile({
   return (
     <Card
       className={cn(
-        // BUILD 10: square + content fills — min-h 100 p-2, value 26px fills, removes left/right gap
-        "flex min-h-[100px] flex-col p-2",
+        // BUILD 11: square + balanced labels — min-h 88 p-2, header 11px value 22-24px balanced, not tiny
+        "flex min-h-[88px] flex-col p-2",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
     >
-      <div className="flex items-center justify-center gap-1 text-center text-[9px] font-medium leading-none tracking-tight text-muted-foreground">
+      <div className="flex items-center justify-center gap-1 text-center text-[11px] font-medium leading-none tracking-tight text-muted-foreground">
         <Icon className={cn("size-3 shrink-0", accent)} />
         <span className="line-clamp-1">{label}</span>
       </div>
@@ -160,12 +160,12 @@ function Tile({
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-[26px] font-black leading-none tabular-nums lg:text-[28px]"
+          className="text-[22px] font-bold leading-none tabular-nums lg:text-[24px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
         {support && (
-          <div className="mt-0.5 text-center text-[9px] leading-none text-muted-foreground">{support}</div>
+          <div className="mt-1 text-center text-[11px] leading-none text-muted-foreground">{support}</div>
         )}
       </div>
 

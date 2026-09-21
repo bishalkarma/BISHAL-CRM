@@ -59,6 +59,8 @@ export function LoginForm() {
       sessionStorage.setItem("demo_user_id", data.user.id);
       sessionStorage.setItem("demo_display_name", data.user.displayName);
       sessionStorage.setItem("demo_user_role", data.user.roleName ?? "Viewer");
+      // Tell DataProvider to reload immediately with the new user (fixes "no data until refresh")
+      window.dispatchEvent(new Event("biscrm:auth-changed"));
 
       // Exit animation and navigate
       setExiting(true);
