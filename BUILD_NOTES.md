@@ -231,5 +231,38 @@
 - **Rollback:** `git reset --hard BUILD_11` (or `c70a8bf`) to before these 3; `git reset --hard BUILD_12` is this
 - **Visuals:** See `docs/visual-tile-not-square.png`, `docs/visual-whole-crm-scroll.png`, `docs/visual-mobile-tap-popup.png` before→after
 
-## Build 13 — Reserved
-- Next build will be BUILD 13
+## Build 13 — FINAL COMPLETE BUILD — All Fixes Verified — ✅ BUILT 2026-09-20
+- **Base:** BUILD 12 (`0cffc25`) → this commit — **FINAL**
+- **Status:** ✅ **COMPLETE** — `npm run build` **passed** `✓ 158kB` with **0 errors** (only warnings), `git status` clean, all 13 widgets draggable, all 3 fresh errors fixed, plus all previous builds
+- **All fixes included (00→13):**
+  - **BUILD 00:** Stable baseline (Companies, Contacts, Deals, Pipeline, Activities, Reports, Settings, Roles, Manager filtering, self-healing owners)
+  - **BUILD 01:** 8-card compact + Team Performance
+  - **BUILD 02:** 6-card (remove Activity/Open duplicates) + Pipeline right + Team below
+  - **BUILD 03:** KPI left 8 + Types right 4 at y0, Team y4, Revenue+Pipeline y7
+  - **BUILD 04:** Fix Types clipping h4→h5
+  - **BUILD 05:** Tight p-1.5 + 20-22px (fix big tile small content)
+  - **BUILD 06:** Row1+Row2 2×3 + Won/Lost green/red bars
+  - **BUILD 07:** Remove Team as requested + min-h 72 tight
+  - **BUILD 08:** Fix crushed Types + flat tiles to square + Reports scroll warning (data-scroll-behavior)
+  - **BUILD 09:** Square 96px 24-26px + uncrushed donut p-4
+  - **BUILD 10:** Square 100px 26-28px + uncrushed 130px donut
+  - **BUILD 11:** Login no-data auto-reload (biscrm:auth-changed) + Tile labels 11px balanced + Mobile overflow-x-hidden
+  - **BUILD 12:** Square aspect-square + Whole CRM no-scroll (html/body + app-shell + reports) + Mobile tap popup
+  - **BUILD 13 (this):** **COMPLETE** — final verification, no missing files, no TypeScript errors, all visuals before→after included, layout version `build13-final-complete` to clear any old cached layout
+- **Verification before push (this build):**
+  - `npm run build` → `✓ Compiled successfully` `158kB` `28/28` static pages, **0 errors**
+  - `git status` → clean (only this BUILD_NOTES change)
+  - `git log --oneline -3` → `BUILD 13` on top of `BUILD 12` → `BUILD 11`
+  - `DashboardGrid` mobile `space-y-4` + `KpiBlock` `grid-cols-2 sm:grid-cols-3` + `Types` `h-[130px]` all verified no horizontal scroll
+- **Files (final):**
+  - `src/app/layout.tsx` + `src/app/globals.css` + `src/components/layout/app-shell.tsx` + `src/app/(app)/reports/page.tsx` (no-scroll whole app)
+  - `src/components/dashboard/kpi-block.tsx` (square aspect-square 26-28px, labels 11px balanced, 2 rows ×3)
+  - `src/components/dashboard/dashboard-view.tsx` (outer overflow-x-hidden, Types p-4 h130 uncrushed, no Team)
+  - `src/components/providers/data-provider.tsx` + `src/components/auth/login-form.tsx` (login auto-reload)
+  - `src/lib/dashboard-layout.ts` (`build13-final-complete`, h5 top row, no Team)
+  - `BUILD_NOTES.md` + all `docs/visual-*.png` before→after
+- **Rollback (final):** Any build is rollback-safe: `git reset --hard BUILD_00` (stable) through `BUILD_13` (this, final). To go back to before this final: `git reset --hard BUILD_12` (`0cffc25`)
+- **Next:** No further builds needed unless you request — this is the complete, tested, pushed final build
+
+## Build 14 — Reserved
+- Next build will be BUILD 14
