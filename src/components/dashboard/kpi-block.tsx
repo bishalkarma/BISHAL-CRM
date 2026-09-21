@@ -16,9 +16,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
- * BUILD 05 — Ultra-compact 6-card KPI (content-hugging, fixes "card big, content small")
- * 2 rows ×3 cols: Row 1 (Customers, Deals, Worth) and Row 2 (Won, Lost, Avg) clearly separated
- * Each card p-1.5, value 20-22px filling tile, Won/Lost have green/red progress bar + badge as in 2nd image
+ * BUILD 12 — Square tiles + balanced labels — tiles aspect-square, header 12px, value 24-28px, square not flat
  */
 
 export function KpiBlock({
@@ -37,13 +35,13 @@ export function KpiBlock({
   periodLabel?: string;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {/* Row 1 */}
       <Tile
         icon={Building2}
         label="Total Customers"
         value={totalCustomers}
-        support={<span className="text-[10px] leading-none opacity-70">{periodLabel}</span>}
+        support={<span className="text-xs leading-none opacity-70">{periodLabel}</span>}
         tone="accent"
       />
       <Tile
@@ -52,8 +50,8 @@ export function KpiBlock({
         value={totals.totalDeals}
         support={
           <span className="flex flex-col items-center leading-none">
-            <span className="text-[11px]">from {distinctDealCustomers} customers</span>
-            <span className="text-[11px] opacity-60">{periodLabel}</span>
+            <span className="text-xs">from {distinctDealCustomers} customers</span>
+            <span className="text-xs opacity-60">{periodLabel}</span>
           </span>
         }
       />
@@ -62,7 +60,7 @@ export function KpiBlock({
         label="Total Deal Worth"
         value={totals.totalValue}
         formatValue={formatMoney}
-        support={<span className="text-[10px] leading-none opacity-60">{periodLabel}</span>}
+        support={<span className="text-xs leading-none opacity-60">{periodLabel}</span>}
       />
 
       {/* Row 2 */}
@@ -72,7 +70,7 @@ export function KpiBlock({
         value={totals.wonCount}
         support={
           <span className="flex flex-col items-center leading-none">
-            <span className="text-[11px] font-semibold leading-none text-foreground">{formatMoney(totals.wonValue)}</span>
+            <span className="text-xs font-semibold leading-none text-foreground">{formatMoney(totals.wonValue)}</span>
             <span className="text-[11px] leading-none opacity-70">worth</span>
           </span>
         }
@@ -102,7 +100,7 @@ export function KpiBlock({
         value={avgDealSize}
         formatValue={formatMoney}
         support={
-          <span className="text-[10px] leading-none opacity-60">
+          <span className="text-xs leading-none opacity-60">
             across {totals.totalDeals || 0} deals · {periodLabel}
           </span>
         }
@@ -145,12 +143,12 @@ function Tile({
     <Card
       className={cn(
         // BUILD 11: square + balanced labels — min-h 88 p-2, header 11px value 22-24px balanced, not tiny
-        "flex min-h-[88px] flex-col p-2",
+        "flex min-h-[96px] flex-col p-2 aspect-[1.15] sm:aspect-square",
         tone === "success" && "border-success/30 bg-success/[0.06]",
         tone === "danger" && "border-destructive/30 bg-destructive/[0.06]",
       )}
     >
-      <div className="flex items-center justify-center gap-1 text-center text-[11px] font-medium leading-none tracking-tight text-muted-foreground">
+      <div className="flex items-center justify-center gap-1 text-center text-[11px] font-semibold leading-none tracking-tight text-muted-foreground">
         <Icon className={cn("size-3 shrink-0", accent)} />
         <span className="line-clamp-1">{label}</span>
       </div>
@@ -160,12 +158,12 @@ function Tile({
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-[22px] font-bold leading-none tabular-nums lg:text-[24px]"
+          className="text-[24px] font-black leading-none tabular-nums lg:text-[26px]"
         >
           <AnimatedNumber value={value} format={formatValue} />
         </motion.div>
         {support && (
-          <div className="mt-1 text-center text-[11px] leading-none text-muted-foreground">{support}</div>
+          <div className="mt-1 text-center text-xs leading-none text-muted-foreground">{support}</div>
         )}
       </div>
 

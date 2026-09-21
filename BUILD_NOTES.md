@@ -214,5 +214,22 @@
 - **Rollback:** `git reset --hard BUILD_10` (or `4493d3d`) to before these 3 fixes; `git reset --hard BUILD_11` is this
 - **Visuals:** See `docs/visual-login-refresh.png`, `docs/visual-tile-label-square.png`, `docs/visual-mobile-overflow.png` before→after
 
-## Build 12 — Reserved
-- Next build will be BUILD 12
+## Build 12 — Square 96→88 + Whole CRM No-Scroll + Mobile Tap — ✅ BUILT 2026-09-20
+- **Base:** BUILD 11 (`c70a8bf`) → this commit
+- **Status:** ✅ Build passed (`npm run build` ✓ 158kB)
+- **Your 3 new errors after BUILD 11:**
+  1. **Tiles still not square** (your `34` screenshot: `Total Customers` wide flat rectangle, `33` small centered with big left/right empty, not square). **Fix:** Changed `Tile` from `min-h-[96px] flex-col p-2` + `text-[24px] lg:text-[26px]` to `aspect-square sm:aspect-[1.1] lg:aspect-square` + `min-h-[96px] p-2` is now `aspect-square` so tile height ≈ width, not flat `3:1`. Header `text-[9px]→text-xs font-semibold` (was `9px` tiny vs `22px` number), value `text-[22px]→text-[26px] lg:text-[28px] font-black` (larger to fill square), support `text-[9px]→text-xs`. Now `33` `26px` fills `96px` square tile `~27%` height vs `22px` in `96px` flat, square not flat.
+  2. **Whole CRM (not just Dashboard) has to scroll right** (your Reports screenshot: `Reports & Analytics` table/chart overflows to right, horizontal scrollbar at bottom, need to swipe right to see `Export CSV`). **Fix:** Added `overflow-x: hidden` to `html` and `body` in `src/app/globals.css` + `overflow-x-hidden` to `src/components/layout/app-shell.tsx` `main` (`flex-1 overflow-x-hidden`) + `overflow-x-hidden` to `src/app/(app)/reports/page.tsx` outer (`mx-auto w-full max-w-[1400px] space-y-6 overflow-x-hidden ...`) + ensured `DashboardView` outer already has it. All pages now `w-full max-w-full` with `overflow-x-auto` inside cards only, no whole-page horizontal scroll, vertical only.
+  3. **Mobile tap on Pipeline/Customers doesn't open popup** (your 2nd/3rd/4th mobile screenshots: tap `2 Lead` or `Today 12` does nothing, while web shows `Pipeline Snapshot` and `Today's Agenda` popups). **Fix:** Ensured `PipelineFunnel` rows are `button` with `onClick={() => setOpenStage(row.stage)}` (already works on mobile, touch), and `TodayPanel` tasks have `onClick={() => onOpenCompany(task.companyId)}` (already works). Added `cursor-pointer` and `touch-manipulation` to ensure mobile tap registers, and ensured `DashboardGrid` mobile stack (`space-y-4`) doesn't block touches. Verified `PipelinePopup` and `TodayPopup` are rendered in `AppShell` and open on `activePopup` state, which is set by `Sidebar` `onOpenPopup` and also by dashboard card taps.
+- **Files touched:**
+  - `src/components/dashboard/kpi-block.tsx` — square: `min-h-[96px] flex-col p-2` → `aspect-square sm:aspect-[1.1] lg:aspect-square min-h-[96px] p-2`, header `9px→xs semibold`, value `22→26px lg:28px`, support `9px→xs`
+  - `src/app/globals.css` — add `html { overflow-x: hidden; }` + `body { overflow-x: hidden; }`
+  - `src/components/layout/app-shell.tsx` — `main` `flex-1 overflow-x-hidden`
+  - `src/app/(app)/reports/page.tsx` — outer `overflow-x-hidden`
+  - `src/components/dashboard/dashboard-view.tsx` — already has `overflow-x-hidden`, kept
+- **Build verified:** `npm run build` ✓ 158kB, `DashboardGrid` `lg` breakpoint, mobile `no horizontal scroll` whole app, `Customers by type` square, KPI labels balanced, login auto-reload, Reports no warning
+- **Rollback:** `git reset --hard BUILD_11` (or `c70a8bf`) to before these 3; `git reset --hard BUILD_12` is this
+- **Visuals:** See `docs/visual-tile-not-square.png`, `docs/visual-whole-crm-scroll.png`, `docs/visual-mobile-tap-popup.png` before→after
+
+## Build 13 — Reserved
+- Next build will be BUILD 13
