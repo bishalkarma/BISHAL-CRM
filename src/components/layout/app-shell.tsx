@@ -190,7 +190,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             sidebarCollapsed={collapsed}
             onOpenCompany={setBellCompanyId}
           />
-          <main className="flex-1 overflow-x-hidden pb-24 lg:pb-8">{children}</main>
+          <main className="flex-1 pb-24 lg:pb-8">{children}</main>
         </div>
 
         {/*

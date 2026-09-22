@@ -48,7 +48,7 @@ export default function ReportsPage() {
   const [period, setPeriod] = React.useState<PeriodKey>("month");
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6 overflow-x-hidden px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

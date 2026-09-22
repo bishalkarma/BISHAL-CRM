@@ -264,5 +264,24 @@
 - **Rollback (final):** Any build is rollback-safe: `git reset --hard BUILD_00` (stable) through `BUILD_13` (this, final). To go back to before this final: `git reset --hard BUILD_12` (`0cffc25`)
 - **Next:** No further builds needed unless you request — this is the complete, tested, pushed final build
 
-## Build 14 — Reserved
-- Next build will be BUILD 14
+## Build 14 — HOTFIX: Overlapping Tiles + No Scroll + Mobile Tap Dead — ✅ BUILT 2026-09-20
+- **Base:** BUILD 13 (`aa37397`) → this hotfix (revert broken aspect-square)
+- **Status:** ✅ **HOTFIX** — `npm run build` **passed** `✓ 158kB` with **0 errors**, `git status` clean, overlapping fixed, scroll restored, mobile tap restored
+- **Why hotfix:** BUILD 12/13 introduced `aspect-square` on KPI tiles + `overflow-x-hidden` on `html`/`body` to fix "tile not square" and "whole CRM scroll". That made `KPI` widget `h5` (200px) with `aspect-square` `96px` tiles `2×96+8=200px` exactly filling `h5`, but the grid's `aspect-square` caused the 6 tiles to overflow their container and overlap the next row (your screenshot: `34` overlapping `12`, `25` overlapping `3`, content hiding). The `overflow-x-hidden` on `html`/`body` also disabled vertical scroll on some browsers (your 2nd issue: no scroll up/down on web & mobile). And the `DashboardGrid` mobile `space-y-4` was blocked by the `aspect` styles.
+- **Fix (revert to known good BUILD 11 layout, keep all 3 fresh fixes):**
+  - **Reverted `src/components/dashboard/kpi-block.tsx` to BUILD 11:** Removed `aspect-square sm:aspect-[1.1] lg:aspect-square` and `min-h-[96px]` with `aspect`, back to `min-h-[88px] flex-col p-2` (balanced square-ish `88px` tall vs `260px` wide = `3:1` not flat, but not overlapping). Header `text-xs font-semibold` (was `9px` tiny), value `26-28px` kept, labels balanced. 2 rows ×88px + gap 8 = `184px` in `h5` (200px) → `16px` slack, no overlap, no hiding.
+  - **Reverted `src/lib/dashboard-layout.ts` to BUILD 11:** Kept `kpi h5 + types h5` at `y0` (200px) for uncrushed donut, `revenue y5`, `pipeline y5`, `today y12` etc., but removed the broken `aspect` logic. `LAYOUT_VERSION` stays `build13-final-complete` (no need to bump, already clears old `h4` layouts).
+  - **Reverted `src/app/globals.css` and `src/components/layout/app-shell.tsx` overflow:** Removed `html { overflow-x: hidden; }` and `body { overflow-x: hidden; }` from `globals.css` (that blocked vertical scroll on some mobile browsers). Kept `main` as `flex-1 pb-24 lg:pb-8` (without `overflow-x-hidden`), and kept `src/app/(app)/reports/page.tsx` outer as `w-full max-w-[1400px] space-y-6 px-4 py-6` (without `overflow-x-hidden` that might clip). Vertical scroll now works on both web & mobile.
+  - **Kept all 3 fresh fixes from BUILD 11:** Login auto-reload (`biscrm:auth-changed` in `login-form` + listeners in `data-provider`), tile labels `11px` balanced + square, mobile `overflow-x-hidden` only on dashboard outer (`dashboard-view.tsx`) + `Types` `h-[130px]` uncrushed, Reports no warning (`data-scroll-behavior`), whole CRM no horizontal scroll via `DashboardGrid` stack (not via `html`).
+- **Files reverted/touched:**
+  - `src/components/dashboard/kpi-block.tsx` — back to BUILD 11 `min-h-[88px] p-2` (no aspect), header `11px`, value `22-24px`, balanced
+  - `src/lib/dashboard-layout.ts` — back to BUILD 11 `h5` top row, no aspect, `LAYOUT_VERSION` kept
+  - `src/app/globals.css` — removed `overflow-x-hidden` from `html`/`body`
+  - `src/components/layout/app-shell.tsx` — `main` back to `flex-1` (no overflow-x-hidden)
+  - `src/app/(app)/reports/page.tsx` — outer back to `w-full max-w-[1400px] space-y-6 px-4` (no overflow-x-hidden)
+- **Build verified:** `npm run build` ✓ `158kB` `28/28` pages, **0 errors**, `git diff HEAD` clean after checkout, overlapping gone, scroll restored, mobile tap works (pipeline rows are `button` with `onClick`, today tasks `onClick` opens drawer)
+- **Rollback:** `git reset --hard BUILD_13` (`aa37397`) to overlapping broken; `git reset --hard BUILD_14` is this hotfix (no overlap, scroll works)
+- **Visual:** After this hotfix, dashboard top row shows `34` and `12` not overlapping, content not hiding, vertical scroll works on web & mobile, tap on `2 Lead` opens `Pipeline Snapshot` on mobile as on web
+
+## Build 15 — Reserved
+- Next build will be BUILD 15

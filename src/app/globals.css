@@ -362,11 +362,6 @@
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
-    overflow-x: hidden;
-  }
-
-  body {
-    overflow-x: hidden;
   }
 
   body {

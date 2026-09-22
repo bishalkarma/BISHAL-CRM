@@ -54,7 +54,7 @@ export const DEFAULT_LAYOUT: WidgetBox[] = [
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build13-final-complete";
+const LAYOUT_VERSION = "build11-login-tile-mobile";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
