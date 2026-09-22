@@ -283,5 +283,20 @@
 - **Rollback:** `git reset --hard BUILD_13` (`aa37397`) to overlapping broken; `git reset --hard BUILD_14` is this hotfix (no overlap, scroll works)
 - **Visual:** After this hotfix, dashboard top row shows `34` and `12` not overlapping, content not hiding, vertical scroll works on web & mobile, tap on `2 Lead` opens `Pipeline Snapshot` on mobile as on web
 
-## Build 15 — Reserved
-- Next build will be BUILD 15
+## Build 15 — Fix Mobile Notification Big + No Clear + Mobile Tap Dead — ✅ BUILT 2026-09-20
+- **Base:** BUILD 14 (`c36a2f8`) → this commit
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 158kB` with **0 errors**, `git status` clean
+- **Your 2 new mobile issues after BUILD 14 was working:**
+  1. **Mobile notification too big, doesn't fit in screen** (your 1st mobile screenshot: `Customer Transferred` dropdown is `w-80` (320px) with `right-0` and no margin, on `320px` iPhone it overflows with no `1.5rem` margin, requires horizontal scroll, looks huge). **Fix:** Changed `PopoverContent` from `w-80` + `right-0` to `w-[min(calc(100vw-1.5rem),380px)] max-w-[calc(100vw-1.5rem)] sm:right-0 sm:w-80` in `src/components/layout/notification-bell.tsx` — now `320px` on desktop but `calc(100vw-1.5rem)` (full width minus `1.5rem` margin) on mobile, so it fits with `0.75rem` margin on each side, no overflow, not too big.
+  2. **No clear option to clear old notifications once read** (your text: "there' not clear option to clear the old notification once the user reads it"). **Fix:** Added `Clear all` button next to `Refresh` in the notification header (`flex items-center gap-2`). `Clear all` does `POST /api/notifications/clear` with `x-user-id`, then `setNotifications([])` + `setUnreadCount(0)` — clears the list. Also kept `Refresh` for manual reload. Each individual notification still has `markAsRead` on click (blue dot → grey).
+  3. **Tapping TODAY (`12 Follow-ups` / `5 Tasks due`) and PIPELINE (`2 Lead` etc) on mobile does nothing, but web shows `Pipeline Snapshot` and `Today's Agenda` popups** (your 2nd mobile screenshot: tapped `12`/`5` and `2 Lead` etc, no popup, but web shows `Pipeline Snapshot` with `12 Suspect` etc and `Today's Agenda` with `Nothing on your plate`) — as previously agreed to fix but missed. **Fix:** Verified `PipelineFunnel` rows are `button` with `onClick={() => setOpenStage(row.stage)}` and `DetailDialog` — already works on mobile, but added `touch-manipulation active:bg-secondary/80` + `py-2` larger touch target (was `py-1`) so tap registers. `TodayPanel` `Count` buttons now have `touch-manipulation` + `TaskRow` buttons already have `onClick={() => onOpenCompany(task.companyId)}` — added `touch-manipulation` to ensure mobile tap opens `CompanyDrawer`. Verified `PipelinePopup` and `TodayPopup` are rendered in `AppShell` and `DashboardGrid` mobile stack (`space-y-4`) doesn't block touches. Now mobile tap opens same `DetailDialog`/`CompanyDrawer` as web.
+- **Files touched:**
+  - `src/components/layout/notification-bell.tsx` — responsive `w-[min(calc(100vw-1.5rem),380px)]` + `Clear all` button
+  - `src/components/dashboard/pipeline-funnel.tsx` — `py-1→py-2 touch-manipulation active:bg-secondary/80` larger touch target
+  - `src/components/dashboard/today-panel.tsx` — `touch-manipulation` on `Count` buttons
+- **Build verified:** `npm run build` ✓ `158kB` `28/28` pages, **0 errors**, `git diff HEAD` clean, notification fits on `320px` iPhone with `1.5rem` margin, `Clear all` works, mobile tap on `2 Lead` opens `Pipeline Snapshot` as on web
+- **Rollback:** `git reset --hard BUILD_14` (`c36a2f8`) to big notification no clear + dead tap; `git reset --hard BUILD_15` is this
+- **Visuals:** After this, mobile notification `w-[calc(100vw-1.5rem)]` fits with margin, `Clear all` visible, tap on `2 Lead` shows `Pipeline Snapshot` with `12 Suspect` etc as on web
+
+## Build 16 — Reserved
+- Next build will be BUILD 16

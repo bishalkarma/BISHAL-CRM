@@ -175,7 +175,7 @@ function Count({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-xl bg-secondary/50 px-2.5 py-2 text-left transition-colors hover:bg-secondary",
+        "rounded-xl bg-secondary/50 px-2.5 py-2 text-left transition-colors hover:bg-secondary touch-manipulation",
         active &&
           (tone === "danger"
             ? "bg-destructive/10 ring-1 ring-destructive/40"

@@ -107,17 +107,34 @@ export function NotificationBell({ onOpenCompany }: { onOpenCompany?: (companyId
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-border bg-popover p-0 shadow-lg">
+        <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-1.5rem),380px)] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-popover p-0 shadow-lg sm:right-0 sm:w-80">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold">Notifications</h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={fetchNotifications}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Refresh
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {notifications.length > 0 && (
+                <button
+                  onClick={async () => {
+                    // Mark all as read / clear
+                    try {
+                      await fetch("/api/notifications/clear", { method: "POST", headers: { "x-user-id": sessionStorage.getItem("demo_user_id") || "" } });
+                    } catch {}
+                    setNotifications([]);
+                    setUnreadCount(0);
+                  }}
+                  className="rounded px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+                >
+                  Clear all
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={fetchNotifications}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Refresh
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">

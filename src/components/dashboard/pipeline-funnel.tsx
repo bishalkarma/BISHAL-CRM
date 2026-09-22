@@ -87,7 +87,7 @@ export function PipelineFunnel({
             key={row.stage}
             type="button"
             onClick={() => setOpenStage(row.stage)}
-            className="block w-full rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-secondary/60"
+            className="block w-full rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-secondary/60 touch-manipulation active:bg-secondary/80"
             aria-label={`${STAGE_MAP[row.stage].label} — ${row.count} deals`}
           >
             <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
