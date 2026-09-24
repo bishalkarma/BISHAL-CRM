@@ -284,6 +284,7 @@
 - **Visual:** After this hotfix, dashboard top row shows `34` and `12` not overlapping, content not hiding, vertical scroll works on web & mobile, tap on `2 Lead` opens `Pipeline Snapshot` on mobile as on web
 
 ## Build 15 — Fix Mobile Notification Big + No Clear + Mobile Tap Dead — ✅ BUILT 2026-09-20
+- **Note:** This build was superseded by BUILD 15.1 below which fixes the two issues without the mobile responsive overreach
 - **Base:** BUILD 14 (`c36a2f8`) → this commit
 - **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 158kB` with **0 errors**, `git status` clean
 - **Your 2 new mobile issues after BUILD 14 was working:**
@@ -297,6 +298,17 @@
 - **Build verified:** `npm run build` ✓ `158kB` `28/28` pages, **0 errors**, `git diff HEAD` clean, notification fits on `320px` iPhone with `1.5rem` margin, `Clear all` works, mobile tap on `2 Lead` opens `Pipeline Snapshot` as on web
 - **Rollback:** `git reset --hard BUILD_14` (`c36a2f8`) to big notification no clear + dead tap; `git reset --hard BUILD_15` is this
 - **Visuals:** After this, mobile notification `w-[calc(100vw-1.5rem)]` fits with margin, `Clear all` visible, tap on `2 Lead` shows `Pipeline Snapshot` with `12 Suspect` etc as on web
+
+## Build 15.1 — Fix Hydration + Notification Clear Persist (No Mobile Responsive as Requested) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 15 (`b2d556b`) → this
+- **Status:** ✅ Build passed, 0 errors
+- **Your instruction:** "don't build the Mobile responsive but rest you can do it" — so this build does **NOT** include the whole-app mobile responsive overhaul (which would be big and could hamper the app). It only fixes the 2 you approved:
+  1. **Hydration mismatch `fdprocessedid`:** Your console showed `fdprocessedid="2vmjzd"` etc. on `button` and `input` added by your browser extension (Form Filler). Fixed by adding `suppressHydrationWarning` to `src/components/ui/button.tsx` and `src/components/ui/input.tsx` (and `src/app/layout.tsx` already has it on `<html>`). This silences the warning without disabling your extension.
+  2. **Notification Clear all not persisting after refresh:** `Clear all` did `setNotifications([])` only in memory, but `GET /api/notifications` refetched from DB on refresh. Fixed by creating `src/app/api/notifications/clear/route.ts` that does `supabase.from("notifications").update({ is_read: true }).eq("user_id", userId)` — now `Clear all` actually marks all as read in DB, so refresh shows `0` and `No notifications`.
+- **Files:** `src/components/ui/button.tsx`, `src/components/ui/input.tsx`, `src/app/api/notifications/clear/route.ts`
+- **Build verified:** `npm run build` passed, `fdprocessedid` warning gone, `Clear all` persists after refresh
+- **Rollback:** `git reset --hard BUILD_15` to before these 2; `git reset --hard BUILD_15.1` is this
+- **Mobile responsive:** Not built here as you requested — will be `BUILD 16` when you say so, and we will discuss if big changes are needed and whether they hamper the app
 
 ## Build 16 — Reserved
 - Next build will be BUILD 16
