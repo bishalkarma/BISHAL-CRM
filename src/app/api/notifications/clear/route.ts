@@ -13,11 +13,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mark all as read (soft clear) — keeps history but clears badge and list
-  // If you prefer hard delete, change to .delete().eq("user_id", userId)
+  // Hard delete — removes from DB so refresh stays cleared (user expects Clear all to actually clear, not just mark read)
   const { error } = await supabase
     .from("notifications")
-    .update({ is_read: true })
+    .delete()
     .eq("user_id", userId);
 
   if (error) {

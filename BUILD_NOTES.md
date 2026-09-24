@@ -310,5 +310,14 @@
 - **Rollback:** `git reset --hard BUILD_15` to before these 2; `git reset --hard BUILD_15.1` is this
 - **Mobile responsive:** Not built here as you requested — will be `BUILD 16` when you say so, and we will discuss if big changes are needed and whether they hamper the app
 
+## Build 15.2 — Fix Clear All Actually Deletes (Not Just Marks Read) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 15.1 (`005584f`) → this
+- **Status:** ✅ Build passed, 0 errors
+- **Your report:** "notification bell clear all is not working, after clear and refresh it shows again all the notification" — `Clear all` did `update({ is_read: true })` (soft clear) but `GET` still returned all rows (read + unread) and UI showed them, so refresh showed them again.
+- **Fix:** Changed `src/app/api/notifications/clear/route.ts` from `update({ is_read: true })` (soft) to `delete().eq("user_id", userId)` (hard delete) — now `Clear all` actually removes from DB, so `GET` on refresh returns `0` and `No notifications` stays. This matches your expectation that Clear all actually clears, not just marks read.
+- **Files:** `src/app/api/notifications/clear/route.ts` (1 line change)
+- **Build verified:** `npm run build` passed 158kB
+- **Rollback:** `git reset --hard BUILD_15.1` to soft clear; `git reset --hard BUILD_15.2` is this hard delete
+
 ## Build 16 — Reserved
 - Next build will be BUILD 16
