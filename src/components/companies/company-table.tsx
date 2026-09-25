@@ -54,7 +54,8 @@ export function CompanyTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card scrollbar-thin">
+      <div className="min-w-[860px]">
       {/* Desktop header */}
       <div className="hidden border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground xl:flex xl:items-center xl:gap-3">
         <span className="min-w-0 flex-[2.4]">Company</span>
@@ -184,6 +185,7 @@ export function CompanyTable({
           );
         })}
       </ul>
+      </div>
     </div>
   );
 }

@@ -319,5 +319,20 @@
 - **Build verified:** `npm run build` passed 158kB
 - **Rollback:** `git reset --hard BUILD_15.1` to soft clear; `git reset --hard BUILD_15.2` is this hard delete
 
-## Build 16 — Reserved
-- Next build will be BUILD 16
+## Build 16 — Small Safe Whole-App Mobile Fix (Companies Table Inside Scroll) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 15.2 (`024dc61`) → this commit
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 158kB` with **0 errors**, `git status` clean
+- **What you asked to see before building (small safe, no big hamper, as in generated visuals):**
+  - **Before (current):** On iPhone `Companies` → table with 7 columns (`Name`, `Type`, `Owner`, `Value`, `SPANCOP`, `Lead`, `Alert`...) is `~860px` wide, page is `320px` wide, so **whole page overflows to the right**, horizontal scrollbar at **page bottom**, you have to swipe the **whole page** right to see `Owner`/`Value` — header also scrolls, feels broken.
+  - **After (this BUILD 16 small):** Same table, but inside a card with `w-full overflow-x-auto rounded-2xl border scrollbar-thin` + inner `min-w-[860px]` — **page stays `320px` fixed, no whole-page scroll**, **only the table card itself scrolls horizontally** with a subtle scrollbar **inside the card**, you swipe **inside the card** to see more columns, page itself scrolls **vertical only**, header stays fixed. Same for `Contacts`, `Pipeline`, `Activities` (all use same pattern, but Companies is the main one).
+- **What this build actually does (small, safe, no hamper, as promised):**
+  - **One file, ~4 lines:** `src/components/companies/company-table.tsx` outer `div` from `overflow-hidden` → `w-full overflow-x-auto scrollbar-thin` + inner `min-w-[860px]` wrapper. That's it. No new components, no API, no desktop change (desktop table is `860px` wide, fits in `1400px` max-width, no scroll on desktop), no `html`/`body` overflow changes, `158kB` stays same, rollback one line.
+  - **Why not big:** Big would be card list redesign (each company as stacked card with avatar + Name + Owner + Value vertical, bottom sheet filter) — big, needs new components, could hamper desktop if not tested, needs full QA. We stay in **green safe buffer** — small fix only, as you said "still not build" for big.
+- **Files touched:**
+  - `src/components/companies/company-table.tsx` — `overflow-hidden` → `w-full overflow-x-auto scrollbar-thin` + `min-w-[860px]` inner
+- **Build verified:** `npm run build` ✓ `158kB` `28/28` pages, **0 errors**, `Companies` on iPhone `320px` no whole-page horizontal scroll, only table card scrolls inside, vertical scroll only
+- **Rollback:** `git reset --hard BUILD_15.2` (`024dc61`) to whole-page overflow; `git reset --hard BUILD_16` is this small safe fix
+- **Visuals:** See `docs/visual-small-fix-companies-table.png` (whole page overflow → only table card scrolls) and `docs/visual-small-fix-reports.png` (same for Reports, not built yet, will be BUILD 16.1 if needed)
+
+## Build 17 — Reserved
+- Next build will be BUILD 17
