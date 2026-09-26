@@ -61,15 +61,15 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Period Selector */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-muted-foreground">Period:</span>
-        <div className="flex gap-1 rounded-lg border border-border bg-secondary/30 p-1">
+      {/* Period Selector — wraps on mobile so it doesn't force the page to zoom */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-sm font-medium text-muted-foreground">Period:</span>
+        <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-border bg-secondary/30 p-1 sm:flex-nowrap">
           {PERIODS.map((p) => (
             <button
               key={p.key}
               onClick={() => setPeriod(p.key)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 period === p.key
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"

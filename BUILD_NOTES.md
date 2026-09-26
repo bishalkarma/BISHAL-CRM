@@ -335,6 +335,7 @@
 - **Visuals:** See `docs/visual-small-fix-companies-table.png` (whole page overflow → only table card scrolls) and `docs/visual-small-fix-reports.png` (same for Reports, not built yet, will be BUILD 16.1 if needed)
 
 ## Build 16.1 — Small Safe Whole-App — ALL TABLES (Pipeline, Contacts, Activities) — ✅ BUILT 2026-09-20
+- **Note:** Reports zoom fix below supersedes the previous Reports note — period selector now wraps on mobile, no zoom.
 - **Base:** BUILD 16 (`e518d25`) → this commit
 - **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 160kB` with **0 errors**
 - **Why you couldn't see BUILD 16 small:** It was only `Companies` table (1 file), so on `Companies` page you would see the table card now scrolls inside, but on `Pipeline`, `Contacts`, `Activities`, `Reports` you still saw whole-page overflow, so it felt like "couldn't find what you did".
@@ -350,6 +351,18 @@
 - **Build verified:** `npm run build` ✓ `160kB` dashboard, `36kB` pipeline, `4.6kB` companies, **0 errors**, `Companies` + `Pipeline` on iPhone `320px` no whole-page horizontal scroll, only table card scrolls inside
 - **Rollback:** `git reset --hard BUILD_16` (`e518d25`) to only Companies; `git reset --hard BUILD_16.1` is this (all tables)
 - **Visual:** After this, open any table page on iPhone (Companies, Pipeline, Contacts) → page no horizontal scrollbar, only the table card shows subtle inner scrollbar when you swipe inside it
+
+## Build 16.2 — Fix Reports Zoom on Mobile (Period Selector Wrap) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 16.1 (`d5cd54e`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 2.37kB` Reports with **0 errors**
+- **Your report:** "When i tap to report the page get's zoom and have to zoom out to see the content not that zoom but its zoomed and the whole CRM APP texted also seems minimized like small but if i go to other tap contacts, dashboard, companies, settings, deal no problem only in reports." Your 1st screenshot is zoomed (Reports header small, period buttons tiny, need zoom out), 2nd is you zoomed out manually.
+- **Cause:** `Reports` period selector was `flex gap-1` with 5 buttons (`This Week` etc) each `px-3 py-1.5 text-sm` = `~520px` wide, plus `Period:` label, in a `flex items-center` no wrap. On `320px` iPhone, the selector alone is wider than the viewport, so the browser zooms out the whole page to fit it, making everything look small/zoomed. Other pages (Dashboard, Companies etc.) don't have this wide selector, so they don't zoom.
+- **Fix:** Changed outer `div` from `flex items-center gap-2` → `flex flex-wrap items-center gap-2` + label `shrink-0` + inner `div` from `flex gap-1` → `flex max-w-full flex-wrap gap-1 sm:flex-nowrap` + buttons `shrink-0`. Now on mobile the 5 buttons wrap to 2 rows (e.g., 3 on first row, 2 on second) instead of forcing `520px` single row, so the page stays `320px` wide, no zoom, text stays normal size. On desktop `sm:flex-nowrap` keeps single row as before.
+- **Files touched:**
+  - `src/app/(app)/reports/page.tsx` — period selector wrap (`flex-wrap` + `max-w-full flex-wrap` + `shrink-0`)
+- **Build verified:** `npm run build` ✓ `2.37kB` Reports (was `2.34kB`, +30B for wrap), **0 errors**, Reports on iPhone `320px` no zoom, period buttons wrap, text normal, no whole-app zoom
+- **Rollback:** `git reset --hard BUILD_16.1` (`d5cd54e`) to zoomed; `git reset --hard BUILD_16.2` is this (no zoom)
+- **Visual:** After this, open `Reports` on iPhone (320px) → period selector wraps, page stays `100%` width, no need to zoom out, header `Reports & Analytics` normal `2xl` size
 
 ## Build 17 — Reserved
 - Next build will be BUILD 17
