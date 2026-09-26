@@ -364,5 +364,22 @@
 - **Rollback:** `git reset --hard BUILD_16.1` (`d5cd54e`) to zoomed; `git reset --hard BUILD_16.2` is this (no zoom)
 - **Visual:** After this, open `Reports` on iPhone (320px) → period selector wraps, page stays `100%` width, no need to zoom out, header `Reports & Analytics` normal `2xl` size
 
+## Build 16.3 — Fix Reports Still Not Fixed (Chart Cut Off + Bottom Nav) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 16.2 (`498cf57`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 2.38kB` Reports with **0 errors**
+- **Your report after BUILD 16.2:** "No report is still not fixed, i just fetch the your build and test it see the attached image." Your screenshot shows `Monthly Revenue` bar `AED 70,600` cut off at top and `Dashboard` tab text cut off at bottom under the mobile nav bar, and the whole `Reports` page still feels zoomed/cut off.
+- **Why still not fixed:** BUILD 16.2 only fixed the **period selector** (`This Week` etc wrapping), but the **Reports charts/tables themselves** are still fixed `h-[300px]` and the outer page is `pb-6` with no `pb-24` for the mobile tab bar, so on iPhone the `Monthly Revenue` `ResponsiveContainer` is `h-[300px]` inside a `h-[300px]` card, but the card has no `pb-24` for the bottom nav `Dashboard | Deals Pipeline | Companies | Activities` (which is `fixed bottom-0 h-16`), so the chart's bottom `40k` and the `Dashboard` tab text are cut off under the nav, and the bar's top `70,600` label is clipped at `top:30`.
+- **Fix:**
+  - **Outer Reports page:** `px-4 py-6 sm:px-6` → `px-4 py-6 pb-24 sm:px-6 lg:pb-6` (like `DashboardView` has `pb-24 lg:pb-8` to clear the tab bar) — now the page has `24` bottom padding on mobile to clear the `h-16` nav, so `Dashboard` tab text not cut off.
+  - **Chart height responsive:** `h-[300px]` → `h-[260px] sm:h-[300px]` — on `320px` iPhone the chart is `260px` tall (shorter, fits with `pb-24`), on `sm` and up it's `300px` as before. `ResponsiveContainer width="100%" height="100%"` now has more breathing room, `AED 70,600` label at `top:30` not clipped.
+  - **Period selector wrap:** Already in BUILD 16.2 (`flex-wrap`), kept. Outer already has `overflow-x-hidden` from BUILD 16.2, kept.
+- **Files touched:**
+  - `src/app/(app)/reports/page.tsx` — outer `pb-24 lg:pb-6` to clear bottom nav
+  - `src/components/reports/sales-performance.tsx` — `h-[300px]` → `h-[260px] sm:h-[300px]` responsive
+- **Build verified:** `npm run build` ✓ `2.38kB` Reports (was `2.37kB`, +10B), **0 errors**, Reports on iPhone `320px` no zoom, period buttons wrap, chart `AED 70,600` not clipped, bottom nav `Dashboard` not cut off
+- **Vercel:** As in your screenshot, `BUILD 16.2` at `498cf57` is **Preview** (`Ready` gray), `main` at `4b3016e` is **Production** (blue). **Yes, Vercel auto-deploys every push on any branch as Preview** (that's why you see `arena/019fd829-bishal-crm` at `498cf57` as `Ready` even though you never connected that branch — GitHub told Vercel "new push on arena" and Vercel built it as Preview). **Production** (`al-crm.vercel.app`) stays at `main` until you **Promote Preview to Production** (Vercel → Deployments → `...` → `Promote to Production`) or **merge `arena` → `main`**. No need to do `git fetch` for Vercel Preview — it's auto. For local, you do `git fetch`/`pull` as in the black terminal screenshots.
+- **Rollback:** `git reset --hard BUILD_16.2` (`498cf57`) to zoomed/cut off; `git reset --hard BUILD_16.3` is this (no zoom, no cut off)
+- **Preview:** After this, `BUILD 16.3` will be new top row `Ready` Preview at new commit, click `Preview` to see fix at `bishal-crm-xxxx-bishalkarma.vercel.app`; `Production` stays at `main` until you Promote
+
 ## Build 17 — Reserved
 - Next build will be BUILD 17
