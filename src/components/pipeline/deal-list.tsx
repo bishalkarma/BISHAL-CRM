@@ -33,7 +33,8 @@ export function DealList({
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card scrollbar-thin">
+      <div className="min-w-[720px]">
       {/* Desktop header */}
       <div className="hidden border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid md:grid-cols-[minmax(0,2.2fr)_130px_120px_110px_90px]">
         <span>Deal</span>
@@ -111,6 +112,7 @@ export function DealList({
           );
         })}
       </ul>
+      </div>
     </div>
   );
 }

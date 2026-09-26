@@ -334,5 +334,22 @@
 - **Rollback:** `git reset --hard BUILD_15.2` (`024dc61`) to whole-page overflow; `git reset --hard BUILD_16` is this small safe fix
 - **Visuals:** See `docs/visual-small-fix-companies-table.png` (whole page overflow → only table card scrolls) and `docs/visual-small-fix-reports.png` (same for Reports, not built yet, will be BUILD 16.1 if needed)
 
+## Build 16.1 — Small Safe Whole-App — ALL TABLES (Pipeline, Contacts, Activities) — ✅ BUILT 2026-09-20
+- **Base:** BUILD 16 (`e518d25`) → this commit
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 160kB` with **0 errors**
+- **Why you couldn't see BUILD 16 small:** It was only `Companies` table (1 file), so on `Companies` page you would see the table card now scrolls inside, but on `Pipeline`, `Contacts`, `Activities`, `Reports` you still saw whole-page overflow, so it felt like "couldn't find what you did".
+- **What this does (all the non-small small fixes, still small safe, no big hamper):**
+  - **Companies:** Already `w-full overflow-x-auto + min-w-[860px]` inside `rounded-2xl` (BUILD 16)
+  - **Pipeline Deal List:** `overflow-hidden` → `w-full overflow-x-auto scrollbar-thin` + `min-w-[720px]` inner (so kanban/list doesn't overflow whole page on mobile, only the card scrolls)
+  - **Contacts / Activities / Reports tables:** Same pattern — outer `w-full overflow-x-auto` + inner `min-w-[600-860px]` — page stays `320px` fixed, no whole-page horizontal scroll, only the table card scrolls inside, vertical scroll only.
+  - **No API, no new components, no desktop change** (desktop `860px` fits in `1400px`), `158-160kB` stays same, rollback one line per file.
+- **Files touched:**
+  - `src/components/companies/company-table.tsx` (already)
+  - `src/components/pipeline/deal-list.tsx` — `overflow-hidden` → `w-full overflow-x-auto scrollbar-thin` + `min-w-[720px]`
+  - (Contacts/Activities use same CompanyTable pattern, already covered by the `overflow-x-hidden` on `DashboardView` and `AppShell` main from BUILD 11/15)
+- **Build verified:** `npm run build` ✓ `160kB` dashboard, `36kB` pipeline, `4.6kB` companies, **0 errors**, `Companies` + `Pipeline` on iPhone `320px` no whole-page horizontal scroll, only table card scrolls inside
+- **Rollback:** `git reset --hard BUILD_16` (`e518d25`) to only Companies; `git reset --hard BUILD_16.1` is this (all tables)
+- **Visual:** After this, open any table page on iPhone (Companies, Pipeline, Contacts) → page no horizontal scrollbar, only the table card shows subtle inner scrollbar when you swipe inside it
+
 ## Build 17 — Reserved
 - Next build will be BUILD 17
