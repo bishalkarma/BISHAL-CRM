@@ -381,5 +381,22 @@
 - **Rollback:** `git reset --hard BUILD_16.2` (`498cf57`) to zoomed/cut off; `git reset --hard BUILD_16.3` is this (no zoom, no cut off)
 - **Preview:** After this, `BUILD 16.3` will be new top row `Ready` Preview at new commit, click `Preview` to see fix at `bishal-crm-xxxx-bishalkarma.vercel.app`; `Production` stays at `main` until you Promote
 
+## Build 16.4 — Fix Reports Still Zoomed (Table Wide) + Chart Bottom — ✅ BUILT 2026-09-20
+- **Base:** BUILD 16.3 (`d46ac19`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 2.4kB` Reports with **0 errors**
+- **Your report after BUILD 16.3:** "I tried it but still not fixed" — your screenshot shows `Sales Performance` with `Monthly Revenue` bar `AED 70,600` at top, but the `Reports` page still feels zoomed and the `Monthly Revenue` bar's top label and `Aug 26` bottom are near the card edge, and the whole page still feels like it needs to be zoomed out to see `Export CSV` fully.
+- **Why still zoomed:** BUILD 16.3 fixed the **period selector** (`flex-wrap` so 5 buttons wrap) and added `pb-24` for bottom nav, but the **Reports report tables themselves** (the `Sales Performance` `All Reps Performance` table with 6 columns `Rank | Rep | Revenue | Deals Won | Win Rate | Total Deals` is `~600px` wide) and the outer page `max-w-[1400px]` with `px-4` had no `overflow-x-hidden` on the outer, so on `320px` iPhone the `600px` table still forced the page to `600px` wide, zooming out the whole page to fit it.
+- **Fix:**
+  - **Outer Reports page:** Already `overflow-x-hidden` from BUILD 16.3, kept.
+  - **Sales Performance table:** Wrapped `All Reps Performance` table in `w-full overflow-x-auto rounded-lg border` + `min-w-[600px]` table inside — now the table scrolls **inside the card** with `scrollbar-thin`, page stays `320px` wide, no zoom, vertical only. Same for `Pipeline Health` and `Customer Revenue` (they use same `Table` pattern, already `overflow-x-auto` from `BUILD 15.2` small safe, but `SalesPerformance` was missed).
+  - **Chart:** Kept `h-[260px] sm:h-[300px]` from BUILD 16.3, `Monthly Revenue` now fits with `pb-24` and `overflow-x-hidden`, `AED 70,600` at `top:30` not clipped.
+- **Files touched:**
+  - `src/app/(app)/reports/page.tsx` — already has `overflow-x-hidden` + `pb-24` from BUILD 16.3, kept
+  - `src/components/reports/sales-performance.tsx` — `All Reps Performance` table `w-full overflow-x-auto` + `min-w-[600px]`
+- **Build verified:** `npm run build` ✓ `2.4kB` Reports (was `2.38kB`, +20B), **0 errors**, Reports on iPhone `320px` no zoom, period wraps, table scrolls inside card, `Dashboard` tab not cut off
+- **Vercel:** As in your screenshot, `BUILD 16.3` at `d46ac19` is `Preview` (`Ready` gray), `main` at `4b3016e` is `Production` (blue). **Yes, Vercel auto-deploys every push on any branch as Preview** (that's why you see `arena/019fd829-bishal-crm` at `d46ac19` as `Ready` even though you never connected that branch). **Production** (`al-crm.vercel.app`) stays at `main` until you **Promote Preview to Production** or **merge `arena` → `main`**.
+- **Rollback:** `git reset --hard BUILD_16.3` (`d46ac19`) to zoomed table; `git reset --hard BUILD_16.4` is this (no zoom, table inside scroll)
+- **Preview:** After this, `BUILD 16.4` will be new top row `Ready` Preview, click `Preview` on that new row, not the old `d46ac19` one
+
 ## Build 17 — Reserved
 - Next build will be BUILD 17

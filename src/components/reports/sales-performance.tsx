@@ -391,11 +391,12 @@ export function SalesPerformanceReport({
 
       {/* Full Leaderboard Table (Team View Only) */}
       {isTeam && (
-        <div className="mt-8">
+        <div className="mt-8 overflow-hidden">
           <h3 className="mb-4 text-sm font-semibold text-foreground">
             All Reps Performance
           </h3>
-          <Table>
+          <div className="w-full overflow-x-auto rounded-lg border">
+            <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Rank</TableHead>
@@ -433,7 +434,8 @@ export function SalesPerformanceReport({
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
       )}
     </Card>
