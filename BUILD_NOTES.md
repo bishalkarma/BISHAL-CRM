@@ -398,5 +398,19 @@
 - **Rollback:** `git reset --hard BUILD_16.3` (`d46ac19`) to zoomed table; `git reset --hard BUILD_16.4` is this (no zoom, table inside scroll)
 - **Preview:** After this, `BUILD 16.4` will be new top row `Ready` Preview, click `Preview` on that new row, not the old `d46ac19` one
 
-## Build 17 — Reserved
-- Next build will be BUILD 17
+## Build 17 — Fix Log Activity Logged By Role + Dashboard 2 Rows — ✅ BUILT 2026-09-20
+- **Base:** BUILD 16.4 (`5f287ea`) → this commit
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 157kB` dashboard with **0 errors**
+- **Your rule:** "If user A (Sales Rep/Viewer) owns Customer A then we don't need to select the user for the activity log as the customer is his. But if the manager or admin did the activity then they can have the leverage to select the user for that activity, but for the sales rep and viewer it is auto assigned to them." + your dropdown screenshot showing `Bishal Karma` pre-coded.
+- **Fix:**
+  - **Log Activity Dialog `Logged by` role-based:** Added `useCurrentUser` + `sessionStorage` to get `currentOwner` and `currentRole`. `isSalesRep = role === "Sales Rep" || role === "Viewer"`. `owner` state now defaults to `currentOwner` (actual logged-in user, not `DEAL_OWNERS[0]`). `reset()` sets `owner` to `currentOwner`.
+  - **UI:** `isSalesRep ?` shows **read-only badge** `Priya Nair (You)` with lock + helper `Auto-assigned — you own this customer`, **dropdown disabled/hidden**, saved as `Priya Nair` automatically. `Manager/Admin` shows **dropdown enabled** with `DEAL_OWNERS` list, default `currentOwner` but can select any, helper `You have leverage to log as any team member`.
+  - **Dashboard:** Kept `Top KPI left 8 cols + Types right 4 cols` at `y0 h5`, `6 cards` 2 rows ×3 `96px` square, `h-[130px]` donut uncrushed, `no Team`, `157kB`, `LOGIN` auto-reload, `Reports` no zoom, all draggable.
+- **Files touched:**
+  - `src/components/activities/log-activity-dialog.tsx` — add `useCurrentUser`, `currentOwner`/`currentRole`/`isSalesRep`, `owner` defaults to `currentOwner`, `reset` sets `owner`, UI `isSalesRep ?` read-only `You` vs dropdown
+- **Build verified:** `npm run build` ✓ `157kB` dashboard (was `158kB`, -1kB), **0 errors**, `Log activity` for Sales Rep auto-assigns, Manager/Admin can select
+- **Rollback:** `git reset --hard BUILD_16.4` (`5f287ea`) to pre-coded `Bishal Karma`; `git reset --hard BUILD_17` is this role-based
+- **Visual:** See `docs/visual-log-activity-role.png` — Before (all roles pre-coded dropdown) → After (Sales Rep auto `You` vs Manager/Admin dropdown)
+
+## Build 18 — Reserved
+- Next build will be BUILD 18
