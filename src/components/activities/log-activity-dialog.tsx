@@ -23,6 +23,7 @@ import {
   type ActivityType,
 } from "@/lib/activities";
 import { DEAL_OWNERS } from "@/lib/deals";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useData } from "@/components/providers/data-provider";
 import {
   Dialog,
@@ -90,7 +91,12 @@ export function LogActivityDialog({
   const [dealId, setDealId] = React.useState("");
   const [report, setReport] = React.useState("");
   const [occurredAt, setOccurredAt] = React.useState("");
-  const [owner, setOwner] = React.useState<string>(DEAL_OWNERS[0]);
+  const { user: currentUser } = useCurrentUser();
+  const [realUsers, setRealUsers] = React.useState<string[]>([...DEAL_OWNERS]);
+  const currentOwner = currentUser?.displayName || (typeof window !== "undefined" ? sessionStorage.getItem("demo_display_name") || sessionStorage.getItem("demo_user") : null) || DEAL_OWNERS[0];
+  const currentRole = currentUser?.roleName || (typeof window !== "undefined" ? sessionStorage.getItem("demo_user_role") : null) || "Viewer";
+  const isSalesRep = currentRole === "Sales Rep" || currentRole === "Viewer";
+  const [owner, setOwner] = React.useState<string>(currentOwner);
   const [showAllContacts, setShowAllContacts] = React.useState(false);
   const [touched, setTouched] = React.useState(false);
 
@@ -102,6 +108,7 @@ export function LogActivityDialog({
 
   const reset = React.useCallback(() => {
     setType(editing?.type ?? completing?.type ?? "call");
+    setOwner(currentOwner);
     setCompanyId(
       editing?.companyId ?? completing?.companyId ?? presetCompanyId ?? "",
     );
@@ -117,11 +124,26 @@ export function LogActivityDialog({
     setTask(editing?.task ?? "");
     setTaskDueAt(editing?.taskDueAt?.slice(0, 10) ?? "");
     setRemind(editing?.remind ?? true);
-  }, [presetCompanyId, presetDealId, completing, editing]);
+  }, [presetCompanyId, presetDealId, completing, editing, currentOwner]);
 
   React.useEffect(() => {
     if (open) reset();
   }, [open, reset]);
+
+  // Fetch real users from DB for Manager/Admin dropdown
+  React.useEffect(() => {
+    if (!open || isSalesRep) return;
+    const userId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (userId) headers["x-demo-user-id"] = userId;
+    fetch("/api/team/users", { headers })
+      .then(r => r.json())
+      .then(data => {
+        const names = (data.users || []).map((u: { displayName?: string; display_name?: string; username?: string }) => u.displayName || u.display_name || u.username).filter(Boolean) as string[];
+        if (names.length > 0) setRealUsers(names);
+      })
+      .catch(() => {});
+  }, [open, isSalesRep]);
 
   // Default the contact to the company primary, but never the deal.
   React.useEffect(() => {
@@ -460,17 +482,28 @@ export function LogActivityDialog({
 
           <div>
             <Label>Logged by</Label>
-            <select
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-accent"
-            >
-              {DEAL_OWNERS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
+            {isSalesRep ? (
+              <div className="flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-muted px-3 text-sm">
+                <span className="flex-1 font-medium">{owner}</span>
+                <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent-foreground">You</span>
+                <span className="hidden text-xs text-muted-foreground sm:inline">Auto-assigned — you own this customer</span>
+              </div>
+            ) : (
+              <>
+                <select
+                  value={owner}
+                  onChange={(e) => setOwner(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-accent"
+                >
+                  {realUsers.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">You have leverage to log as any team member</p>
+              </>
+            )}
           </div>
         </div>
 
