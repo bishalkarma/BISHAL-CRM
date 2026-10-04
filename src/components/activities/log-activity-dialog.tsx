@@ -223,7 +223,7 @@ export function LogActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto scrollbar-thin">
+      <DialogContent className="max-h-[92vh] max-w-[calc(100vw-1rem)] overflow-y-auto p-4 scrollbar-thin sm:max-w-2xl sm:p-6">
         <DialogHeader>
           <DialogTitle>
             {editing ? "Edit activity" : completing ? "Complete task" : "Log activity"}
