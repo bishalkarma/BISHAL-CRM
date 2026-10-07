@@ -443,6 +443,19 @@
 - **Rollback:** `git reset --hard BUILD_18.2` (`e45f305`) to with gear + cut off; `git reset --hard BUILD_18.3` is this (no gear, cards fixed)
 - **Visual:** After this, top bar `Companies` header shows `cloud search bell palette moon BK` (no gear), Companies `Sqaure Hotel` text wraps
 
+## Build 18.4 — Topbar: Remove Gear (already) + Move Cloud/Theme Inside Profile + Search Without Ctrl K — ✅ BUILT 2026-09-20
+- **Base:** BUILD 18.3 (`14ab3a3`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 157kB` with **0 errors**
+- **Your 3 new requests after BUILD 18.3 was working (you said "Last command is not build yet"):**
+  1. **Remove Gear icon as its already inside profile icon** — **Already done in BUILD 18.3** (`src/components/layout/topbar.tsx` removed `Settings` gear, top bar went from `cloud search bell palette moon gear BK` to `cloud search bell palette moon BK` (no gear)). Kept.
+  2. **Move color theme icon inside profile icon, stack in there as in 2nd image, for the cloud icon move that one also inside profile icon as stack** — **Fix:** Removed `DataSourceBadge` (cloud), `ThemeSwitcher` (palette), `ModeToggle` (moon) from top bar `div` (was `ml-auto flex gap-0.5` with `DataSourceBadge` + `ThemeSwitcher` + `ModeToggle` outside dropdown). Now top bar `div` has only `NotificationBell` + `DropdownMenu` (avatar). Inside `DropdownMenuContent` (profile dropdown as in your 2nd image `Bishal Karma bishal@gmail.com` → `Profile settings` → `Sign out`), added a new section: `Theme` row with `ThemeSwitcher` + `ModeToggle` side-by-side, and `Data source` row with `DataSourceBadge` stacked, both with `DropdownMenuSeparator` before `Profile settings`. Now top bar shows `cloud search bell BK` (actually `search bell BK` only, since `cloud` moved inside), and profile dropdown shows `Theme` + `Data source` stacked.
+  3. **Make the search bar like 3rd image, just remove that text Ctrl K** — **Fix:** Removed `isMac` state + `useEffect` for `Ctrl K` + `kbd` element from `Quick search` button. Button now shows only `Search anything…` with `Search` icon, no `Ctrl K` / `⌘ K` text, as in your 3rd image `Search anything...` with magnifier icon and no `Ctrl K` badge. Kept `lg:flex` desktop search, `lg:hidden` mobile search icon.
+- **Files touched:**
+  - `src/components/layout/topbar.tsx` — remove `isMac` + `kbd Ctrl K`, move `DataSourceBadge` + `ThemeSwitcher` + `ModeToggle` from top bar `div` into `DropdownMenuContent` (`Theme` + `Data source` rows stacked)
+- **Build verified:** `npm run build` ✓ `157kB` dashboard `✓ 2.4kB` Reports, **0 errors**, top bar `Dashboard` header shows `cloud search bell BK` (no gear, no palette/moon outside), profile dropdown shows `Theme` + `Data source` stacked, search bar `Search anything…` no `Ctrl K`
+- **Rollback:** `git reset --hard BUILD_18.3` (`14ab3a3`) to with gear + cloud/theme outside + `Ctrl K`; `git reset --hard BUILD_18.4` is this (no gear, inside profile, no Ctrl K)
+- **Visual:** After this, top bar `Companies` header shows `cloud search bell BK` (no gear, no palette/moon), profile dropdown shows `Bishal Karma` → `Theme` row + `Data source` row → `Profile settings` → `Sign out`, search bar `Search anything…` with magnifier and no `Ctrl K`
+
 ## Build 19 — Reserved
 - Next build will be BUILD 19
 

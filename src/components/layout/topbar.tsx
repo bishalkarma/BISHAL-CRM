@@ -97,12 +97,7 @@ export function Topbar({
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
 
-  const [isMac, setIsMac] = React.useState(true);
   const { user: userInfo } = useCurrentUser();
-
-  React.useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform ?? ""));
-  }, []);
 
   const handleSignOut = React.useCallback(async () => {
     if (isSupabaseConfigured && supabase) {
@@ -149,7 +144,7 @@ export function Topbar({
         {current?.label ?? "Bishal Sales CRM"}
       </div>
 
-      {/* Quick search */}
+      {/* Quick search — no Ctrl K text as in 3rd image, just Search anything... */}
       <button
         onClick={onOpenSearch}
         className={cn(
@@ -158,14 +153,9 @@ export function Topbar({
       >
         <Search className="size-4 shrink-0" />
         <span className="flex-1 text-left">Search anything…</span>
-        <kbd className="shrink-0 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-semibold">
-          {isMac ? "" : "Ctrl"} K
-        </kbd>
       </button>
 
       <div className="ml-auto flex items-center gap-0.5 lg:ml-2">
-        <DataSourceBadge />
-
         <Button
           variant="ghost"
           size="icon-sm"
@@ -177,9 +167,6 @@ export function Topbar({
         </Button>
 
         <NotificationBell onOpenCompany={onOpenCompany} />
-
-        <ThemeSwitcher />
-        <ModeToggle />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -203,6 +190,20 @@ export function Topbar({
                 {email}
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Theme</span>
+                <div className="flex items-center gap-1">
+                  <ThemeSwitcher />
+                  <ModeToggle />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-2 py-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Data source</span>
+              <DataSourceBadge />
+            </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/settings">Profile settings</Link>
