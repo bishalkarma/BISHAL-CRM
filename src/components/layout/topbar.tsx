@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu, PanelLeft, Search, Settings } from "lucide-react";
+import { LogOut, Menu, PanelLeft, Search } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -180,12 +180,6 @@ export function Topbar({
 
         <ThemeSwitcher />
         <ModeToggle />
-
-        <Button variant="ghost" size="icon-sm" asChild aria-label="Settings">
-          <Link href="/settings" title="Settings">
-            <Settings />
-          </Link>
-        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

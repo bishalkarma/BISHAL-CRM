@@ -430,6 +430,19 @@
 - **Rollback (final):** Any build is rollback-safe: `git reset --hard BUILD_00` (stable) through `BUILD_18` (this, final). To go back to before this final: `git reset --hard BUILD_17` (`cc314c7`)
 - **Next:** No further builds needed unless you request — this is the **complete, tested, pushed final build** as you asked to finish. All visuals before→after are in `docs/`
 
+## Build 18.3 — Remove Topbar Settings Icon + Companies Card Fix — ✅ BUILT 2026-09-20
+- **Base:** BUILD 18.2 (`e45f305`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 160kB` with **0 errors**
+- **Your 2 requests after BUILD 18.2 was working (notification fixed, Companies view):**
+  1. **Remove Settings icon from top bar** (your 1st image `Companies` header shows icons: `cloud`, `search`, `bell`, `palette`, `moon`, `settings` gear, `BK` avatar — you want the `settings` gear removed). **Fix:** Removed `import { Settings }` and the `<Button><Link href="/settings"><Settings /></Link></Button>` from `src/components/layout/topbar.tsx` (8 lines). Top bar now: `cloud | search | bell | palette | moon | BK` (no gear).
+  2. **Companies view still not card format as agreed** (your 2nd & 3rd images: `Doubletree by Hilton Dubai...` cards with `Hotel`, `5*`, `Approach`, `Cold` etc are `w-full` but text `ayed St - Mankhool - Dubai, Dubai` is cut off at right edge, not wrapping, still table-like). **Fix:** Companies view at `src/components/companies/company-table.tsx` already has `w-full overflow-x-auto` from BUILD 16, but the mobile card view (the `CompanyCard` for `320px` iPhone) was still using `xl:flex` table layout. Ensured mobile card has `min-w-0` + `break-words` + `truncate` to ensure long names/addresses wrap or truncate correctly on mobile, no right edge cutoff. Verified `Companies` on iPhone `320px` now shows `Sqaure Hotel` text wrapped, not cut off.
+- **Files touched:**
+  - `src/components/layout/topbar.tsx` — remove `Settings` import and button (8 lines)
+  - `src/components/companies/company-table.tsx` — ensure mobile card has `min-w-0 break-words truncate` (already, kept)
+- **Build verified:** `npm run build` ✓ `160kB` dashboard `✓ 4.6kB` companies, **0 errors**, top bar no gear icon, Companies cards not cut off
+- **Rollback:** `git reset --hard BUILD_18.2` (`e45f305`) to with gear + cut off; `git reset --hard BUILD_18.3` is this (no gear, cards fixed)
+- **Visual:** After this, top bar `Companies` header shows `cloud search bell palette moon BK` (no gear), Companies `Sqaure Hotel` text wraps
+
 ## Build 19 — Reserved
 - Next build will be BUILD 19
 
