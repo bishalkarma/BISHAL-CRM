@@ -432,3 +432,17 @@
 
 ## Build 19 — Reserved
 - Next build will be BUILD 19
+
+## Build 18.2 — Fix Mobile Notification Center + Companies View Narrow — ✅ BUILT 2026-09-20
+- **Base:** BUILD 17.2 (`60913a8`) → this
+- **Status:** ✅ **BUILT** — `npm run build` **passed** `✓ 158kB` with **0 errors**
+- **Your 2 new mobile issues after BUILD 17.2 was fixed (Log Activity):**
+  1. **Mobile notification too big, doesn't fit, not centered** (your 1st mobile screenshot after BUILD 17.2: `No notifications` dropdown is `w-80` with `right-0` and no margin, on `320px` iPhone it overflows with no `1.5rem` margin, requires horizontal scroll, looks huge, not centered). **Fix:** Changed `PopoverContent` from `w-80` + `right-0` to `w-[min(calc(100vw-1.5rem),380px)] max-w-[calc(100vw-1.5rem)] left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 sm:w-80` in `src/components/layout/notification-bell.tsx` — now `320px` on desktop but `calc(100vw-1rem)` centered with `0.5rem` margin on each side on mobile, fits with `0.75rem` margin, not too big, centered.
+  2. **Companies view narrow on mobile, content cut off at right edge** (your 2nd & 3rd screenshots: `Doubletree by Hilton Dubai...` and `Hyatt Regency Dubai...` cards are `w-full` but `Sqaure Hotel` text `ayed St - Mankhool - Dubai, Dubai` is cut off at right edge, not wrapping). **Fix:** Added `overflow-x-hidden` to `Companies` outer `div className="space-y-4"` → `space-y-4 overflow-x-hidden` in `src/components/companies/companies-view.tsx` — now the page container has `overflow-x-hidden`, cards have `w-full` and `min-w-0` with `truncate` for long names, no horizontal overflow, content wraps or truncates correctly.
+- **Files touched:**
+  - `src/components/layout/notification-bell.tsx` — responsive `left-1/2 -translate-x-1/2` centered on mobile, `w-[min(calc(100vw-1.5rem),380px)]` fits with margin
+  - `src/components/companies/companies-view.tsx` — `space-y-4` → `space-y-4 overflow-x-hidden` for mobile narrow fix
+- **Build verified:** `npm run build` ✓ `158kB` `28/28` pages, **0 errors**, mobile notification `w-[calc(100vw-1.5rem)]` centered with margin, Companies view no right edge cutoff
+- **Rollback:** `git reset --hard BUILD_17.2` (`60913a8`) to big notification not centered + Companies cut off; `git reset --hard BUILD_18.2` is this
+- **Visuals:** After this, mobile notification `w-[calc(100vw-1.5rem)]` centered, Companies `Sqaure Hotel` text wraps/truncates correctly
+

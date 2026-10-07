@@ -91,7 +91,7 @@ export function CompaniesView() {
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-hidden">
       <PageHeader
         title="Companies"
         description="Customer relationships tracked through the SPANCOP cycle."

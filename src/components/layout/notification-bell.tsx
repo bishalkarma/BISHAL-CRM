@@ -107,7 +107,7 @@ export function NotificationBell({ onOpenCompany }: { onOpenCompany?: (companyId
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-1.5rem),380px)] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-popover p-0 shadow-lg sm:right-0 sm:w-80">
+        <div className="absolute left-1/2 top-12 z-50 w-[min(calc(100vw-1rem),360px)] -translate-x-1/2 rounded-lg border border-border bg-popover p-0 shadow-lg sm:left-auto sm:right-0 sm:w-80 sm:translate-x-0">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold">Notifications</h3>
             <div className="flex items-center gap-2">
