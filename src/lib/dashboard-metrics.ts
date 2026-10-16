@@ -329,19 +329,21 @@ export function closedAt(deal: Deal): string | null {
 }
 
 export type LossReasonRow = {
-  reason: LostReason;
-  /** Number of rejected LINES, not deals. */
+  reason: LostReason | "Not recorded";
+  /** Lost/rejected lines, or one entry for a legacy lost deal with no lines. */
   count: number;
   value: number;
-  /** Every rejected line, with the deal it came from. */
-  lines: { deal: Deal; line: LineItem; value: number }[];
+  /** No line means a legacy deal-level loss; no product is invented. */
+  lines: { deal: Deal; line: LineItem | null; value: number }[];
   /** Distinct deals involved, for the drill-down. */
   deals: Deal[];
 };
 
 /**
- * Lost deals grouped by reason, filtered by the date they were LOST.
- * Reasons with no deals are kept so the tile shows the full set of four.
+ * Lost business grouped by reason. A Lost deal loses every line, even when
+ * the pipeline close action leaves line statuses quoted/approved. A specific
+ * rejection reason takes precedence over the deal's reason; each line counts
+ * once. Won/open deals contribute only explicitly rejected lines.
  */
 export function lossReasons(
   deals: Deal[],
@@ -349,44 +351,52 @@ export function lossReasons(
   convert: (amount: number, from: CurrencyCode) => number,
   now = Date.now(),
 ): LossReasonRow[] {
-  /*
-    Counted per LINE, not per deal.
-
-    A package can be won while one item inside it is turned down — that is
-    still lost business, and counting whole deals hid it completely. Rejected
-    lines are read from won, lost and open deals alike, because a rejection is
-    a rejection wherever it happens.
-  */
-  type Hit = { deal: Deal; line: LineItem; value: number };
+  type Hit = LossReasonRow["lines"][number] & { reason: LossReasonRow["reason"] };
   const hits: Hit[] = [];
+  const reasonFor = (reason?: LostReason): LossReasonRow["reason"] =>
+    reason && LOST_REASONS.includes(reason) ? reason : "Not recorded";
 
   for (const deal of deals) {
-    // A lost deal is dated by when it closed; a rejected line inside a live
-    // deal has no close date of its own, so the deal's creation date is used.
+    // Rejected lines have no independent timestamp in the current model.
     const when =
       deal.stage === "lost" ? (closedAt(deal) ?? deal.createdAt) : deal.createdAt;
     if (!withinPeriod(when, period, now)) continue;
 
+    if (deal.stage === "lost" && deal.lines.length === 0) {
+      hits.push({
+        deal,
+        line: null,
+        reason: reasonFor(deal.lostReason),
+        value: convert(deal.value, deal.currency),
+      });
+    }
+
     for (const line of deal.lines) {
-      if (line.status !== "rejected" || !line.rejectReason) continue;
+      if (deal.stage !== "lost" && line.status !== "rejected") continue;
       hits.push({
         deal,
         line,
+        reason: reasonFor(
+          line.status === "rejected"
+            ? (line.rejectReason ?? (deal.stage === "lost" ? deal.lostReason : undefined))
+            : deal.lostReason,
+        ),
         value: convert(lineTotal(line), deal.currency),
       });
     }
   }
 
-  return LOST_REASONS.map((reason) => {
-    const matching = hits.filter((h) => h.line.rejectReason === reason);
+  const reasons: LossReasonRow["reason"][] = [...LOST_REASONS];
+  if (hits.some((hit) => hit.reason === "Not recorded")) reasons.push("Not recorded");
+
+  return reasons.map((reason) => {
+    const matching = hits.filter((hit) => hit.reason === reason);
     return {
       reason,
       count: matching.length,
-      value: matching.reduce((sum, h) => sum + h.value, 0),
+      value: matching.reduce((sum, hit) => sum + hit.value, 0),
       lines: matching,
-      // Distinct deals, so the drill-down does not repeat a package that
-      // had two lines rejected for the same reason.
-      deals: [...new Set(matching.map((h) => h.deal))],
+      deals: [...new Set(matching.map((hit) => hit.deal))],
     };
   }).sort((a, b) => b.value - a.value || b.count - a.count);
 }

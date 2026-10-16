@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Bell, Check } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Notification = {
   id: string;
@@ -21,7 +22,6 @@ export function NotificationBell({ onOpenCompany }: { onOpenCompany?: (companyId
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isOpen, setIsOpen] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
 
   // Fetch notifications with polling
   React.useEffect(() => {
@@ -92,89 +92,93 @@ export function NotificationBell({ onOpenCompany }: { onOpenCompany?: (companyId
   if (!user) return null;
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        aria-label="Notifications"
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="end"
+        sideOffset={12}
+        collisionPadding={8}
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg p-0"
       >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-1/2 top-12 z-50 w-[min(calc(100vw-1rem),360px)] -translate-x-1/2 rounded-lg border border-border bg-popover p-0 shadow-lg sm:left-auto sm:right-0 sm:w-80 sm:translate-x-0">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h3 className="text-sm font-semibold">Notifications</h3>
-            <div className="flex items-center gap-2">
-              {notifications.length > 0 && (
-                <button
-                  onClick={async () => {
-                    // Mark all as read / clear
-                    try {
-                      await fetch("/api/notifications/clear", { method: "POST", headers: { "x-user-id": sessionStorage.getItem("demo_user_id") || "" } });
-                    } catch {}
-                    setNotifications([]);
-                    setUnreadCount(0);
-                  }}
-                  className="rounded px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10"
-                >
-                  Clear all
-                </button>
-              )}
-              {unreadCount > 0 && (
-                <button
-                  onClick={fetchNotifications}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Refresh
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No notifications
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-secondary ${
-                    !notification.is_read ? "bg-secondary/50" : ""
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm ${!notification.is_read ? "font-semibold" : "font-medium"}`}>
-                          {notification.title}
-                        </p>
-                        {!notification.is_read && (
-                          <span className="h-2 w-2 rounded-full bg-accent" />
-                        )}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {notification.message}
-                      </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        {formatTime(notification.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold">Notifications</h3>
+          <div className="flex items-center gap-2">
+            {notifications.length > 0 && (
+              <button
+                onClick={async () => {
+                  // Mark all as read / clear
+                  try {
+                    await fetch("/api/notifications/clear", { method: "POST", headers: { "x-user-id": sessionStorage.getItem("demo_user_id") || "" } });
+                  } catch {}
+                  setNotifications([]);
+                  setUnreadCount(0);
+                }}
+                className="rounded px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+              >
+                Clear all
+              </button>
+            )}
+            {unreadCount > 0 && (
+              <button
+                onClick={fetchNotifications}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Refresh
+              </button>
             )}
           </div>
         </div>
-      )}
-    </div>
+
+        <div className="min-h-0 max-h-96 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No notifications
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <button
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={`w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-secondary ${
+                  !notification.is_read ? "bg-secondary/50" : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1 break-words">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm ${!notification.is_read ? "font-semibold" : "font-medium"}`}>
+                        {notification.title}
+                      </p>
+                      {!notification.is_read && (
+                        <span className="h-2 w-2 rounded-full bg-accent" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {notification.message}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {formatTime(notification.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -20,8 +20,7 @@ const TONES = [
 ];
 
 /**
- * Why we lose — the only tile that reads `lostReason`, a field captured on
- * every lost deal and until now never shown back to anyone.
+ * Why we lose — whole-deal losses and individual product rejections.
  */
 export function LossReasonsTile({
   rows,
@@ -38,16 +37,16 @@ export function LossReasonsTile({
   const max = Math.max(...rows.map((r) => r.value), 1);
   const totalCount = rows.reduce((sum, r) => sum + r.count, 0);
 
-  /* One row per rejected LINE. A package can lose one item and keep the
-     rest, so listing whole deals here would overstate what walked away. */
+  /* Line-level entries avoid counting a package twice. Legacy losses without
+     product lines are shown as the deal itself, not as an invented product. */
   const detailRows: DetailRow[] = React.useMemo(() => {
     if (!active) return [];
     return active.lines
       .slice()
       .sort((a, b) => b.value - a.value)
       .map(({ deal, line, value }) => ({
-        id: `${deal.id}-${line.id}`,
-        title: line.product,
+        id: `${deal.id}-${line?.id ?? "deal"}`,
+        title: line?.product ?? deal.title,
         meta: `${deal.company} · ${deal.title}`,
         value: formatMoney(value),
         hint: (() => {
@@ -67,8 +66,8 @@ export function LossReasonsTile({
   if (totalCount === 0) {
     return (
       <EmptyTile
-        message="Nothing turned down in this period."
-        hint="Good news — no lost business to explain."
+        message="No losses recorded in this period."
+        hint="Lost deals and rejected items appear here."
       />
     );
   }
@@ -119,8 +118,8 @@ export function LossReasonsTile({
         summary={
           active
             ? `${active.count} ${
-                active.count === 1 ? "item" : "items"
-              } not taken · ${formatMoney(active.value)} · ${periodLabel}`
+                active.count === 1 ? "loss entry" : "loss entries"
+              } · ${formatMoney(active.value)} · ${periodLabel}`
             : ""
         }
         rows={detailRows}
@@ -129,7 +128,7 @@ export function LossReasonsTile({
   );
 }
 
-/** Shared header figure: "6 lost · AED 840K". */
+/** Entries are lost/rejected lines, or a legacy deal without lines. */
 export function LossReasonsSummary({
   rows,
   formatMoney,
@@ -141,7 +140,7 @@ export function LossReasonsSummary({
   const value = rows.reduce((sum, r) => sum + r.value, 0);
   return (
     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-      <AnimatedNumber value={count} /> not taken · {formatMoney(value)}
+      <AnimatedNumber value={count} /> loss {count === 1 ? "entry" : "entries"} · {formatMoney(value)}
     </span>
   );
 }
