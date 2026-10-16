@@ -17,7 +17,7 @@ export function SpancopFunnel({
   const max = Math.max(...Object.values(snapshot), 1);
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <div className="grid grid-cols-7 gap-1 sm:gap-2">
       {SPANCOP_STAGES.map((stage, index) => {
         const count = snapshot[stage.id];
         const active = activeStages.includes(stage.id);
@@ -29,17 +29,18 @@ export function SpancopFunnel({
             transition={{ duration: 0.3, delay: index * 0.04 }}
             onClick={() => onToggleStage(stage.id)}
             aria-pressed={active}
+            aria-label={`${stage.label}: ${count} companies`}
             /* Native title, so the rule is available on hover, on keyboard
                focus and on a long press — no extra component to mount 7 times. */
             title={`${stage.label} — ${SPANCOP_RULE[stage.id]}`}
             className={cn(
-              "group rounded-xl border p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5",
+              "group rounded-lg border p-1.5 text-center sm:rounded-xl sm:p-2.5 sm:text-left transition-all duration-200 hover:-translate-y-0.5",
               active
                 ? "border-accent bg-accent/[0.07] shadow-[var(--shadow-soft)]"
                 : "border-border bg-card hover:border-accent/40",
             )}
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5 sm:justify-start">
               <span
                 className={cn(
                   "flex size-5 items-center justify-center rounded text-[10px] font-bold text-white",
@@ -48,11 +49,11 @@ export function SpancopFunnel({
               >
                 {stage.letter}
               </span>
-              <span className="truncate text-[10px] font-medium text-muted-foreground">
+              <span className="hidden truncate text-[10px] font-medium text-muted-foreground sm:inline">
                 {stage.label}
               </span>
             </div>
-            <div className="mt-1.5 text-xl font-semibold tabular-nums">
+            <div className="mt-1 text-base font-semibold tabular-nums sm:mt-1.5 sm:text-xl">
               {count}
             </div>
             <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">

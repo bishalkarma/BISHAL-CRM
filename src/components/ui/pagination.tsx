@@ -13,6 +13,8 @@ type PaginationProps = {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
   label?: string;
+  /** Compact phone controls, opt-in so other screens keep their layout. */
+  compactMobile?: boolean;
 };
 
 /**
@@ -29,6 +31,7 @@ export function Pagination({
   onPageChange,
   onPageSizeChange,
   label = "records",
+  compactMobile = false,
 }: PaginationProps) {
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
@@ -53,11 +56,13 @@ export function Pagination({
   if (total === 0) return null;
 
   return (
-    <div className="flex items-center justify-between border-t border-border/50 px-4 py-3">
-      <div className="flex items-center gap-3">
+    <div className={cn("flex items-center justify-between border-t border-border/50 px-4 py-3", compactMobile && "flex-wrap gap-2 px-1 sm:px-4")}>
+      <div className={cn("flex items-center gap-3", compactMobile && "min-w-0 flex-wrap gap-2")}>
         <span className="text-xs text-muted-foreground">
-          Showing <strong className="text-foreground">{start}–{end}</strong> of{" "}
-          <strong className="text-foreground">{total}</strong> {label}
+          <span className={cn(compactMobile && "hidden sm:inline")}>Showing </span>
+          <strong className="text-foreground">{start}–{end}</strong> of{" "}
+          <strong className="text-foreground">{total}</strong>{" "}
+          <span className={cn(compactMobile && "hidden sm:inline")}>{label}</span>
         </span>
         {onPageSizeChange && (
           <select
@@ -87,7 +92,7 @@ export function Pagination({
 
         {pages.map((p, i) =>
           p === -1 ? (
-            <span key={`e${i}`} className="px-1 text-xs text-muted-foreground">
+            <span key={`e${i}`} className={cn("px-1 text-xs text-muted-foreground", compactMobile && "hidden sm:inline")}>
               …
             </span>
           ) : (
@@ -96,7 +101,7 @@ export function Pagination({
               variant={p === page ? "default" : "ghost"}
               size="icon-sm"
               onClick={() => onPageChange(p)}
-              className={cn("min-w-[2rem]", p === page && "bg-accent text-accent-foreground")}
+              className={cn("min-w-[2rem]", compactMobile && "hidden sm:inline-flex", p === page && "bg-accent text-accent-foreground")}
             >
               {p}
             </Button>
