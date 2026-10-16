@@ -418,11 +418,11 @@ export function DashboardView() {
 
           loss: (
             <Card className="flex flex-col">
-              <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+              <CardHeader className="flex-row flex-wrap items-start justify-between gap-2 space-y-0 pb-2">
                 <div className="min-w-0">
                   <CardTitle>Why we lose</CardTitle>
                   <CardDescription>
-                    Lost deals by reason · {periodLabel}
+                    Lost deals & rejected items · {periodLabel}
                   </CardDescription>
                 </div>
                 <LossReasonsSummary rows={losses} formatMoney={money} />
