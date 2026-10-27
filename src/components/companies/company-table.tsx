@@ -8,6 +8,7 @@ import { SPANCOP_MAP } from "@/lib/spancop";
 import { alertFor } from "./use-companies";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
+import { MobileCompanyTable } from "./mobile-company-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useData } from "@/components/providers/data-provider";
@@ -54,7 +55,9 @@ export function CompanyTable({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card scrollbar-thin">
+    <>
+    <MobileCompanyTable companies={companies} onOpen={onOpen} />
+    <div className="hidden w-full overflow-x-auto rounded-2xl border border-border bg-card scrollbar-thin xl:block">
       <div className="min-w-[860px]">
       {/* Desktop header */}
       <div className="hidden border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground xl:flex xl:items-center xl:gap-3">
@@ -187,5 +190,6 @@ export function CompanyTable({
       </ul>
       </div>
     </div>
+    </>
   );
 }

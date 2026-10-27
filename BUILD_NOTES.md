@@ -1,5 +1,55 @@
 # BISHAL-CRM Build History
 
+## Current build register and numbering policy
+
+The two application builds following BUILD 18.4 were originally pushed without
+numbered commit titles. They are now identified by immutable Git tags on the
+**exact commits tested on Vercel**; their published history has not been rewritten.
+
+| Build | Recovery tag | Tested application commit | Changes | Verification |
+| --- | --- | --- | --- | --- |
+| 18.4 | `BUILD_18.4` | `a14699ff72d718cceeb4b2c625c00cfc9375e8e4` | Topbar/profile controls and search changes | Existing baseline; promoted to `main` |
+| 18.5 | `BUILD_18.5` | `df2749454c4f1e3a31a2b37066c7a54a64480b2a` | Mobile notification containment, mobile SPANCOP bars, whole-deal loss reasons | 191 checks passed; Vercel Preview succeeded; user confirmed working |
+| 18.6 | `BUILD_18.6` | `4a72bf5e1dbd5d3cb277b4b893906b7db5db1e10` | Compact mobile Companies table, pinned Company column, swipeable fields, compact snapshot/pagination | 206 checks passed (including 15 table source/layout guards); Vercel Preview succeeded; user confirmed working |
+
+### Preview links for the tested builds
+- **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
+- **BUILD 18.6:** https://bishal-30np1ump6-bishal-sales-crm.vercel.app
+- Preview URLs are subject to Vercel retention. The Git tags preserve source
+  recovery points even if those deployment URLs expire.
+
+### Required process for subsequent application builds
+1. **Next application build: BUILD 18.7**, then 18.8, 18.9, 18.10, etc. These
+   are sequential labels, not decimal values. A major-number change requires
+   the user's agreement; do not jump to the historical reserved BUILD 19.
+2. Prefix application-build commit messages with `BUILD <number> - <summary>`
+   so the number appears in GitHub and newly triggered Vercel deployments.
+3. Record the change summary, exact commit, test results actually executed,
+   Vercel result and user acceptance in this register. Distinguish automated
+   checks from browser/user testing and do not claim unexecuted checks passed.
+4. Create and push an annotated `BUILD_<number>` tag on the exact application
+   commit. Never move, overwrite, delete or reuse a published build tag.
+5. Documentation-only bookkeeping does not consume a new application-build
+   number or move a tested build tag. It may still trigger a Vercel deployment
+   of the same application code.
+6. Keep development/Preview changes on the active feature branch. Do not merge
+   into `main` or publish to Production without explicit user approval.
+
+### Recovery safety (supersedes historical reset instructions below)
+- To select a recovery version, use its `BUILD_<number>` tag and exact commit
+  above. Inspect the selected source without changing branches using, for
+  example, `git show BUILD_18.5:src/components/layout/notification-bell.tsx`.
+- Tags identify **source code only**, not a backup of Supabase data, secrets,
+  environment variables or deployment configuration.
+- Before an actual rollback, agree on the target build and procedure with the
+  user, protect any uncommitted work, and prepare a reviewed recovery change on
+  the active feature branch. Preview-test it before any approved stable change.
+- Do **not** execute the old `reset --hard` / force-push recipes in historical
+  entries as an automatic rollback procedure. Never rewrite published branch
+  history or promote a deployment without explicit approval.
+
+---
+
 ## Build 00 - Stable Baseline (Pre-Dashboard Revamp)
 - **Date:** 2026-09-19
 - **Commit:** (this commit)
@@ -456,8 +506,9 @@
 - **Rollback:** `git reset --hard BUILD_18.3` (`14ab3a3`) to with gear + cloud/theme outside + `Ctrl K`; `git reset --hard BUILD_18.4` is this (no gear, inside profile, no Ctrl K)
 - **Visual:** After this, top bar `Companies` header shows `cloud search bell BK` (no gear, no palette/moon), profile dropdown shows `Bishal Karma` → `Theme` row + `Data source` row → `Profile settings` → `Sign out`, search bar `Search anything…` with magnifier and no `Ctrl K`
 
-## Build 19 — Reserved
-- Next build will be BUILD 19
+## Build 19 — Historical reservation (superseded)
+- The user requested continuation from BUILD 18.4. Builds 18.5 and 18.6 are
+  recorded above; the next application build is BUILD 18.7, not BUILD 19.
 
 ## Build 18.2 — Fix Mobile Notification Center + Companies View Narrow — ✅ BUILT 2026-09-20
 - **Base:** BUILD 17.2 (`60913a8`) → this

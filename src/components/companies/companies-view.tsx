@@ -94,18 +94,20 @@ export function CompaniesView() {
     <div className="space-y-4 overflow-x-hidden">
       <PageHeader
         title="Companies"
+        className="flex-row items-start justify-between gap-2"
         description="Customer relationships tracked through the SPANCOP cycle."
         actions={
           <Button size="sm" onClick={() => setNewOpen(true)}>
             <Plus />
-            New Company
+            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">New Company</span>
           </Button>
         }
       />
 
       {/* SPANCOP snapshot */}
       <div>
-        <div className="flex items-baseline justify-between pb-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 pb-2">
           <h2 className="text-sm font-semibold">SPANCOP snapshot</h2>
           <span className="text-xs text-muted-foreground">
             Tap a stage to filter · {filtered.length} companies
@@ -280,6 +282,7 @@ export function CompaniesView() {
           setPage(1);
         }}
         label="companies"
+        compactMobile
       />
 
       <SuggestionsDialog

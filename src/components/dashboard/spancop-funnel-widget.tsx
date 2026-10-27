@@ -68,7 +68,7 @@ export function SpancopFunnelWidget() {
       conversion line whenever the tile was taller than the content.
     */
     <Card className="flex flex-col">
-      <CardHeader className="flex-row items-start justify-between space-y-0">
+      <CardHeader className="flex-col items-start justify-between gap-3 space-y-0 sm:flex-row">
         <div>
           <CardTitle>SPANCOP</CardTitle>
           <CardDescription>
@@ -122,7 +122,7 @@ export function SpancopFunnelWidget() {
           <span>{period.label}</span>
         </div>
 
-        <div className="flex flex-1 items-end gap-1.5 pt-1">
+        <div className="flex min-h-[180px] flex-1 items-stretch gap-1.5 pt-1">
           {flows.map((flow, index) => {
             const def = SPANCOP_MAP[flow.stage];
             const count = countFor(flow);
@@ -132,17 +132,16 @@ export function SpancopFunnelWidget() {
             return (
               <div
                 key={flow.stage}
-                className="flex h-full min-w-0 flex-1 flex-col items-center gap-1"
+                className="flex min-w-0 flex-1 flex-col items-center gap-1"
                 title={`${def.label} · ${count} — ${SPANCOP_RULE[flow.stage]}`}
               >
                 <span className="text-sm font-semibold tabular-nums">
                   <AnimatedNumber value={count} />
                 </span>
 
-                {/* min-h keeps the shape readable in a short tile; flex-1
-                    lets the bars grow into a tall one instead of stopping at
-                    a fixed 120px and leaving the rest of the card empty. */}
-                <div className="flex h-full min-h-[80px] w-full flex-1 items-end">
+                {/* An absolute bar resolves its percentage against the track's
+                    used height, even in the auto-height mobile card. */}
+                <div className="relative min-h-[100px] w-full flex-1">
                   <motion.div
                     initial={{ height: 0 }}
                     animate={{ height: `${heightPct}%` }}
@@ -151,7 +150,7 @@ export function SpancopFunnelWidget() {
                       delay: index * 0.05,
                       ease: [0.16, 1, 0.3, 1],
                     }}
-                    className={cn("w-full rounded-t-md", def.color)}
+                    className={cn("absolute inset-x-0 bottom-0 rounded-t-md", def.color)}
                   />
                 </div>
 
