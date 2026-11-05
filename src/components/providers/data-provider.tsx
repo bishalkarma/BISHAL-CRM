@@ -898,11 +898,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           (c) => c.id !== id && normalizeCompanyName(c.name) === nextNorm,
         );
         if (collides) {
-          setWriteError({
-            at: new Date().toISOString(),
-            what: "customer",
-            detail: `Customer "${patch.name.trim()}" already exists.`,
-          });
+          setSaveError(`Customer "${patch.name.trim()}" already exists.`);
           return;
         }
       }

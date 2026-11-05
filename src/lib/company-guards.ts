@@ -12,6 +12,8 @@ export type CompanyDirectoryEntry = {
   owner?: string | null;
 };
 
+export type CompanyIdentity = CompanyDirectoryEntry;
+
 /**
  * Normalizes a customer name so case differences and extra spaces
  * ("  the baltimore   hotel villas ") cannot bypass duplicate checks.
