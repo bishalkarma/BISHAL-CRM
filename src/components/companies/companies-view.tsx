@@ -50,6 +50,7 @@ export function CompaniesView() {
     alerts,
     moveStage,
     dismissSuggestion,
+    dismissAllSuggestions,
     addCompany,
   } = useCompanies();
 
@@ -293,6 +294,7 @@ export function CompaniesView() {
           moveStage(id, stage, reason, "accepted-suggestion")
         }
         onDismiss={dismissSuggestion}
+        onDismissAll={dismissAllSuggestions}
       />
 
       <NewCompanyDialog

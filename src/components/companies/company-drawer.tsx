@@ -19,7 +19,12 @@ import {
 import type { Company } from "@/lib/companies";
 import { LEAD_STATUS_META } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/spancop";
-import { alertFor, suggestionFor } from "./use-companies";
+import {
+  alertFor,
+  suggestionFor,
+  useDismissedSuggestions,
+} from "./use-companies";
+import { isSuggestionDismissed } from "@/lib/spancop-dismissals";
 import { DrawerJournal } from "@/components/activities/drawer-journal";
 import { useData } from "@/components/providers/data-provider";
 import { NewCompanyDialog } from "./new-company-dialog";
@@ -71,8 +76,10 @@ export function CompanyDrawer({
   );
   const [transfers, setTransfers] = React.useState<TransferHistoryEntry[]>([]);
   const [transfersLoading, setTransfersLoading] = React.useState(false);
+  const [dismissed] = useDismissedSuggestions();
 
-  const { companies, updateCompanyWithContact, activitiesFor } = useData();
+  const { companies, deals, updateCompanyWithContact, activitiesFor } =
+    useData();
   const companyActivities = React.useMemo(
     () => (company ? activitiesFor({ companyId: company.id }) : []),
     [activitiesFor, company],
@@ -117,8 +124,10 @@ export function CompanyDrawer({
 
   if (!company) return null;
 
-  const suggestion = suggestionFor(company);
-  const hasSuggestion = suggestion.stage !== company.spancop;
+  const suggestion = suggestionFor(company, deals);
+  const hasSuggestion =
+    suggestion.stage !== company.spancop &&
+    !isSuggestionDismissed(company, companyActivities, dismissed);
   const alert = alertFor(company);
   const history = transitions.filter((t) => t.companyId === company.id);
   const totalHistoryCount = history.length + transfers.length;
@@ -173,7 +182,7 @@ export function CompanyDrawer({
             onClick={() => onDismissSuggestion(company.id, suggestion.stage)}
           >
             <X />
-            Keep
+            Keep {SPANCOP_MAP[company.spancop].label}
           </Button>
         </div>
       </div>

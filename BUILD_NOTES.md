@@ -12,17 +12,19 @@ numbered commit titles. They are now identified by immutable Git tags on the
 | 18.5 | `BUILD_18.5` | `df2749454c4f1e3a31a2b37066c7a54a64480b2a` | Mobile notification containment, mobile SPANCOP bars, whole-deal loss reasons | 191 checks passed; Vercel Preview succeeded; user confirmed working |
 | 18.6 | `BUILD_18.6` | `4a72bf5e1dbd5d3cb277b4b893906b7db5db1e10` | Compact mobile Companies table, pinned Company column, swipeable fields, compact snapshot/pagination | 206 checks passed (including 15 table source/layout guards); Vercel Preview succeeded; user confirmed working |
 | 18.7 | `BUILD_18.7` | `8aed139943541418f980a482aae7f5a652b642a1` | Step-by-step 5-row initial limit (`Show 5 more ↓` + `Show less ↑`) on Top products (Value/Qty/Customer), Expected to close, and Samples awaiting feedback | 12 test scripts, 214 checks passed; Vercel Preview `READY`; user confirmed working |
-| 18.8 | `BUILD_18.8` | *(see tag `BUILD_18.8`)* | Mobile Company popup (`CompanyDrawer`) Option B revamp: single smooth mobile scroll (`< lg`), compact SPANCOP + single-strip Status/Follow-up + Primary contact + 2×2 Details grid (`Owner`, `Lead source`, `Location`, `Last activity`), and 2-tab switcher (`Activity` / `Stage & Owner History`); desktop `lg:` 2-column side-by-side preserved | 13 test scripts, 221 checks passed (including 7 new mobile drawer source/layout guards); pushed for Vercel Preview user testing |
+| 18.8 | `BUILD_18.8` | `b4e6566ff08c26c5cdc731bb8cfc3d8fa4c813b3` | Mobile Company popup (`CompanyDrawer`) Option B revamp: single smooth mobile scroll (`< lg`), compact SPANCOP + single-strip Status/Follow-up + Primary contact + 2×2 Details grid (`Owner`, `Lead source`, `Location`, `Last activity`), and 2-tab switcher (`Activity` / `Stage & Owner History`); desktop `lg:` 2-column side-by-side preserved | 13 test scripts, 221 checks passed; Vercel Preview `READY`; user confirmed working |
+| 18.9 | `BUILD_18.9` | *(see tag `BUILD_18.9`)* | Responsive `SuggestionsDialog` Option A (full-width adaptive cards, horizontal stage+reason bar, 50/50 mobile touch buttons, sticky `Keep all in current stage` footer) + persistent `Keep Until New Activity` memory (`src/lib/spancop-dismissals.ts`) synced across `SuggestionsDialog`, `CompaniesView`, and `CompanyDrawer` | 14 test scripts, 230 checks passed (including 9 new unit & layout guards); pushed for Vercel Preview user testing |
 
 ### Preview links for the tested builds
 - **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
 - **BUILD 18.6:** https://bishal-30np1ump6-bishal-sales-crm.vercel.app
 - **BUILD 18.7:** https://bishal-c7gc4j2qh-bishal-sales-crm.vercel.app
+- **BUILD 18.8:** https://bishal-2mdm86i3v-bishal-sales-crm.vercel.app
 - Preview URLs are subject to Vercel retention. The Git tags preserve source
   recovery points even if those deployment URLs expire.
 
 ### Required process for subsequent application builds
-1. **Next application build: BUILD 18.9**, then 18.10, 18.11, etc. These
+1. **Next application build: BUILD 18.10**, then 18.11, 18.12, etc. These
    are sequential labels, not decimal values. A major-number change requires
    the user's agreement; do not jump to the historical reserved BUILD 19.
 2. Prefix application-build commit messages with `BUILD <number> - <summary>`
@@ -510,8 +512,8 @@ numbered commit titles. They are now identified by immutable Git tags on the
 - **Visual:** After this, top bar `Companies` header shows `cloud search bell BK` (no gear, no palette/moon), profile dropdown shows `Bishal Karma` → `Theme` row + `Data source` row → `Profile settings` → `Sign out`, search bar `Search anything…` with magnifier and no `Ctrl K`
 
 ## Build 19 — Historical reservation (superseded)
-- The user requested continuation from BUILD 18.4. Builds 18.5 through 18.8 are
-  recorded above; the next application build is BUILD 18.9, not BUILD 19.
+- The user requested continuation from BUILD 18.4. Builds 18.5 through 18.9 are
+  recorded above; the next application build is BUILD 18.10, not BUILD 19.
 
 ## Build 18.2 — Fix Mobile Notification Center + Companies View Narrow — ✅ BUILT 2026-09-20
 - **Base:** BUILD 17.2 (`60913a8`) → this
