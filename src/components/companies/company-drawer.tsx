@@ -7,12 +7,14 @@ import {
   Building2,
   Check,
   History,
+  Loader2,
   Mail,
   MapPin,
   MessageCircle,
   Pencil,
   Phone,
   Sparkles,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -25,8 +27,10 @@ import {
   useDismissedSuggestions,
 } from "./use-companies";
 import { isSuggestionDismissed } from "@/lib/spancop-dismissals";
+import { evaluateCustomerDeletePermission } from "@/lib/company-guards";
 import { DrawerJournal } from "@/components/activities/drawer-journal";
 import { useData } from "@/components/providers/data-provider";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { NewCompanyDialog } from "./new-company-dialog";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
@@ -37,6 +41,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -71,24 +77,45 @@ export function CompanyDrawer({
   onDismissSuggestion: (id: string, stage: SpancopStage) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [mobileTab, setMobileTab] = React.useState<MobileCompanyTab>(
     DEFAULT_MOBILE_COMPANY_TAB,
   );
   const [transfers, setTransfers] = React.useState<TransferHistoryEntry[]>([]);
   const [transfersLoading, setTransfersLoading] = React.useState(false);
   const [dismissed] = useDismissedSuggestions();
+  const { user: currentUser } = useCurrentUser();
 
-  const { companies, deals, updateCompanyWithContact, activitiesFor } =
-    useData();
+  const {
+    companies,
+    deals,
+    source,
+    contactsFor,
+    updateCompanyWithContact,
+    deleteCompany,
+    activitiesFor,
+  } = useData();
   const companyActivities = React.useMemo(
     () => (company ? activitiesFor({ companyId: company.id }) : []),
     [activitiesFor, company],
+  );
+  const companyContacts = React.useMemo(
+    () => (company ? contactsFor(company.id) : []),
+    [contactsFor, company],
+  );
+  const companyDeals = React.useMemo(
+    () => (company ? deals.filter((d) => d.companyId === company.id) : []),
+    [deals, company],
   );
 
   const customerId = company?.id;
   const companyOwner = company?.owner;
 
   React.useEffect(() => {
+    setConfirmDeleteOpen(false);
+    setDeleteError(null);
     setMobileTab(DEFAULT_MOBILE_COMPANY_TAB);
   }, [customerId]);
 
@@ -123,6 +150,62 @@ export function CompanyDrawer({
   }, [open, customerId, companyOwner]);
 
   if (!company) return null;
+
+  const storedRole =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("demo_user_role")
+      : null;
+  const storedUserId =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("demo_user_id")
+      : null;
+  const storedDisplayName =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("demo_display_name") ??
+        sessionStorage.getItem("demo_user")
+      : null;
+
+  const effectiveRole =
+    currentUser?.roleName ||
+    storedRole ||
+    (source === "demo" ? "Admin" : "Viewer");
+  const effectiveUserId = currentUser?.id || storedUserId;
+  const effectiveDisplayName = currentUser?.displayName || storedDisplayName;
+
+  const isDirectOwner =
+    Boolean(effectiveUserId && company.owner_id === effectiveUserId) ||
+    Boolean(
+      !company.owner_id &&
+        effectiveDisplayName &&
+        company.owner.toLowerCase() === effectiveDisplayName.toLowerCase(),
+    );
+
+  const isOwnerOrTeam =
+    effectiveRole === "Admin" ||
+    isDirectOwner ||
+    (effectiveRole === "Manager" &&
+      source === "supabase" &&
+      companies.some((c) => c.id === company.id));
+
+  const deletePermission = evaluateCustomerDeletePermission({
+    role: effectiveRole,
+    isOwnerOrTeam,
+    dealCount: companyDeals.length,
+  });
+
+  const handleConfirmDelete = async () => {
+    if (!deletePermission.allowed || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteCompany(company.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error ?? "Could not delete customer.");
+      return;
+    }
+    setConfirmDeleteOpen(false);
+    onOpenChange(false);
+  };
 
   const suggestion = suggestionFor(company, deals);
   const hasSuggestion =
@@ -249,13 +332,11 @@ export function CompanyDrawer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/*
-        Desktop (`lg+`): side-by-side customer record and activity journal.
-        Mobile / tablet (`< lg`): single smooth vertical scroll with a compact
-        above-the-fold overview (SPANCOP, Status + Follow-up, Primary contact,
-        2×2 Details grid) and 2 tabs below (`Activity` | `Stage & Owner History`)
-        so nothing is buried under competing scrollbars.
+        BUILD 18.10: Fixed viewport height (`h-[88dvh]` mobile / `lg:h-[86vh]` desktop)
+        so switching between `Activity` and `Stage & Owner History` never resizes
+        or jumps the card on screen.
       */}
-      <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%-1.5rem)]">
+      <DialogContent className="flex h-[88dvh] max-h-[88dvh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%-1.5rem)] lg:h-[86vh] lg:max-h-[86vh]">
         <DialogHeader className="shrink-0 space-y-1.5 border-b border-border p-3.5 pr-10 text-left sm:p-4 sm:pr-11 lg:p-5 lg:pr-12">
           <div className="flex items-center gap-2.5">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-sm font-semibold text-accent lg:size-10">
@@ -278,7 +359,7 @@ export function CompanyDrawer({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="mr-1 flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+              className="mr-0.5 flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
             >
               <Pencil className="size-3" />
               Edit
@@ -293,12 +374,25 @@ export function CompanyDrawer({
                 Customer · {formatCurrency(company.lifetimeValue)}
               </Badge>
             )}
+            {deletePermission.canSeeButton && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDeleteOpen(true);
+                }}
+                className="ml-auto flex items-center gap-1 rounded-lg border border-destructive/40 bg-destructive/[0.08] px-2.5 py-1 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/15"
+              >
+                <Trash2 className="size-3" />
+                Delete
+              </button>
+            )}
           </div>
         </DialogHeader>
 
         {/* Mobile / tablet layout (< lg): Option B — Compact Top Overview + 2 Tabs in 1 unified scroll */}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:hidden">
-          <div className="space-y-2.5 p-3.5 sm:p-4">
+          <div className="flex flex-1 flex-col space-y-2.5 p-3.5 sm:p-4">
             {/* 1. Compact SPANCOP card */}
             <div className="rounded-xl border border-border bg-secondary/20 p-2.5">
               <div className="flex items-center justify-between gap-2 pb-1.5">
@@ -380,25 +474,29 @@ export function CompanyDrawer({
                     WhatsApp
                   </a>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  className="h-8 text-xs"
-                  asChild={Boolean(company.email)}
-                  disabled={!company.email}
-                >
-                  {company.email ? (
+                {company.email ? (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="h-8 text-xs"
+                    asChild
+                  >
                     <a href={`mailto:${company.email}`}>
                       <Mail />
                       Email
                     </a>
-                  ) : (
-                    <span>
-                      <Mail />
-                      Email
-                    </span>
-                  )}
-                </Button>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="h-8 text-xs"
+                    disabled
+                  >
+                    <Mail />
+                    Email
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -438,7 +536,7 @@ export function CompanyDrawer({
               onValueChange={(value) =>
                 setMobileTab(value as MobileCompanyTab)
               }
-              className="pt-0.5"
+              className="flex flex-1 flex-col pt-0.5"
             >
               <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
                 <TabsTrigger
@@ -463,8 +561,8 @@ export function CompanyDrawer({
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="activity" className="mt-2.5">
-                <div className="rounded-xl border border-border bg-card/40 p-3">
+              <TabsContent value="activity" className="mt-2.5 flex-1">
+                <div className="h-full rounded-xl border border-border bg-card/40 p-3">
                   <DrawerJournal
                     activities={companyActivities}
                     scope="company"
@@ -473,8 +571,8 @@ export function CompanyDrawer({
                 </div>
               </TabsContent>
 
-              <TabsContent value="history" className="mt-2.5">
-                <div className="space-y-3.5 rounded-xl border border-border bg-card/40 p-3">
+              <TabsContent value="history" className="mt-2.5 flex-1">
+                <div className="h-full space-y-3.5 rounded-xl border border-border bg-card/40 p-3">
                   {renderStageHistoryList(true)}
                   <Separator />
                   <TransferHistory
@@ -487,16 +585,19 @@ export function CompanyDrawer({
                 </div>
               </TabsContent>
             </Tabs>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
           </div>
+        </div>
+
+        {/* Pinned mobile bottom Close bar so card height stays completely steady */}
+        <div className="shrink-0 border-t border-border bg-popover/95 px-3.5 py-2.5 lg:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-full text-xs font-semibold"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
         </div>
 
         {/* Desktop layout (lg+): original 2-column side-by-side record + journal */}
@@ -587,24 +688,19 @@ export function CompanyDrawer({
                     WhatsApp
                   </a>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild={Boolean(company.email)}
-                  disabled={!company.email}
-                >
-                  {company.email ? (
+                {company.email ? (
+                  <Button variant="outline" size="sm" asChild>
                     <a href={`mailto:${company.email}`}>
                       <Mail />
                       Email
                     </a>
-                  ) : (
-                    <span>
-                      <Mail />
-                      Email
-                    </span>
-                  )}
-                </Button>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled>
+                    <Mail />
+                    Email
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -666,6 +762,109 @@ export function CompanyDrawer({
           </div>
         </div>
       </DialogContent>
+
+      {/* Safe Delete Customer Confirmation Modal (BUILD 18.10 Option A) */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md border-destructive/40 p-5">
+          <DialogHeader className="space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+                <Trash2 className="size-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base">
+                  Delete customer?
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  This action is permanent and cannot be undone.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-destructive/35 bg-destructive/[0.06] p-3 text-xs">
+              <div className="break-words text-sm font-semibold text-foreground">
+                {company.name}
+              </div>
+              <div className="mt-0.5 text-muted-foreground">
+                {company.area}, {company.emirate} · Owner: {company.owner}
+              </div>
+              <div className="mt-2 font-medium text-muted-foreground">
+                Will also remove linked records:
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-foreground">
+                <span>
+                  • {companyContacts.length}{" "}
+                  {companyContacts.length === 1 ? "Contact" : "Contacts"}
+                </span>
+                <span>
+                  • {companyActivities.length}{" "}
+                  {companyActivities.length === 1 ? "Activity" : "Activities"}
+                </span>
+                <span>
+                  • {companyDeals.length}{" "}
+                  {companyDeals.length === 1 ? "Deal" : "Deals"}
+                </span>
+                <span>• History logs</span>
+              </div>
+            </div>
+
+            {!deletePermission.allowed && deletePermission.reason && (
+              <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>{deletePermission.reason}</span>
+              </div>
+            )}
+
+            {deletePermission.allowed && companyDeals.length > 0 && (
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  Warning: {companyDeals.length} linked{" "}
+                  {companyDeals.length === 1 ? "deal" : "deals"} and their
+                  product lines will also be permanently deleted.
+                </span>
+              </div>
+            )}
+
+            {deleteError && (
+              <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-2.5 text-xs font-medium text-destructive">
+                {deleteError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={deleting}
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!deletePermission.allowed || deleting}
+              onClick={handleConfirmDelete}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 />
+                  Delete customer
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reuses the create form, pre-filled. Saving writes the company and
           its primary contact together so the two copies cannot disagree. */}
