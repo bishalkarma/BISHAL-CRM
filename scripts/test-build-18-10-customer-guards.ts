@@ -226,6 +226,8 @@ check("NewCompanyDialog & ImportDialog fetch global directory and hard-lock dupl
   );
   assert.ok(newCompanySrc.includes('fetch("/api/companies/directory"'));
   assert.ok(newCompanySrc.includes("Duplicate customer name"));
+  assert.ok(newCompanySrc.includes("already exists"));
+  assert.ok(!newCompanySrc.includes("in ZEST CRM"));
   assert.ok(newCompanySrc.includes("Already Exists (Blocked)"));
   assert.ok(
     newCompanySrc.includes("disabled={duplicate || (touched && !valid)}"),

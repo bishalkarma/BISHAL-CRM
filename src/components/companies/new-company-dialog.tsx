@@ -492,7 +492,7 @@ export function NewCompanyDialog({
                       <span className="font-medium text-foreground">
                         &ldquo;{duplicateMatch.name}&rdquo;
                       </span>{" "}
-                      already exists in ZEST CRM
+                      already exists
                       {duplicateMatch.owner || duplicateMatch.area
                         ? ` (${[
                             duplicateMatch.owner
