@@ -15,7 +15,8 @@ numbered commit titles. They are now identified by immutable Git tags on the
 | 18.8 | `BUILD_18.8` | `b4e6566ff08c26c5cdc731bb8cfc3d8fa4c813b3` | Mobile Company popup (`CompanyDrawer`) Option B revamp: single smooth mobile scroll (`< lg`), compact SPANCOP + single-strip Status/Follow-up + Primary contact + 2×2 Details grid (`Owner`, `Lead source`, `Location`, `Last activity`), and 2-tab switcher (`Activity` / `Stage & Owner History`); desktop `lg:` 2-column side-by-side preserved | 13 test scripts, 221 checks passed; Vercel Preview `READY`; user confirmed working |
 | 18.9 | `BUILD_18.9` | `b45abcad5a3d9bb3d3d04c4539aa15adb38b7b97` | Responsive `SuggestionsDialog` Option A (full-width adaptive cards, horizontal stage+reason bar, 50/50 mobile touch buttons, sticky `Keep all in current stage` footer) + persistent `Keep Until New Activity` memory (`src/lib/spancop-dismissals.ts`) synced across `SuggestionsDialog`, `CompaniesView`, and `CompanyDrawer` | 14 test scripts, 230 checks passed; Vercel Preview `READY`; user confirmed working |
 | 18.10 | `BUILD_18.10` | `a8beb4abc28303ae4db51aaf69ca4695d3c86a97` | Fixed `CompanyDrawer` height (`88dvh` mobile / `86vh` desktop) + pinned mobile `Close` bar + 1-line disabled `Email` button; Option A `Delete` customer modal & safe FK delete API (`/api/companies/[id]`); global normalized Duplicate Customer Name alert + hard block across create, edit, and CSV import (`/api/companies/directory` + `src/lib/company-guards.ts`) | 15 test scripts, 237 checks passed; Vercel Preview `READY`; user confirmed working |
-| 18.11 | `BUILD_18.11` | `0220d8523273708d66097622671f81dc2b4b9f82` | Duplicate customer alert copy polish: removed `"in ZEST CRM"` so message cleanly reads `"<Customer>" already exists (Owner: ... · ...). Cannot create duplicate.` | 15 test scripts, 237 checks passed; Vercel Preview `READY`; ready for user testing |
+| 18.11 | `BUILD_18.11` | `0220d8523273708d66097622671f81dc2b4b9f82` | Duplicate customer alert copy polish: removed `"in ZEST CRM"` so message cleanly reads `"<Customer>" already exists (Owner: ... · ...). Cannot create duplicate.` | 15 test scripts, 237 checks passed; Vercel Preview `READY`; user confirmed working |
+| 18.12 | `BUILD_18.12` | `d783404ce4525d3b57fbebe57b0a3c70aa40d659` | Live-linked customer `nextFollowUp` (`src/lib/customer-followups.ts`) to Open Tasks + future-booked activities across Customer Card, Companies Table (desktop & mobile), and Supabase (`load` self-heal + `addActivity` / `updateActivity` / `deleteActivity` / `syncCounters`); Option B Open Task bar + 1-tap `Done` button in `CompanyDrawer` + weekday/date `FollowUpCell` chip | 16 test scripts, 242 checks passed; Vercel Preview `READY`; ready for user testing |
 
 ### Preview links for the tested builds
 - **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
@@ -24,12 +25,13 @@ numbered commit titles. They are now identified by immutable Git tags on the
 - **BUILD 18.8:** https://bishal-2mdm86i3v-bishal-sales-crm.vercel.app
 - **BUILD 18.9:** https://bishal-gw0fzeiea-bishal-sales-crm.vercel.app
 - **BUILD 18.10:** https://bishal-koh23oxgo-bishal-sales-crm.vercel.app
-- **BUILD 18.11:** https://bishal-2dvbizo66-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-a98e659f-bishal-crm-bishal-sales-crm.vercel.app)
+- **BUILD 18.11:** https://bishal-2dvbizo66-bishal-sales-crm.vercel.app
+- **BUILD 18.12:** https://bishal-n331cj69o-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-a98e659f-bishal-crm-bishal-sales-crm.vercel.app)
 - Preview URLs are subject to Vercel retention. The Git tags preserve source
   recovery points even if those deployment URLs expire.
 
 ### Required process for subsequent application builds
-1. **Next application build: BUILD 18.12**, then 18.13, 18.14, etc. These
+1. **Next application build: BUILD 18.13**, then 18.14, 18.15, etc. These
    are sequential labels, not decimal values. A major-number change requires
    the user's agreement; do not jump to the historical reserved BUILD 19.
 2. Prefix application-build commit messages with `BUILD <number> - <summary>`
