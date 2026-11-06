@@ -6,6 +6,10 @@ import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
 import { recomputeCounters, countersDiffer } from "@/lib/recompute";
+import {
+  deriveNextFollowUp,
+  resolveCompanyFollowUps,
+} from "@/lib/customer-followups";
 import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
 import { clearDismissedSuggestion } from "@/lib/spancop-dismissals";
 import {
@@ -238,7 +242,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   /** Fall back to the bundled demo data — used on first run and on failure. */
   const loadDemo = React.useCallback(() => {
-    setCompanies(withOpenDeals(COMPANIES, DEALS));
+    setCompanies(
+      resolveCompanyFollowUps(withOpenDeals(COMPANIES, DEALS), ACTIVITIES),
+    );
     setContacts(CONTACTS);
     setDeals(DEALS);
     setActivities(ACTIVITIES);
@@ -494,7 +500,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setCompanies(withOpenDeals(filteredCompanies, filteredDeals));
+      const baseCompanies = withOpenDeals(filteredCompanies, filteredDeals);
+      const syncedCompanies = activityRes.error
+        ? baseCompanies
+        : resolveCompanyFollowUps(baseCompanies, filteredActivities);
+
+      setCompanies(syncedCompanies);
       setContacts(filteredContacts);
       setDeals(filteredDeals);
       setTransitions(
@@ -509,6 +520,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         );
       } else {
         setActivities(filteredActivities);
+        // Self-heal stale companies.next_follow_up rows in Supabase silently
+        const staleFollowUps = baseCompanies
+          .map((orig, idx) => ({
+            id: orig.id,
+            before: orig.nextFollowUp ?? null,
+            after: syncedCompanies[idx].nextFollowUp ?? null,
+          }))
+          .filter((entry) => entry.before !== entry.after);
+
+        if (staleFollowUps.length > 0 && supabase) {
+          const client = supabase;
+          void (async () => {
+            for (const item of staleFollowUps) {
+              try {
+                await client
+                  .from("companies")
+                  .update({ next_follow_up: item.after })
+                  .eq("id", item.id);
+              } catch {
+                // Non-critical: UI already reflects syncedCompanies
+              }
+            }
+          })();
+        }
       }
       setSource("supabase");
     } catch (err) {
@@ -734,6 +769,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             activity_count: fresh.activityCount,
             last_activity_at: fresh.lastActivityAt,
             lifetime_value: fresh.lifetimeValue,
+            next_follow_up: fresh.nextFollowUp,
           })
           .eq("id", companyId),
       );
@@ -829,14 +865,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
    */
   const addActivity = React.useCallback(
     (activity: Activity) => {
-      setActivities((current) => [activity, ...current]);
+      const nextActivities = [activity, ...activitiesRef.current];
+      activitiesRef.current = nextActivities;
+      const freshCounters = recomputeCounters(
+        activity.companyId,
+        nextActivities,
+        dealsRef.current,
+      );
+
+      setActivities(nextActivities);
       setCompanies((current) =>
         current.map((c) =>
           c.id === activity.companyId
             ? {
                 ...c,
-                activityCount: c.activityCount + 1,
-                lastActivityAt: activity.occurredAt,
+                activityCount: freshCounters.activityCount,
+                lastActivityAt: freshCounters.lastActivityAt,
+                nextFollowUp: freshCounters.nextFollowUp,
               }
             : c,
         ),
@@ -861,8 +906,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return supabase!
           .from("companies")
           .update({
-            activity_count: owner.activityCount + 1,
-            last_activity_at: activity.occurredAt,
+            activity_count: freshCounters.activityCount,
+            last_activity_at: freshCounters.lastActivityAt,
+            next_follow_up: freshCounters.nextFollowUp,
           })
           .eq("id", activity.companyId);
       });
@@ -1007,9 +1053,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const existing = activitiesRef.current.find((a) => a.id === id);
       if (!existing) return;
       const updated = { ...existing, ...patch };
+      const nextActivities = activitiesRef.current.map((a) =>
+        a.id === id ? updated : a,
+      );
+      activitiesRef.current = nextActivities;
+      const nextFollowUp = deriveNextFollowUp(updated.companyId, nextActivities);
 
-      setActivities((current) =>
-        current.map((a) => (a.id === id ? updated : a)),
+      setActivities(nextActivities);
+      setCompanies((current) =>
+        current.map((c) =>
+          c.id === updated.companyId ? { ...c, nextFollowUp } : c,
+        ),
       );
 
       void persist("activity", async () =>
@@ -1044,14 +1098,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const owner = companiesRef.current.find((c) => c.id === doomed.companyId);
 
       const remaining = activitiesRef.current.filter((a) => a.id !== id);
-      const newestForCompany = remaining
-        .filter((a) => a.companyId === doomed.companyId)
-        .reduce<string | null>((newest, a) => {
-          if (!newest) return a.occurredAt;
-          return new Date(a.occurredAt) > new Date(newest)
-            ? a.occurredAt
-            : newest;
-        }, null);
+      activitiesRef.current = remaining;
+      const freshCounters = recomputeCounters(
+        doomed.companyId,
+        remaining,
+        dealsRef.current,
+      );
 
       setActivities(remaining);
       setCompanies((cs) =>
@@ -1059,8 +1111,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           c.id === doomed.companyId
             ? {
                 ...c,
-                activityCount: Math.max(0, c.activityCount - 1),
-                lastActivityAt: newestForCompany,
+                activityCount: freshCounters.activityCount,
+                lastActivityAt: freshCounters.lastActivityAt,
+                nextFollowUp: freshCounters.nextFollowUp,
               }
             : c,
         ),
@@ -1068,13 +1121,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       void persist("activity", async () => {
         const res = await supabase!.from("activities").delete().eq("id", id);
-        if (res.error) return res;
+        if (res.error || !owner) return res;
         // Keep the stored counter honest, same reason as addActivity.
         return supabase!
           .from("companies")
           .update({
-            activity_count: Math.max(0, (owner?.activityCount ?? 1) - 1),
-            last_activity_at: newestForCompany,
+            activity_count: freshCounters.activityCount,
+            last_activity_at: freshCounters.lastActivityAt,
+            next_follow_up: freshCounters.nextFollowUp,
           })
           .eq("id", doomed.companyId);
       });
@@ -1493,9 +1547,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [contacts],
   );
 
+  const linkedCompanies = React.useMemo(
+    () => resolveCompanyFollowUps(companies, activities),
+    [companies, activities],
+  );
+
   const value = React.useMemo<DataContextValue>(
     () => ({
-      companies,
+      companies: linkedCompanies,
       contacts,
       deals,
       activities,
@@ -1532,7 +1591,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       moveStage,
     }),
     [
-      companies,
+      linkedCompanies,
       contacts,
       deals,
       activities,

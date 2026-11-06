@@ -18,6 +18,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import type { Activity } from "@/lib/activities";
 import type { Company } from "@/lib/companies";
 import { LEAD_STATUS_META } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/spancop";
@@ -28,7 +29,12 @@ import {
 } from "./use-companies";
 import { isSuggestionDismissed } from "@/lib/spancop-dismissals";
 import { evaluateCustomerDeletePermission } from "@/lib/company-guards";
+import {
+  formatOpenTaskMeta,
+  openTasksForCompany,
+} from "@/lib/customer-followups";
 import { DrawerJournal } from "@/components/activities/drawer-journal";
+import { LogActivityDialog } from "@/components/activities/log-activity-dialog";
 import { useData } from "@/components/providers/data-provider";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { NewCompanyDialog } from "./new-company-dialog";
@@ -77,6 +83,9 @@ export function CompanyDrawer({
   onDismissSuggestion: (id: string, stage: SpancopStage) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
+  const [completingTask, setCompletingTask] = React.useState<Activity | null>(
+    null,
+  );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
@@ -109,11 +118,17 @@ export function CompanyDrawer({
     () => (company ? deals.filter((d) => d.companyId === company.id) : []),
     [deals, company],
   );
+  const openTasks = React.useMemo(
+    () =>
+      company ? openTasksForCompany(company.id, companyActivities) : [],
+    [company, companyActivities],
+  );
 
   const customerId = company?.id;
   const companyOwner = company?.owner;
 
   React.useEffect(() => {
+    setCompletingTask(null);
     setConfirmDeleteOpen(false);
     setDeleteError(null);
     setMobileTab(DEFAULT_MOBILE_COMPANY_TAB);
@@ -215,6 +230,53 @@ export function CompanyDrawer({
   const history = transitions.filter((t) => t.companyId === company.id);
   const totalHistoryCount = history.length + transfers.length;
   const lead = LEAD_STATUS_META[company.leadStatus];
+  const primaryOpenTask = openTasks[0] ?? null;
+  const primaryTaskMeta = primaryOpenTask
+    ? formatOpenTaskMeta(primaryOpenTask)
+    : null;
+
+  const renderOpenTaskBar = (compact = false) =>
+    primaryOpenTask && primaryTaskMeta ? (
+      <div
+        className={cn(
+          "flex items-center gap-2.5 rounded-xl border border-accent/35 bg-background/70",
+          compact ? "px-2.5 py-2" : "mt-3 p-3",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setCompletingTask(primaryOpenTask)}
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-success/45 bg-success/12 px-2.5 py-1.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20"
+        >
+          <Check className="size-3" />
+          Done
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={cn(
+                "text-[9px] font-bold uppercase tracking-wider",
+                primaryTaskMeta.urgency === "overdue"
+                  ? "text-destructive"
+                  : primaryTaskMeta.urgency === "today"
+                    ? "text-warning"
+                    : "text-accent",
+              )}
+            >
+              {primaryTaskMeta.eyebrow}
+            </span>
+            {openTasks.length > 1 && (
+              <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
+                +{openTasks.length - 1} more
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 line-clamp-2 break-words text-xs font-semibold leading-snug text-foreground">
+            {primaryOpenTask.task}
+          </p>
+        </div>
+      </div>
+    ) : null;
 
   const renderSuggestionBanner = (compact = false) =>
     hasSuggestion ? (
@@ -413,28 +475,42 @@ export function CompanyDrawer({
             {renderSuggestionBanner(true)}
             {renderAlertBanner()}
 
-            {/* 2. Compact Lead Status + Next Follow-up single horizontal strip */}
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-secondary/20 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-                  Status
-                </span>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    lead.tint,
-                  )}
-                >
-                  <span className={cn("size-1.5 rounded-full", lead.dot)} />
-                  {lead.label}
-                </span>
+            {/* 2. Compact Lead Status + Next Follow-up (+ Open Task bar when open task exists) */}
+            <div
+              className={cn(
+                "rounded-xl border px-3 py-2",
+                openTasks.length > 0
+                  ? "space-y-2 border-success/40 bg-accent/[0.04]"
+                  : "border-border bg-secondary/20",
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    Status
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                      lead.tint,
+                    )}
+                  >
+                    <span className={cn("size-1.5 rounded-full", lead.dot)} />
+                    {lead.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    Follow-up
+                  </span>
+                  <FollowUpCell date={company.nextFollowUp} compact />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-                  Follow-up
-                </span>
-                <FollowUpCell date={company.nextFollowUp} compact />
-              </div>
+              {openTasks.length > 0 && (
+                <div className="border-t border-border/60 pt-2">
+                  {renderOpenTaskBar(true)}
+                </div>
+              )}
             </div>
 
             {/* 3. Compact Primary Contact + Quick Actions */}
@@ -546,6 +622,9 @@ export function CompanyDrawer({
                   <span>Activity</span>
                   <span className="text-[11px] opacity-80">
                     ({companyActivities.length})
+                    {openTasks.length > 0
+                      ? ` · ${openTasks.length} ${openTasks.length === 1 ? "task" : "tasks"}`
+                      : ""}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
@@ -648,6 +727,8 @@ export function CompanyDrawer({
                 <FollowUpCell date={company.nextFollowUp} />
               </div>
             </div>
+
+            {renderOpenTaskBar(false)}
 
             <Separator />
 
@@ -884,6 +965,15 @@ export function CompanyDrawer({
           })
         }
         existingNames={companies.map((c) => c.name)}
+      />
+
+      {/* Closes the open task loop directly from the customer popup (Option B) */}
+      <LogActivityDialog
+        open={Boolean(completingTask)}
+        onOpenChange={(o) => {
+          if (!o) setCompletingTask(null);
+        }}
+        completing={completingTask}
       />
     </Dialog>
   );

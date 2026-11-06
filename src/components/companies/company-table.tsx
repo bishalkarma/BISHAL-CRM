@@ -66,7 +66,7 @@ export function CompanyTable({
         <span className="w-[84px] shrink-0">Type</span>
         <span className="w-[168px] shrink-0">SPANCOP</span>
         {<span className="w-[86px] shrink-0">Lead</span>}
-        {<span className="w-[118px] shrink-0">Follow-up</span>}
+        {<span className="w-[164px] shrink-0">Follow-up</span>}
         <span className="w-[104px] shrink-0">Alert</span>
         <span className="w-[52px] shrink-0 text-right">Owner</span>
       </div>
@@ -147,7 +147,7 @@ export function CompanyTable({
                     </div>
                   )}
                   {(
-                    <div className="xl:w-[118px] xl:shrink-0">
+                    <div className="xl:w-[164px] xl:shrink-0">
                       <FollowUpCell date={company.nextFollowUp} />
                     </div>
                   )}
