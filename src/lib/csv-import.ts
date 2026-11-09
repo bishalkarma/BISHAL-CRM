@@ -20,6 +20,7 @@ import {
   type Emirate,
   type LeadSource,
 } from "./companies";
+import { normalizeCompanyName } from "./company-guards";
 
 export const CSV_HEADERS = [
   "Property Name",
@@ -215,7 +216,7 @@ export function buildImportPreview(
   }
 
   const index = (name: string) => header.indexOf(name);
-  const seen = new Set(existingNames.map((n) => n.toLowerCase()));
+  const seen = new Set(existingNames.map((n) => normalizeCompanyName(n)));
   const parsed: ParsedRow[] = [];
 
   for (let r = 1; r < rows.length; r++) {
@@ -225,10 +226,10 @@ export function buildImportPreview(
     const raw: Record<string, string> = {};
     CSV_HEADERS.forEach((h) => (raw[h] = get(h)));
 
-    const name = get("Property Name");
+    const name = get("Property Name").replace(/\s+/g, " ");
     if (!name) issues.push({ row: r, field: "Property Name", message: "Required" });
-    else if (seen.has(name.toLowerCase()))
-      issues.push({ row: r, field: "Property Name", message: "Duplicate" });
+    else if (seen.has(normalizeCompanyName(name)))
+      issues.push({ row: r, field: "Property Name", message: "Duplicate (already exists)" });
 
     const emirate = matchOne<Emirate>(get("Emirate"), EMIRATES);
     if (!emirate)
@@ -284,7 +285,7 @@ export function buildImportPreview(
     let company: Company | null = null;
     if (issues.length === 0 && emirate && business && type && role) {
       const now = new Date().toISOString();
-      seen.add(name.toLowerCase());
+      seen.add(normalizeCompanyName(name));
       company = {
         id: `C-imp-${r}-${Date.now().toString().slice(-4)}`,
         name,

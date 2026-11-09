@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { Activity } from "@/lib/activities";
 import {
   daysInStage,
   daysSinceLastOrder,
@@ -15,6 +16,16 @@ import {
   fulfilmentSignals,
   type SpancopStage,
 } from "@/lib/spancop";
+import {
+  buildDismissedSuggestion,
+  clearDismissedSuggestion,
+  isSuggestionDismissed,
+  readDismissedSuggestions,
+  saveDismissedSuggestionsBatch,
+  subscribeDismissedSuggestions,
+  type DismissedStageSuggestion,
+  type DismissedSuggestionsMap,
+} from "@/lib/spancop-dismissals";
 import type { Deal } from "@/lib/deals";
 import { useData } from "@/components/providers/data-provider";
 
@@ -90,36 +101,77 @@ export function suggestionFor(company: Company, deals?: Deal[]) {
   });
 }
 
+/**
+ * Client-synced map of dismissed stage suggestions persisted in localStorage.
+ * Hydration-safe: starts empty during SSR/first paint and syncs on mount + changes.
+ */
+export function useDismissedSuggestions(): [
+  DismissedSuggestionsMap,
+  React.Dispatch<React.SetStateAction<DismissedSuggestionsMap>>,
+] {
+  const [dismissed, setDismissed] = React.useState<DismissedSuggestionsMap>({});
+
+  React.useEffect(() => {
+    setDismissed(readDismissedSuggestions());
+    return subscribeDismissedSuggestions(() => {
+      setDismissed(readDismissedSuggestions());
+    });
+  }, []);
+
+  return [dismissed, setDismissed];
+}
+
 export function useCompanies() {
   const {
     companies,
     deals,
+    activities,
     transitions,
     moveStage: moveStageShared,
     addCompany,
     addCompanies,
   } = useData();
   const [filters, setFilters] = React.useState<CompanyFilters>(EMPTY);
-  /** Suggestions the user chose to ignore, so they stop nagging. */
-  const [dismissed, setDismissed] = React.useState<Record<string, SpancopStage>>(
-    {},
-  );
+  /** Suggestions the user chose to keep in their current stage until a new activity is logged. */
+  const [dismissed, setDismissed] = useDismissedSuggestions();
 
-  /** Apply a stage change and write it to history. */
+  const activitiesByCompany = React.useMemo(() => {
+    const map = new Map<string, Activity[]>();
+    for (const activity of activities) {
+      const bucket = map.get(activity.companyId);
+      if (bucket) bucket.push(activity);
+      else map.set(activity.companyId, [activity]);
+    }
+    return map;
+  }, [activities]);
+
+  /** Apply a stage change, clear any prior Keep lock, and write it to history. */
   const moveStage = React.useCallback(
     (
       companyId: string,
       to: SpancopStage,
       reason: string,
       trigger: "manual" | "accepted-suggestion" | "seed" = "manual",
-    ) => moveStageShared(companyId, to, reason, trigger),
-    [moveStageShared],
+    ) => {
+      setDismissed(clearDismissedSuggestion(companyId));
+      moveStageShared(companyId, to, reason, trigger);
+    },
+    [moveStageShared, setDismissed],
   );
 
   const dismissSuggestion = React.useCallback(
-    (companyId: string, stage: SpancopStage) =>
-      setDismissed((current) => ({ ...current, [companyId]: stage })),
-    [],
+    (companyId: string, stage: SpancopStage) => {
+      const company = companies.find((c) => c.id === companyId);
+      if (!company) return;
+      const customerActivities = activitiesByCompany.get(companyId) ?? [];
+      const entry = buildDismissedSuggestion(
+        company,
+        stage,
+        customerActivities,
+      );
+      setDismissed(saveDismissedSuggestionsBatch({ [companyId]: entry }));
+    },
+    [companies, activitiesByCompany, setDismissed],
   );
 
   const filtered = React.useMemo(() => {
@@ -160,7 +212,7 @@ export function useCompanies() {
     return counts;
   }, [filtered]);
 
-  /** Pending suggestions that differ from the current stage. */
+  /** Pending suggestions that differ from the current stage and are not locked by Keep. */
   const pendingSuggestions = React.useMemo(
     () =>
       companies
@@ -173,10 +225,29 @@ export function useCompanies() {
         .filter(
           ({ company, suggestion }) =>
             suggestion.stage !== company.spancop &&
-            dismissed[company.id] !== suggestion.stage,
+            !isSuggestionDismissed(
+              company,
+              activitiesByCompany.get(company.id) ?? [],
+              dismissed,
+            ),
         ),
-    [companies, deals, dismissed],
+    [companies, deals, activitiesByCompany, dismissed],
   );
+
+  const dismissAllSuggestions = React.useCallback(() => {
+    if (pendingSuggestions.length === 0) return;
+    const nowIso = new Date().toISOString();
+    const batch: Record<string, DismissedStageSuggestion> = {};
+    for (const { company, suggestion } of pendingSuggestions) {
+      batch[company.id] = buildDismissedSuggestion(
+        company,
+        suggestion.stage,
+        activitiesByCompany.get(company.id) ?? [],
+        nowIso,
+      );
+    }
+    setDismissed(saveDismissedSuggestionsBatch(batch));
+  }, [pendingSuggestions, activitiesByCompany, setDismissed]);
 
   const alerts = React.useMemo(
     () =>
@@ -190,7 +261,7 @@ export function useCompanies() {
 
   const activeFilterCount =
     (filters.query ? 1 : 0) +
-    filters.business.length +
+    (filters.business.length ? 1 : 0) * filters.business.length +
     filters.emirates.length +
     filters.stages.length +
     filters.owners.length +
@@ -209,6 +280,7 @@ export function useCompanies() {
     alerts,
     moveStage,
     dismissSuggestion,
+    dismissAllSuggestions,
     addCompany,
     addCompanies,
   };

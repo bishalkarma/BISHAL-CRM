@@ -15,6 +15,11 @@ import {
   type ImportPreview,
 } from "@/lib/csv-import";
 import {
+  mergeCompanyDirectory,
+  type CompanyIdentity,
+} from "@/lib/company-guards";
+import { useData } from "@/components/providers/data-provider";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,10 +42,57 @@ export function ImportDialog({
   existingNames: string[];
   onImport: (companies: Company[]) => void;
 }) {
-  const [preview, setPreview] = React.useState<ImportPreview | null>(null);
+  const { companies, source } = useData();
+  const [rawCsvText, setRawCsvText] = React.useState<string | null>(null);
+  const [globalDirectory, setGlobalDirectory] = React.useState<CompanyIdentity[]>([]);
   const [fileName, setFileName] = React.useState("");
   const [dragging, setDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!open || source !== "supabase") return;
+    let cancelled = false;
+    const userId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("demo_user_id")
+        : null;
+    const userName =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("demo_user")
+        : null;
+    const headers: HeadersInit = {};
+    if (userId) headers["x-demo-user-id"] = userId;
+    if (userName) headers["x-demo-user"] = userName;
+
+    fetch("/api/companies/directory", { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.companies)) {
+          setGlobalDirectory(data.companies);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, source]);
+
+  const allExistingNames = React.useMemo(
+    () =>
+      mergeCompanyDirectory(globalDirectory, companies, existingNames).map(
+        (c) => c.name,
+      ),
+    [globalDirectory, companies, existingNames],
+  );
+
+  const preview = React.useMemo<ImportPreview | null>(
+    () =>
+      rawCsvText !== null
+        ? buildImportPreview(rawCsvText, allExistingNames)
+        : null,
+    [rawCsvText, allExistingNames],
+  );
 
   const downloadSample = () => {
     const blob = new Blob([buildSampleCsv()], {
@@ -57,11 +109,11 @@ export function ImportDialog({
   const readFile = async (file: File) => {
     setFileName(file.name);
     const text = await file.text();
-    setPreview(buildImportPreview(text, existingNames));
+    setRawCsvText(text);
   };
 
   const reset = () => {
-    setPreview(null);
+    setRawCsvText(null);
     setFileName("");
   };
 

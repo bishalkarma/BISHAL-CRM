@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Info, MapPin, Loader2 } from "lucide-react";
+import { AlertTriangle, Info, MapPin, Loader2 } from "lucide-react";
 import {
   BUSINESS_TYPES,
   CLUSTERS,
@@ -22,6 +22,12 @@ import type { GeocodeResult } from "@/lib/geocode";
 import { ClusterCombobox } from "./cluster-combobox";
 import { OwnerCombobox } from "./owner-combobox";
 import { mergeOptions } from "@/lib/option-lists";
+import {
+  findDuplicateCompany,
+  mergeCompanyDirectory,
+  normalizeCompanyName,
+  type CompanyIdentity,
+} from "@/lib/company-guards";
 import { useData } from "@/components/providers/data-provider";
 import {
   Dialog,
@@ -105,11 +111,12 @@ export function NewCompanyDialog({
   /** Carried over when the user was sent here from the deal flow. */
   prefillName?: string;
 }) {
-  const { companies } = useData();
+  const { companies, source } = useData();
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [touched, setTouched] = React.useState(false);
   const [ownershipChanged, setOwnershipChanged] = React.useState(false);
   const [originalOwnerId, setOriginalOwnerId] = React.useState<string | null>(null);
+  const [globalDirectory, setGlobalDirectory] = React.useState<CompanyIdentity[]>([]);
 
   // Get current user info for role-based UI
   const currentUserId = typeof window !== "undefined" ? sessionStorage.getItem("demo_user_id") : null;
@@ -217,6 +224,39 @@ export function NewCompanyDialog({
     }
   }, [open, prefillName]);
 
+  // Fetch global customer directory across all users/reps so duplicate checks
+  // catch records owned by other reps (which RLS hides from local state).
+  React.useEffect(() => {
+    if (!open || source !== "supabase") return;
+    let cancelled = false;
+    const userId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("demo_user_id")
+        : null;
+    const userName =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("demo_user")
+        : null;
+    const headers: HeadersInit = {};
+    if (userId) headers["x-demo-user-id"] = userId;
+    if (userName) headers["x-demo-user"] = userName;
+
+    fetch("/api/companies/directory", { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.companies)) {
+          setGlobalDirectory(data.companies);
+        }
+      })
+      .catch(() => {
+        // Fallback to local companies + existingNames if offline
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, source]);
+
   // Business drives Type. Clear a stale Type when Business changes.
   const changeBusiness = (business: BusinessType) =>
     setForm((f) => ({ ...f, business, type: "" }));
@@ -224,13 +264,22 @@ export function NewCompanyDialog({
   const typeOptions = typeOptionsFor(form.business || null);
   const typeLabel = typeLabelFor(form.business || null);
 
+  const directory = React.useMemo(
+    () => mergeCompanyDirectory(globalDirectory, companies, existingNames),
+    [globalDirectory, companies, existingNames],
+  );
+
   /* A record must not clash with its own name while being edited. */
-  const duplicate =
-    form.name.trim().length > 1 &&
-    form.name.trim().toLowerCase() !== editing?.name.trim().toLowerCase() &&
-    existingNames.some(
-      (n) => n.toLowerCase() === form.name.trim().toLowerCase(),
-    );
+  const rawDuplicateMatch = React.useMemo(
+    () => findDuplicateCompany(form.name, directory, editing?.id),
+    [form.name, directory, editing?.id],
+  );
+  const duplicateMatch =
+    editing &&
+    normalizeCompanyName(form.name) === normalizeCompanyName(editing.name)
+      ? null
+      : rawDuplicateMatch;
+  const duplicate = Boolean(duplicateMatch);
 
   const emailValid =
     form.email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
@@ -254,7 +303,8 @@ export function NewCompanyDialog({
 
   const submit = () => {
     setTouched(true);
-    if (!valid) return;
+    if (!valid || duplicate) return;
+    const cleanName = form.name.trim().replace(/\s+/g, " ");
     const now = new Date().toISOString();
 
     // Determine owner_id: Admin/Manager can select owner, others auto-assign to themselves
@@ -277,7 +327,7 @@ export function NewCompanyDialog({
     */
     if (editing) {
       onSaveEdit?.({
-        name: form.name.trim(),
+        name: cleanName,
         cluster: form.cluster || null,
         emirate: form.emirate as Emirate,
         area: form.area.trim(),
@@ -300,7 +350,7 @@ export function NewCompanyDialog({
 
     onCreate({
       id: `C-${Date.now().toString().slice(-6)}`,
-      name: form.name.trim(),
+      name: cleanName,
       cluster: form.cluster || null,
       emirate: form.emirate as Emirate,
       area: form.area.trim(),
@@ -412,17 +462,56 @@ export function NewCompanyDialog({
 
         <div className="space-y-4">
           <Section title="Identity">
-            <Field label="Property name" required error={touched && !form.name.trim()}>
+            <Field
+              label="Property name"
+              required
+              error={duplicate || (touched && !form.name.trim())}
+            >
               <Input
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="Atlantis The Palm"
-                aria-invalid={touched && !form.name.trim()}
+                aria-invalid={duplicate || (touched && !form.name.trim())}
+                className={
+                  duplicate
+                    ? "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/25"
+                    : undefined
+                }
               />
-              {duplicate && (
-                <p className="mt-1 text-xs font-medium text-destructive">
-                  A company with this name already exists.
-                </p>
+              {duplicate && duplicateMatch && (
+                <div
+                  role="alert"
+                  className="mt-1.5 flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-2.5 text-xs"
+                >
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="font-semibold text-destructive">
+                      Duplicate customer name
+                    </div>
+                    <p className="break-words text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        &ldquo;{duplicateMatch.name}&rdquo;
+                      </span>{" "}
+                      already exists
+                      {duplicateMatch.owner || duplicateMatch.area
+                        ? ` (${[
+                            duplicateMatch.owner
+                              ? `Owner: ${duplicateMatch.owner}`
+                              : null,
+                            duplicateMatch.area && duplicateMatch.emirate
+                              ? `${duplicateMatch.area}, ${duplicateMatch.emirate}`
+                              : duplicateMatch.area || duplicateMatch.emirate || null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")})`
+                        : ""}
+                      .{" "}
+                      {editing
+                        ? "Cannot rename to an existing customer."
+                        : "Cannot create duplicate."}
+                    </p>
+                  </div>
+                </div>
               )}
             </Field>
             <Field label="Cluster" hint="Search existing or create new">
@@ -643,14 +732,31 @@ export function NewCompanyDialog({
             Starts at <strong className="font-medium text-foreground">Suspect</strong>.
             Log an activity to be prompted to move it to Approach.
           </p>
+
+          {duplicate && (
+            <div
+              role="alert"
+              className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+            >
+              <AlertTriangle className="size-4 shrink-0" />
+              <span>
+                Duplicate customer name blocked — change Property name above to
+                continue.
+              </span>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={touched && !valid}>
-            {editing ? "Save changes" : "Create company"}
+          <Button onClick={submit} disabled={duplicate || (touched && !valid)}>
+            {duplicate
+              ? "Already Exists (Blocked)"
+              : editing
+                ? "Save changes"
+                : "Create company"}
           </Button>
         </DialogFooter>
       </DialogContent>

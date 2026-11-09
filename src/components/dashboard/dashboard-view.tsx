@@ -475,7 +475,11 @@ export function DashboardView() {
                 <ExpectedCloseSummary rows={expected} formatMoney={money} />
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <ExpectedCloseTile rows={expected} formatMoney={money} />
+                <ExpectedCloseTile
+                  rows={expected}
+                  formatMoney={money}
+                  periodLabel={periodLabel}
+                />
               </CardContent>
             </Card>
           ),
@@ -487,7 +491,11 @@ export function DashboardView() {
                 <CardDescription>Sent, no response yet</CardDescription>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <SamplesAwaitingTile rows={samples} formatMoney={money} />
+                <SamplesAwaitingTile
+                  rows={samples}
+                  formatMoney={money}
+                  periodLabel={periodLabel}
+                />
               </CardContent>
             </Card>
           ),

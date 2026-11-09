@@ -20,13 +20,60 @@ export const PRODUCT_VIEWS: { id: ProductView; label: string }[] = [
   { id: "customer", label: "Customer" },
 ];
 
+export const INITIAL_VISIBLE_ROWS = 5;
+export const VISIBLE_STEP_ROWS = 5;
+
+function StepExpandFooter({
+  visibleCount,
+  total,
+  noun,
+  onShowMore,
+  onShowLess,
+}: {
+  visibleCount: number;
+  total: number;
+  noun: string;
+  onShowMore: () => void;
+  onShowLess: () => void;
+}) {
+  if (total <= INITIAL_VISIBLE_ROWS) return null;
+
+  const shown = Math.min(visibleCount, total);
+  const remaining = Math.max(0, total - shown);
+  const nextStep = Math.min(VISIBLE_STEP_ROWS, remaining);
+
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={onShowMore}
+          className="flex-1 rounded-lg border border-accent/30 bg-accent/[0.08] px-3 py-1.5 text-center text-xs font-semibold text-accent transition-colors hover:bg-accent/[0.14]"
+        >
+          Show {nextStep} more ({shown} of {total} {noun}) ↓
+        </button>
+      )}
+      {visibleCount > INITIAL_VISIBLE_ROWS && (
+        <button
+          type="button"
+          onClick={onShowLess}
+          className={cn(
+            "rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-center text-xs font-semibold text-foreground transition-colors hover:bg-secondary",
+            remaining === 0 && "w-full",
+          )}
+        >
+          Show less ↑
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * Top products across OPEN deals.
  *
  * Three views of the same line items: by value, by quantity, and clubbed by
- * customer. The tile keeps a fixed height in the grid and this list scrolls
- * inside it — switching view must never resize the tile or shove its
- * neighbours around.
+ * customer. Starts with 5 entries and expands by 5 per tap in place.
  */
 export function TopProductsTile({
   view,
@@ -42,6 +89,12 @@ export function TopProductsTile({
   periodLabel: string;
 }) {
   const [openKey, setOpenKey] = React.useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = React.useState(INITIAL_VISIBLE_ROWS);
+
+  React.useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_ROWS);
+  }, [view, periodLabel]);
+
   const active = products.find((p) => p.key === openKey) ?? null;
 
   const detailRows: DetailRow[] = React.useMemo(() => {
@@ -61,43 +114,57 @@ export function TopProductsTile({
     if (byCustomer.length === 0) {
       return <EmptyTile message="No open deals in this period." />;
     }
+    const visibleCustomers = byCustomer.slice(0, visibleCount);
     return (
-      <ul className="space-y-2.5">
-        {byCustomer.map((row) => (
-          <li key={row.key}>
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate font-semibold">
-                {row.company}
-              </span>
-              <span className="shrink-0 tabular-nums">
-                <strong className="font-semibold">
-                  {formatMoney(row.value)}
-                </strong>
-                <span className="text-xs text-muted-foreground">
-                  {" "}
-                  · {row.dealCount}{" "}
-                  {row.dealCount === 1 ? "deal" : "deals"}
+      <div>
+        <ul className="space-y-2.5">
+          {visibleCustomers.map((row) => (
+            <li key={row.key}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate font-semibold">
+                  {row.company}
                 </span>
-              </span>
-            </div>
-            {/* Every line item from every open deal for this customer,
-                clubbed together — the point of this view. */}
-            <ul className="mt-1 space-y-0.5 border-l border-border pl-2.5">
-              {row.lines.map((line) => (
-                <li
-                  key={line.label}
-                  className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="min-w-0 truncate">{line.label}</span>
-                  <span className="shrink-0 tabular-nums">
-                    ×{line.quantity} · {formatMoney(line.value)}
+                <span className="shrink-0 tabular-nums">
+                  <strong className="font-semibold">
+                    {formatMoney(row.value)}
+                  </strong>
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    · {row.dealCount}{" "}
+                    {row.dealCount === 1 ? "deal" : "deals"}
                   </span>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
+                </span>
+              </div>
+              {/* Every line item from every open deal for this customer,
+                  clubbed together — the point of this view. */}
+              <ul className="mt-1 space-y-0.5 border-l border-border pl-2.5">
+                {row.lines.map((line) => (
+                  <li
+                    key={line.label}
+                    className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="min-w-0 truncate">{line.label}</span>
+                    <span className="shrink-0 tabular-nums">
+                      ×{line.quantity} · {formatMoney(line.value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+        <StepExpandFooter
+          visibleCount={visibleCount}
+          total={byCustomer.length}
+          noun="customers"
+          onShowMore={() =>
+            setVisibleCount((prev) =>
+              Math.min(byCustomer.length, prev + VISIBLE_STEP_ROWS),
+            )
+          }
+          onShowLess={() => setVisibleCount(INITIAL_VISIBLE_ROWS)}
+        />
+      </div>
     );
   }
 
@@ -114,11 +181,12 @@ export function TopProductsTile({
     ...rows.map((r) => (view === "qty" ? r.quantity : r.value)),
     1,
   );
+  const visibleRows = rows.slice(0, visibleCount);
 
   return (
     <>
       <ul className="space-y-1">
-        {rows.map((row, index) => {
+        {visibleRows.map((row, index) => {
           const metric = view === "qty" ? row.quantity : row.value;
           return (
             <li key={row.key}>
@@ -160,6 +228,17 @@ export function TopProductsTile({
           );
         })}
       </ul>
+      <StepExpandFooter
+        visibleCount={visibleCount}
+        total={rows.length}
+        noun="products"
+        onShowMore={() =>
+          setVisibleCount((prev) =>
+            Math.min(rows.length, prev + VISIBLE_STEP_ROWS),
+          )
+        }
+        onShowLess={() => setVisibleCount(INITIAL_VISIBLE_ROWS)}
+      />
 
       <DetailDialog
         open={active !== null}

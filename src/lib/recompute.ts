@@ -17,11 +17,13 @@ import type { Activity } from "./activities";
 import type { Company } from "./companies";
 import type { Deal } from "./deals";
 import type { CurrencyCode } from "./currency";
+import { deriveNextFollowUp } from "./customer-followups";
 
 export type CompanyCounters = {
   activityCount: number;
   lastActivityAt: string | null;
   lifetimeValue: number;
+  nextFollowUp: string | null;
 };
 
 /**
@@ -62,6 +64,7 @@ export function recomputeCounters(
     activityCount: happened.length,
     lastActivityAt: newest,
     lifetimeValue,
+    nextFollowUp: deriveNextFollowUp(companyId, mine, now),
   };
 }
 
@@ -70,6 +73,7 @@ export function countersDiffer(company: Company, next: CompanyCounters) {
   return (
     company.activityCount !== next.activityCount ||
     company.lastActivityAt !== next.lastActivityAt ||
-    Math.round(company.lifetimeValue) !== Math.round(next.lifetimeValue)
+    Math.round(company.lifetimeValue) !== Math.round(next.lifetimeValue) ||
+    (company.nextFollowUp ?? null) !== next.nextFollowUp
   );
 }

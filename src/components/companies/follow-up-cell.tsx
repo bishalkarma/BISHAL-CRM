@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Renders a next-follow-up date as an actionable, colour-coded chip.
- * This is the alternative to the manual Hot/Warm/Cold lead status.
+ * Linked automatically from the customer's open tasks and future bookings.
  */
 export function FollowUpCell({
   date,
@@ -18,11 +18,11 @@ export function FollowUpCell({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground",
+          "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground",
           compact ? "text-[10px]" : "text-xs",
         )}
       >
-        <CalendarPlus className="size-3" />
+        <CalendarPlus className="size-3 shrink-0" />
         Not scheduled
       </span>
     );
@@ -38,6 +38,12 @@ export function FollowUpCell({
     (startOfTarget.getTime() - startOfToday.getTime()) / 86_400_000,
   );
 
+  const shortDay = target.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
   let label: string;
   let tone: "overdue" | "today" | "soon" | "later";
 
@@ -48,30 +54,29 @@ export function FollowUpCell({
     label = "Today";
     tone = "today";
   } else if (dayDiff === 1) {
-    label = "Tomorrow";
+    label = compact ? `${shortDay} · Tomorrow` : `${shortDay} · Tomorrow`;
     tone = "soon";
   } else if (dayDiff <= 7) {
-    label = `In ${dayDiff} days`;
+    label = compact
+      ? `${shortDay} · In ${dayDiff}d`
+      : `${shortDay} · In ${dayDiff} days`;
     tone = "soon";
   } else {
-    label = target.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-    });
+    label = shortDay;
     tone = "later";
   }
 
   const TONES: Record<typeof tone, string> = {
     overdue: "bg-destructive/12 text-destructive font-semibold",
     today: "bg-warning/15 text-warning font-semibold",
-    soon: "bg-accent/12 text-accent",
+    soon: "bg-accent/12 text-accent font-medium",
     later: "bg-secondary text-muted-foreground",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5",
         compact ? "text-[10px]" : "text-xs",
         TONES[tone],
       )}

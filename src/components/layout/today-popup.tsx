@@ -16,14 +16,6 @@ export function TodayPopup({ onClose }: { onClose: () => void }) {
     const todayEnd = new Date(today);
     todayEnd.setHours(23, 59, 59, 999);
 
-    const followUps = companies
-      .filter((c) => {
-        if (!c.nextFollowUp) return false;
-        const d = new Date(c.nextFollowUp);
-        return d >= today && d <= todayEnd;
-      })
-      .sort((a, b) => new Date(a.nextFollowUp!).getTime() - new Date(b.nextFollowUp!).getTime());
-
     const tasks = activities
       .filter((a) => {
         if (!a.task || a.taskDone || !a.taskDueAt) return false;
@@ -39,6 +31,19 @@ export function TodayPopup({ onClose }: { onClose: () => void }) {
         return d >= today && d <= todayEnd && a.type === "meeting";
       })
       .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+
+    const coveredCompanyIds = new Set([
+      ...tasks.map((t) => t.companyId),
+      ...meetings.map((m) => m.companyId),
+    ]);
+
+    const followUps = companies
+      .filter((c) => {
+        if (!c.nextFollowUp || coveredCompanyIds.has(c.id)) return false;
+        const d = new Date(c.nextFollowUp);
+        return d >= today && d <= todayEnd;
+      })
+      .sort((a, b) => new Date(a.nextFollowUp!).getTime() - new Date(b.nextFollowUp!).getTime());
 
     return { followUps, tasks, meetings };
   }, [activities, companies]);

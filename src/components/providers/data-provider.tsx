@@ -6,7 +6,16 @@ import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
 import { recomputeCounters, countersDiffer } from "@/lib/recompute";
+import {
+  deriveNextFollowUp,
+  resolveCompanyFollowUps,
+} from "@/lib/customer-followups";
 import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
+import { clearDismissedSuggestion } from "@/lib/spancop-dismissals";
+import {
+  findDuplicateCompany,
+  normalizeCompanyName,
+} from "@/lib/company-guards";
 import { EMPTY_FULFILMENT, type Fulfilment } from "@/lib/deal-model";
 import type { SpancopStage, StageTransition } from "@/lib/spancop";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -69,6 +78,7 @@ type DataContextValue = {
   addCompany: (company: Company) => Contact;
   addCompanies: (companies: Company[]) => void;
   updateCompany: (id: string, patch: Partial<Company>) => void;
+  deleteCompany: (id: string) => Promise<{ ok: boolean; error?: string }>;
 
   addContact: (contact: Contact) => void;
   contactsFor: (companyId: string) => Contact[];
@@ -232,7 +242,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   /** Fall back to the bundled demo data — used on first run and on failure. */
   const loadDemo = React.useCallback(() => {
-    setCompanies(withOpenDeals(COMPANIES, DEALS));
+    setCompanies(
+      resolveCompanyFollowUps(withOpenDeals(COMPANIES, DEALS), ACTIVITIES),
+    );
     setContacts(CONTACTS);
     setDeals(DEALS);
     setActivities(ACTIVITIES);
@@ -488,7 +500,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setCompanies(withOpenDeals(filteredCompanies, filteredDeals));
+      const baseCompanies = withOpenDeals(filteredCompanies, filteredDeals);
+      const syncedCompanies = activityRes.error
+        ? baseCompanies
+        : resolveCompanyFollowUps(baseCompanies, filteredActivities);
+
+      setCompanies(syncedCompanies);
       setContacts(filteredContacts);
       setDeals(filteredDeals);
       setTransitions(
@@ -503,6 +520,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         );
       } else {
         setActivities(filteredActivities);
+        // Self-heal stale companies.next_follow_up rows in Supabase silently
+        const staleFollowUps = baseCompanies
+          .map((orig, idx) => ({
+            id: orig.id,
+            before: orig.nextFollowUp ?? null,
+            after: syncedCompanies[idx].nextFollowUp ?? null,
+          }))
+          .filter((entry) => entry.before !== entry.after);
+
+        if (staleFollowUps.length > 0 && supabase) {
+          const client = supabase;
+          void (async () => {
+            for (const item of staleFollowUps) {
+              try {
+                await client
+                  .from("companies")
+                  .update({ next_follow_up: item.after })
+                  .eq("id", item.id);
+              } catch {
+                // Non-critical: UI already reflects syncedCompanies
+              }
+            }
+          })();
+        }
       }
       setSource("supabase");
     } catch (err) {
@@ -552,32 +593,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
-  /** A company is never created without a contact. */
+  /** A company is never created without a contact, and duplicate names are rejected. */
   const addCompany = React.useCallback((company: Company) => {
-    const contact = contactFromCompany(company);
-    setCompanies((current) => [company, ...current]);
+    const normalizedName = company.name.trim().replace(/\s+/g, " ");
+    const duplicate = findDuplicateCompany(normalizedName, companiesRef.current);
+    const contact = contactFromCompany({ ...company, name: normalizedName });
+    if (duplicate) {
+      setSaveError(`Customer "${duplicate.name}" already exists.`);
+      return contact;
+    }
+
+    const cleanCompany: Company = { ...company, name: normalizedName };
+    setCompanies((current) => [cleanCompany, ...current]);
     setContacts((current) => [contact, ...current]);
     const transition: StageTransition = {
-      id: `T-${company.id}`,
-      companyId: company.id,
+      id: `T-${cleanCompany.id}`,
+      companyId: cleanCompany.id,
       from: null,
-      to: company.spancop,
+      to: cleanCompany.spancop,
       trigger: "seed",
       reason: "Company created",
-      at: company.createdAt,
-      by: company.owner,
+      at: cleanCompany.createdAt,
+      by: cleanCompany.owner,
     };
     setTransitions((current) => [transition, ...current]);
 
     // Company first — contact and transition both reference it.
     void persist("company", async () => {
-      const res = await supabase!.from("companies").insert(fromCompany(company));
+      const res = await supabase!
+        .from("companies")
+        .insert(fromCompany(cleanCompany));
       if (res.error) return res;
       // Set owner_id and created_by separately (not in base mapper to avoid constraint issues)
       await supabase!
         .from("companies")
-        .update({ owner_id: company.owner_id, created_by: company.created_by })
-        .eq("id", company.id);
+        .update({
+          owner_id: cleanCompany.owner_id,
+          created_by: cleanCompany.created_by,
+        })
+        .eq("id", cleanCompany.id);
       await supabase!.from("contacts").insert(fromContact(contact));
       return supabase!
         .from("stage_transitions")
@@ -589,8 +643,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addCompanies = React.useCallback(
     (list: Company[]) => {
-      const newContacts = list.map(contactFromCompany);
-      const newTransitions: StageTransition[] = list.map((company) => ({
+      const seenNames = new Set(
+        companiesRef.current.map((c) => normalizeCompanyName(c.name)),
+      );
+      const uniqueList: Company[] = [];
+      for (const item of list) {
+        const cleanName = item.name.trim().replace(/\s+/g, " ");
+        const norm = normalizeCompanyName(cleanName);
+        if (!norm || seenNames.has(norm)) continue;
+        seenNames.add(norm);
+        uniqueList.push({ ...item, name: cleanName });
+      }
+      if (uniqueList.length === 0) return;
+
+      const newContacts = uniqueList.map(contactFromCompany);
+      const newTransitions: StageTransition[] = uniqueList.map((company) => ({
         id: `T-${company.id}`,
         companyId: company.id,
         from: null,
@@ -601,17 +668,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         by: company.owner,
       }));
 
-      setCompanies((current) => [...list, ...current]);
+      setCompanies((current) => [...uniqueList, ...current]);
       setContacts((current) => [...newContacts, ...current]);
       setTransitions((current) => [...newTransitions, ...current]);
 
       void persist("import", async () => {
         const res = await supabase!
           .from("companies")
-          .insert(list.map(fromCompany));
+          .insert(uniqueList.map(fromCompany));
         if (res.error) return res;
         // Set owner_id and created_by for each imported company
-        for (const company of list) {
+        for (const company of uniqueList) {
           await supabase!
             .from("companies")
             .update({ owner_id: company.owner_id, created_by: company.created_by })
@@ -624,6 +691,54 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
     },
     [persist],
+  );
+
+  const deleteCompany = React.useCallback(
+    async (id: string): Promise<{ ok: boolean; error?: string }> => {
+      if (isSupabaseConfigured && supabase && source !== "demo") {
+        setSaving(true);
+        try {
+          const headers: HeadersInit = { "Content-Type": "application/json" };
+          if (typeof window !== "undefined") {
+            const userId = sessionStorage.getItem("demo_user_id");
+            const userName = sessionStorage.getItem("demo_user");
+            if (userId) headers["x-demo-user-id"] = userId;
+            if (userName) headers["x-demo-user"] = userName;
+          }
+          const res = await fetch(
+            `/api/companies/${encodeURIComponent(id)}`,
+            {
+              method: "DELETE",
+              headers,
+            },
+          );
+          if (!res.ok) {
+            const payload = (await res.json().catch(() => null)) as
+              | { error?: string }
+              | null;
+            const msg = payload?.error ?? "Could not delete customer.";
+            setSaveError(msg);
+            return { ok: false, error: msg };
+          }
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : "Could not delete customer.";
+          setSaveError(msg);
+          return { ok: false, error: msg };
+        } finally {
+          setSaving(false);
+        }
+      }
+
+      clearDismissedSuggestion(id);
+      setCompanies((current) => current.filter((c) => c.id !== id));
+      setContacts((current) => current.filter((c) => c.companyId !== id));
+      setDeals((current) => current.filter((d) => d.companyId !== id));
+      setActivities((current) => current.filter((a) => a.companyId !== id));
+      setTransitions((current) => current.filter((t) => t.companyId !== id));
+      return { ok: true };
+    },
+    [source],
   );
 
   /*
@@ -654,6 +769,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             activity_count: fresh.activityCount,
             last_activity_at: fresh.lastActivityAt,
             lifetime_value: fresh.lifetimeValue,
+            next_follow_up: fresh.nextFollowUp,
           })
           .eq("id", companyId),
       );
@@ -749,14 +865,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
    */
   const addActivity = React.useCallback(
     (activity: Activity) => {
-      setActivities((current) => [activity, ...current]);
+      const nextActivities = [activity, ...activitiesRef.current];
+      activitiesRef.current = nextActivities;
+      const freshCounters = recomputeCounters(
+        activity.companyId,
+        nextActivities,
+        dealsRef.current,
+      );
+
+      setActivities(nextActivities);
       setCompanies((current) =>
         current.map((c) =>
           c.id === activity.companyId
             ? {
                 ...c,
-                activityCount: c.activityCount + 1,
-                lastActivityAt: activity.occurredAt,
+                activityCount: freshCounters.activityCount,
+                lastActivityAt: freshCounters.lastActivityAt,
+                nextFollowUp: freshCounters.nextFollowUp,
               }
             : c,
         ),
@@ -781,8 +906,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return supabase!
           .from("companies")
           .update({
-            activity_count: owner.activityCount + 1,
-            last_activity_at: activity.occurredAt,
+            activity_count: freshCounters.activityCount,
+            last_activity_at: freshCounters.lastActivityAt,
+            next_follow_up: freshCounters.nextFollowUp,
           })
           .eq("id", activity.companyId);
       });
@@ -811,7 +937,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     (id: string, patch: Partial<Company>, contactPatch?: Partial<Contact>) => {
       const existing = companiesRef.current.find((c) => c.id === id);
       if (!existing) return;
-      const updated = { ...existing, ...patch };
+      if (patch.name !== undefined) {
+        const nextNorm = normalizeCompanyName(patch.name);
+        if (!nextNorm) return;
+        const collides = companiesRef.current.some(
+          (c) => c.id !== id && normalizeCompanyName(c.name) === nextNorm,
+        );
+        if (collides) {
+          setSaveError(`Customer "${patch.name.trim()}" already exists.`);
+          return;
+        }
+      }
+      const updated = {
+        ...existing,
+        ...patch,
+        ...(patch.name !== undefined
+          ? { name: patch.name.trim().replace(/\s+/g, " ") }
+          : {}),
+      };
 
       /*
         The primary contact carries the same four fields the company snapshot
@@ -910,9 +1053,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const existing = activitiesRef.current.find((a) => a.id === id);
       if (!existing) return;
       const updated = { ...existing, ...patch };
+      const nextActivities = activitiesRef.current.map((a) =>
+        a.id === id ? updated : a,
+      );
+      activitiesRef.current = nextActivities;
+      const nextFollowUp = deriveNextFollowUp(updated.companyId, nextActivities);
 
-      setActivities((current) =>
-        current.map((a) => (a.id === id ? updated : a)),
+      setActivities(nextActivities);
+      setCompanies((current) =>
+        current.map((c) =>
+          c.id === updated.companyId ? { ...c, nextFollowUp } : c,
+        ),
       );
 
       void persist("activity", async () =>
@@ -947,14 +1098,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const owner = companiesRef.current.find((c) => c.id === doomed.companyId);
 
       const remaining = activitiesRef.current.filter((a) => a.id !== id);
-      const newestForCompany = remaining
-        .filter((a) => a.companyId === doomed.companyId)
-        .reduce<string | null>((newest, a) => {
-          if (!newest) return a.occurredAt;
-          return new Date(a.occurredAt) > new Date(newest)
-            ? a.occurredAt
-            : newest;
-        }, null);
+      activitiesRef.current = remaining;
+      const freshCounters = recomputeCounters(
+        doomed.companyId,
+        remaining,
+        dealsRef.current,
+      );
 
       setActivities(remaining);
       setCompanies((cs) =>
@@ -962,8 +1111,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           c.id === doomed.companyId
             ? {
                 ...c,
-                activityCount: Math.max(0, c.activityCount - 1),
-                lastActivityAt: newestForCompany,
+                activityCount: freshCounters.activityCount,
+                lastActivityAt: freshCounters.lastActivityAt,
+                nextFollowUp: freshCounters.nextFollowUp,
               }
             : c,
         ),
@@ -971,13 +1121,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       void persist("activity", async () => {
         const res = await supabase!.from("activities").delete().eq("id", id);
-        if (res.error) return res;
+        if (res.error || !owner) return res;
         // Keep the stored counter honest, same reason as addActivity.
         return supabase!
           .from("companies")
           .update({
-            activity_count: Math.max(0, (owner?.activityCount ?? 1) - 1),
-            last_activity_at: newestForCompany,
+            activity_count: freshCounters.activityCount,
+            last_activity_at: freshCounters.lastActivityAt,
+            next_follow_up: freshCounters.nextFollowUp,
           })
           .eq("id", doomed.companyId);
       });
@@ -1396,9 +1547,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [contacts],
   );
 
+  const linkedCompanies = React.useMemo(
+    () => resolveCompanyFollowUps(companies, activities),
+    [companies, activities],
+  );
+
   const value = React.useMemo<DataContextValue>(
     () => ({
-      companies,
+      companies: linkedCompanies,
       contacts,
       deals,
       activities,
@@ -1413,6 +1569,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addCompany,
       addCompanies,
       updateCompany,
+      deleteCompany,
       updateContact,
       updateCompanyWithContact,
       addContact,
@@ -1434,7 +1591,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       moveStage,
     }),
     [
-      companies,
+      linkedCompanies,
       contacts,
       deals,
       activities,
@@ -1449,6 +1606,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addCompany,
       addCompanies,
       updateCompany,
+      deleteCompany,
       updateContact,
       updateCompanyWithContact,
       addContact,
