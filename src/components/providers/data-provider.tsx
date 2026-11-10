@@ -240,6 +240,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const hasLoadedOnceRef = React.useRef(false);
+  const lastLoadedAtRef = React.useRef(0);
+  const loadInFlightRef = React.useRef(false);
+  const sessionKeyRef = React.useRef("");
+
+  const readSessionKey = React.useCallback(() => {
+    if (typeof window === "undefined") return "";
+    const uid = sessionStorage.getItem("demo_user_id") ?? "";
+    const uname = sessionStorage.getItem("demo_user") ?? "";
+    const urole = sessionStorage.getItem("demo_user_role") ?? "";
+    return `${uid}|${uname}|${urole}`;
+  }, []);
+
   /** Fall back to the bundled demo data — used on first run and on failure. */
   const loadDemo = React.useCallback(() => {
     setCompanies(
@@ -250,19 +263,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setActivities(ACTIVITIES);
     setTransitions(STAGE_TRANSITIONS);
     setSource("demo");
+    hasLoadedOnceRef.current = true;
+    lastLoadedAtRef.current = Date.now();
   }, []);
 
-  const load = React.useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      loadDemo();
-      setLoading(false);
-      return;
-    }
+  const load = React.useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!isSupabaseConfigured || !supabase) {
+        loadDemo();
+        sessionKeyRef.current = readSessionKey();
+        setLoading(false);
+        return;
+      }
 
-    setLoading(true);
-    setError(null);
+      if (opts?.silent && loadInFlightRef.current) {
+        return;
+      }
+      loadInFlightRef.current = true;
 
-    try {
+      // BUILD 18.13: Never flash skeleton rows or unmount scroll containers
+      // when data is already loaded in memory.
+      const showInitialSkeleton = !opts?.silent && !hasLoadedOnceRef.current;
+      if (showInitialSkeleton) {
+        setLoading(true);
+      }
+      if (!opts?.silent) {
+        setError(null);
+      }
+
+      try {
       const [companyRes, contactRes, dealRes, transitionRes, activityRes] =
         await Promise.all([
           supabase.from("companies").select("*").order("name"),
@@ -546,42 +575,76 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setSource("supabase");
+      hasLoadedOnceRef.current = true;
+      lastLoadedAtRef.current = Date.now();
+      sessionKeyRef.current = readSessionKey();
     } catch (err) {
-      // Never leave the user staring at an empty app.
-      const message =
-        err instanceof Error ? err.message : "Could not reach Supabase";
-      setError(message);
-      loadDemo();
+      // Never overwrite already-loaded live CRM data with demo data on a
+      // transient background network hiccup.
+      if (!hasLoadedOnceRef.current) {
+        const message =
+          err instanceof Error ? err.message : "Could not reach Supabase";
+        setError(message);
+        loadDemo();
+      }
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [loadDemo]);
+  }, [loadDemo, readSessionKey]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
 
-  // BUILD 11: Fix "no data after login until refresh" — reload when auth changes.
-  // DataProvider mounts once at app start (before login), so the initial load runs
-  // with no user in sessionStorage. After login, sessionStorage is set and we
-  // navigate to /dashboard, but the provider does not remount, so data stays empty
-  // until a manual refresh. Listen for auth changes and reload.
+  // BUILD 11 + BUILD 18.13: Reload immediately when auth session actually changes
+  // (e.g., login/logout), and revalidate silently on tab visibility only after a
+  // 5-minute cooldown when no modal dialog is open — NEVER on window "focus",
+  // which fires when closing Radix dialogs (e.g., Edit Activity) and used to
+  // unmount the Activities list into loading skeletons and reset scroll position.
   React.useEffect(() => {
-    const handleAuthChange = () => void load();
-    window.addEventListener("biscrm:auth-changed", handleAuthChange);
-    window.addEventListener("storage", handleAuthChange);
-    window.addEventListener("focus", handleAuthChange);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void load();
+    const BACKGROUND_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+
+    const handleAuthChange = () => {
+      const nextKey = readSessionKey();
+      if (nextKey !== sessionKeyRef.current) {
+        hasLoadedOnceRef.current = false;
+      }
+      void load({ silent: hasLoadedOnceRef.current });
     };
+
+    const handleStorage = () => {
+      const nextKey = readSessionKey();
+      if (nextKey !== sessionKeyRef.current) {
+        hasLoadedOnceRef.current = false;
+        void load();
+      }
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!hasLoadedOnceRef.current) return;
+      if (Date.now() - lastLoadedAtRef.current < BACKGROUND_REFRESH_COOLDOWN_MS) {
+        return;
+      }
+      const hasOpenDialog = Boolean(
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        ),
+      );
+      if (hasOpenDialog) return;
+      void load({ silent: true });
+    };
+
+    window.addEventListener("biscrm:auth-changed", handleAuthChange);
+    window.addEventListener("storage", handleStorage);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.removeEventListener("biscrm:auth-changed", handleAuthChange);
-      window.removeEventListener("storage", handleAuthChange);
-      window.removeEventListener("focus", handleAuthChange);
+      window.removeEventListener("storage", handleStorage);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [load]);
+  }, [load, readSessionKey]);
 
   const addContact = React.useCallback(
     (contact: Contact) => {
@@ -1552,6 +1615,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [companies, activities],
   );
 
+  const refresh = React.useCallback(
+    () => load({ silent: hasLoadedOnceRef.current }),
+    [load],
+  );
+
   const value = React.useMemo<DataContextValue>(
     () => ({
       companies: linkedCompanies,
@@ -1562,7 +1630,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       source,
       error,
-      refresh: load,
+      refresh,
       saving,
       saveError,
       clearSaveError,
@@ -1599,7 +1667,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       source,
       error,
-      load,
+      refresh,
       saving,
       saveError,
       clearSaveError,

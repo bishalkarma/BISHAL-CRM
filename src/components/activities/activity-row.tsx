@@ -4,6 +4,8 @@ import * as React from "react";
 import {
   ArrowRight,
   Banknote,
+  Check,
+  Eye,
   Mail,
   MapPin,
   MessageCircle,
@@ -31,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ClampedText } from "./clamped-text";
 import { DeleteActivityDialog } from "./delete-activity-dialog";
 import { LogActivityDialog } from "./log-activity-dialog";
@@ -71,8 +74,10 @@ export function ActivityRow({
   showDate?: boolean;
   deletable?: boolean;
 }) {
+  const [viewing, setViewing] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
+  const [completingTask, setCompletingTask] = React.useState(false);
   const { companies, contactById, deals } = useData();
   const def = ACTIVITY_MAP[activity.type];
   const Icon = ICONS[def.icon] ?? Phone;
@@ -90,12 +95,35 @@ export function ActivityRow({
     mistaken for something that already happened.
   */
   const upcoming = new Date(activity.occurredAt).getTime() > Date.now();
+  const shortDate = new Date(activity.occurredAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
     <>
     <div
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        // Ignore clicks originating inside dropdown triggers/menus or text selection
+        const selection =
+          typeof window !== "undefined" ? window.getSelection()?.toString() : "";
+        if (selection && selection.length > 0) return;
+        const target = e.target as HTMLElement | null;
+        if (target?.closest("button, a, [role='menuitem']")) return;
+        setViewing(true);
+      }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setViewing(true);
+        }
+      }}
       className={cn(
-        "group/activity flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50",
+        "group/activity flex cursor-pointer gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
         compact && "px-2 py-2",
         upcoming && "opacity-70",
       )}
@@ -128,11 +156,10 @@ export function ActivityRow({
           )}
           <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
             {showDate
-              ? new Date(activity.occurredAt).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                })
-              : relativeTime(activity.occurredAt)}
+              ? shortDate
+              : compact
+                ? relativeTime(activity.occurredAt)
+                : `${shortDate} · ${relativeTime(activity.occurredAt)}`}
           </span>
 
           {deletable && (
@@ -141,6 +168,7 @@ export function ActivityRow({
                 <button
                   type="button"
                   aria-label="Activity options"
+                  onClick={(e) => e.stopPropagation()}
                   /* Hidden until the row is hovered or the button is focused,
                      so a long journal is not a wall of icons. Always visible
                      on touch, where there is no hover. */
@@ -149,7 +177,15 @@ export function ActivityRow({
                   <MoreHorizontal className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent
+                align="end"
+                className="w-40"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenuItem onSelect={() => setViewing(true)}>
+                  <Eye className="size-3.5" />
+                  View details
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setEditing(true)}>
                   <Pencil className="size-3.5" />
                   Edit
@@ -202,6 +238,8 @@ export function ActivityRow({
         {/*
           The follow-up is shown as read-only context. Tasks are actioned in
           the Open tasks view, where completing one opens a new log entry.
+          BUILD 18.13 also surfaces completed historical tasks subtly so past
+          follow-ups are visible without opening Edit Activity.
         */}
         {activity.task && !activity.taskDone && (
           <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -219,6 +257,18 @@ export function ActivityRow({
             )}
           </div>
         )}
+        {activity.task && activity.taskDone && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground/75">
+            <Check className="size-3 shrink-0 text-success" />
+            <span className="min-w-0 flex-1 truncate">{activity.task}</span>
+            <span className="shrink-0 rounded-full bg-success/12 px-1.5 py-0.5 text-[10px] text-success">
+              Done
+              {activity.taskDueAt
+                ? ` · ${new Date(activity.taskDueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                : ""}
+            </span>
+          </div>
+        )}
       </div>
 
       {!compact && (
@@ -230,11 +280,31 @@ export function ActivityRow({
       )}
     </div>
 
+    <ActivityDetailDialog
+      activity={viewing ? activity : null}
+      open={viewing}
+      onOpenChange={setViewing}
+      onEdit={deletable ? () => setEditing(true) : undefined}
+      onCompleteTask={
+        deletable && activity.task && !activity.taskDone
+          ? () => setCompletingTask(true)
+          : undefined
+      }
+    />
+
     {deletable && (
       <LogActivityDialog
         open={editing}
         onOpenChange={setEditing}
         editing={editing ? activity : null}
+      />
+    )}
+
+    {deletable && (
+      <LogActivityDialog
+        open={completingTask}
+        onOpenChange={setCompletingTask}
+        completing={completingTask ? activity : null}
       />
     )}
 
