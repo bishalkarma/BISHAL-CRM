@@ -128,7 +128,7 @@ export function ActivityDetailDialog({
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             {company
-              ? `${company.area}, ${company.emirate} · ${company.category}`
+              ? `${company.area}, ${company.emirate} · ${company.business}${company.type ? ` ${company.type}` : ""}`
               : "Recorded interaction details"}
           </DialogDescription>
         </DialogHeader>
