@@ -61,11 +61,27 @@ export type LineItem = {
   sample?: LineSample | null;
 };
 
-/** What happened to one sampled line. Dates are stamped, never typed. */
+export type SampleReturnStatus = "out" | "returned" | "consumable";
+
+/** What happened to one sampled line — commercial verdict + physical custody. */
 export type LineSample = {
   sentAt: string;
   feedbackAt: string | null;
   feedback: string | null;
+  /** Physical sample units handed to the customer (distinct from quote qty). */
+  sampleQty?: number | null;
+  /** When the physical sample was collected back from the customer. */
+  returnedAt?: string | null;
+  /** Physical custody state: 'out' (default), 'returned', or 'consumable'. */
+  returnStatus?: SampleReturnStatus | null;
+  /** Person at the customer who received / holds the sample. */
+  recipient?: string | null;
+  /** Optional handover remark when giving the sample. */
+  handoverNote?: string | null;
+  /** Optional condition / pickup remark when taking the sample back. */
+  returnNote?: string | null;
+  /** Optional linked follow-up task activity id so pickup is never missed. */
+  followUpActivityId?: string | null;
 };
 
 export const LINE_STATUS_META: Record<

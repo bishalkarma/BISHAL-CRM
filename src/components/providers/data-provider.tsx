@@ -5,6 +5,10 @@ import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
 import { DEALS, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
+import {
+  DEMO_CUSTOMER_SAMPLES,
+  type CustomerSample,
+} from "@/lib/samples";
 import { recomputeCounters, countersDiffer } from "@/lib/recompute";
 import {
   deriveNextFollowUp,
@@ -25,15 +29,18 @@ import {
   fromDeal,
   fromLineItem,
   fromActivity,
+  fromCustomerSample,
   fromTransition,
   toActivity,
   toCompany,
   toContact,
+  toCustomerSample,
   toDeal,
   toTransition,
   type ActivityRow,
   type CompanyRow,
   type ContactRow,
+  type CustomerSampleRow,
   type DealRow,
   type TransitionRow,
 } from "@/lib/supabase-mappers";
@@ -59,6 +66,7 @@ type DataContextValue = {
   contacts: Contact[];
   deals: Deal[];
   activities: Activity[];
+  customerSamples: CustomerSample[];
   transitions: StageTransition[];
 
   /** True during the initial fetch. */
@@ -101,6 +109,10 @@ type DataContextValue = {
   ) => void;
   deleteActivity: (id: string) => void;
   activitiesFor: (opts: { companyId?: string; dealId?: string }) => Activity[];
+
+  addCustomerSample: (sample: CustomerSample) => void;
+  updateCustomerSample: (id: string, patch: Partial<CustomerSample>) => void;
+  cancelCustomerSample: (id: string) => void;
 
   addDeal: (deal: Deal) => void;
   updateDeal: (id: string, patch: Partial<Deal>) => void;
@@ -174,6 +186,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [deals, setDeals] = React.useState<Deal[]>([]);
   const [activities, setActivities] = React.useState<Activity[]>([]);
+  const [customerSamples, setCustomerSamples] = React.useState<CustomerSample[]>(
+    [],
+  );
   /*
     Mirrors of state, read by the write paths.
 
@@ -207,6 +222,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     companiesRef.current = companies;
   }, [companies]);
+
+  const customerSamplesRef = React.useRef<CustomerSample[]>([]);
+  React.useEffect(() => {
+    customerSamplesRef.current = customerSamples;
+  }, [customerSamples]);
   const [transitions, setTransitions] = React.useState<StageTransition[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [source, setSource] = React.useState<DataSource>("demo");
@@ -261,6 +281,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setContacts(CONTACTS);
     setDeals(DEALS);
     setActivities(ACTIVITIES);
+    setCustomerSamples(DEMO_CUSTOMER_SAMPLES);
     setTransitions(STAGE_TRANSITIONS);
     setSource("demo");
     hasLoadedOnceRef.current = true;
@@ -292,8 +313,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-      const [companyRes, contactRes, dealRes, transitionRes, activityRes] =
-        await Promise.all([
+      const [
+        companyRes,
+        contactRes,
+        dealRes,
+        transitionRes,
+        activityRes,
+        customerSampleRes,
+      ] = await Promise.all([
           supabase.from("companies").select("*").order("name"),
           supabase.from("contacts").select("*").order("name"),
           // Line items come back nested in one round trip.
@@ -306,6 +333,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             .from("activities")
             .select("*")
             .order("occurred_at", { ascending: false }),
+          supabase
+            .from("customer_samples")
+            .select("*")
+            .order("sent_at", { ascending: false }),
         ]);
 
       /*
@@ -437,6 +468,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       let filteredDeals = loadedDeals;
       let filteredContacts = ((contactRes.data ?? []) as ContactRow[]).map(toContact);
       let filteredActivities = activityRes.error ? [] : ((activityRes.data ?? []) as ActivityRow[]).map(toActivity);
+      let filteredCustomerSamples = customerSampleRes.error
+        ? []
+        : ((customerSampleRes.data ?? []) as CustomerSampleRow[]).map(
+            toCustomerSample,
+          );
 
       // PHASE 1 VISIBILITY LOGIC
       // Admin: Sees ALL records
@@ -492,6 +528,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           
           // Filter activities by company ownership
           filteredActivities = filteredActivities.filter(a => ownedCompanyIds.has(a.companyId));
+          filteredCustomerSamples = filteredCustomerSamples.filter(
+            (cs) =>
+              ownedCompanyIds.has(cs.companyId) ||
+              cs.owner_id === userId ||
+              teamMemberIds.includes(cs.owner_id || ""),
+          );
 
           console.log("[DataFilter] Manager filtered Companies:", filteredCompanies.length);
         } else {
@@ -500,6 +542,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           filteredDeals = [];
           filteredContacts = [];
           filteredActivities = [];
+          filteredCustomerSamples = [];
         }
       } else if (userRole === "Sales Rep" || userRole === "Viewer") {
         // Sales Rep and Viewer see ONLY their own assigned records (UUID-only filter)
@@ -518,6 +561,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           filteredContacts = filteredContacts.filter(c => ownedCompanyIds.has(c.companyId));
           // Filter activities by company ownership
           filteredActivities = filteredActivities.filter(a => ownedCompanyIds.has(a.companyId));
+          filteredCustomerSamples = filteredCustomerSamples.filter(
+            (cs) => ownedCompanyIds.has(cs.companyId) || cs.owner_id === userId,
+          );
 
           console.log("[DataFilter] Filtered Companies:", filteredCompanies.length);
         } else {
@@ -526,6 +572,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           filteredDeals = [];
           filteredContacts = [];
           filteredActivities = [];
+          filteredCustomerSamples = [];
         }
       }
 
@@ -537,6 +584,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCompanies(syncedCompanies);
       setContacts(filteredContacts);
       setDeals(filteredDeals);
+      setCustomerSamples(filteredCustomerSamples);
       setTransitions(
         ((transitionRes.data ?? []) as TransitionRow[]).map(toTransition),
       );
@@ -1610,6 +1658,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [contacts],
   );
 
+  const addCustomerSample = React.useCallback(
+    (sample: CustomerSample) => {
+      const currentUserId =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("demo_user_id")
+          : null;
+      const company = companiesRef.current.find(
+        (c) => c.id === sample.companyId,
+      );
+      const enriched: CustomerSample = {
+        ...sample,
+        owner: sample.owner || company?.owner || "Bishal Karma",
+        owner_id: sample.owner_id ?? company?.owner_id ?? currentUserId ?? null,
+        created_by: sample.created_by ?? currentUserId ?? null,
+      };
+      setCustomerSamples((current) => [enriched, ...current]);
+      void persist("customer sample", async () =>
+        supabase!
+          .from("customer_samples")
+          .insert(fromCustomerSample(enriched)),
+      );
+    },
+    [persist],
+  );
+
+  const updateCustomerSample = React.useCallback(
+    (id: string, patch: Partial<CustomerSample>) => {
+      const existing = customerSamplesRef.current.find((s) => s.id === id);
+      if (!existing) return;
+      const updated: CustomerSample = {
+        ...existing,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      };
+      setCustomerSamples((current) =>
+        current.map((s) => (s.id === id ? updated : s)),
+      );
+      void persist("customer sample", async () =>
+        supabase!
+          .from("customer_samples")
+          .update(fromCustomerSample(updated))
+          .eq("id", id),
+      );
+    },
+    [persist],
+  );
+
+  const cancelCustomerSample = React.useCallback(
+    (id: string) => {
+      updateCustomerSample(id, { returnStatus: "cancelled" });
+    },
+    [updateCustomerSample],
+  );
+
   const linkedCompanies = React.useMemo(
     () => resolveCompanyFollowUps(companies, activities),
     [companies, activities],
@@ -1626,6 +1728,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contacts,
       deals,
       activities,
+      customerSamples,
       transitions,
       loading,
       source,
@@ -1648,6 +1751,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateActivity,
       deleteActivity,
       activitiesFor,
+      addCustomerSample,
+      updateCustomerSample,
+      cancelCustomerSample,
       addDeal,
       updateDeal,
       recordFulfilment,
@@ -1663,6 +1769,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       contacts,
       deals,
       activities,
+      customerSamples,
       transitions,
       loading,
       source,
@@ -1685,6 +1792,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateActivity,
       deleteActivity,
       activitiesFor,
+      addCustomerSample,
+      updateCustomerSample,
+      cancelCustomerSample,
       addDeal,
       updateDeal,
       recordFulfilment,

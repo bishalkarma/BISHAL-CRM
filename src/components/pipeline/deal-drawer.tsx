@@ -43,6 +43,10 @@ import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { OrderProgress } from "./order-progress";
 import { SampleTracker } from "./sample-tracker";
 import {
+  GiveSampleDialog,
+  type GiveSampleDialogTarget,
+} from "@/components/samples/sample-dialogs";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -71,6 +75,8 @@ export function DealDrawer({
   const { display, toDisplay, format } = useCurrency();
   const { contactById, activitiesFor, updateDeal } = useData();
   const [editingDeal, setEditingDeal] = React.useState(false);
+  const [giveLineTarget, setGiveLineTarget] =
+    React.useState<GiveSampleDialogTarget | null>(null);
   // Deal-scoped: activitiesFor filters on dealId when one is supplied.
   const dealActivities = React.useMemo(
     () => (deal ? activitiesFor({ dealId: deal.id }) : []),
@@ -142,7 +148,10 @@ export function DealDrawer({
           {/* The order chain, on won deals only. An open deal has no PO,
               no delivery and no payment to record. */}
           {deal.stage === "won" && <OrderProgress deal={deal} />}
-          {deal.stage === "sampling" && <SampleTracker deal={deal} />}
+          {(deal.stage === "sampling" ||
+            deal.lines.some((l) => Boolean(l.sample?.sentAt))) && (
+            <SampleTracker deal={deal} />
+          )}
 
           {/* Value */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">
@@ -263,6 +272,27 @@ export function DealDrawer({
                         {item.rejectReason}
                       </div>
                     )}
+                    {!item.sample?.sentAt &&
+                      deal.stage !== "sampling" &&
+                      deal.stage !== "won" &&
+                      deal.stage !== "lost" && (
+                        <div className="mt-1.5 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGiveLineTarget({
+                                mode: "deal-line",
+                                deal,
+                                line: item,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                          >
+                            <Package className="size-3" />
+                            + Give sample
+                          </button>
+                        </div>
+                      )}
                   </li>
                 );
               })}
@@ -540,6 +570,11 @@ export function DealDrawer({
         onCreate={() => {}}
         onCreateCompany={() => {}}
         onSaveEdit={(patch) => updateDeal(deal.id, patch)}
+      />
+
+      <GiveSampleDialog
+        target={giveLineTarget}
+        onOpenChange={(o) => !o && setGiveLineTarget(null)}
       />
     </Dialog>
   );

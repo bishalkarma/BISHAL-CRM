@@ -33,6 +33,7 @@ const GOTO_MAP: Record<string, string> = {
   c: "/companies",
   o: "/contacts",
   a: "/activities",
+  m: "/samples",
   q: "/quotations",
   r: "/orders",
   i: "/products",
