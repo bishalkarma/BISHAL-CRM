@@ -18,6 +18,7 @@ numbered commit titles. They are now identified by immutable Git tags on the
 | 18.11 | `BUILD_18.11` | `0220d8523273708d66097622671f81dc2b4b9f82` | Duplicate customer alert copy polish: removed `"in ZEST CRM"` so message cleanly reads `"<Customer>" already exists (Owner: ... · ...). Cannot create duplicate.` | 15 test scripts, 237 checks passed; Vercel Preview `READY`; user confirmed working; promoted to `main` |
 | 18.12 | `BUILD_18.12` | `d783404ce4525d3b57fbebe57b0a3c70aa40d659` | Live-linked customer `nextFollowUp` (`src/lib/customer-followups.ts`) to Open Tasks + future-booked activities across Customer Card, Companies Table (desktop & mobile), and Supabase (`load` self-heal + `addActivity` / `updateActivity` / `deleteActivity` / `syncCounters`); Option B Open Task bar + 1-tap `Done` button in `CompanyDrawer` + weekday/date `FollowUpCell` chip | 16 test scripts, 242 checks passed; Vercel Preview `READY`; user confirmed working; promoted to `main` |
 | 18.13 | `BUILD_18.13` | `1187640ecfc660ff2e2c17a3f753120a8c4e54bc` | Stopped focus/modal-dismissal skeleton reloads & scroll resets (`DataProvider`: removed `window.focus` listener, gated initial skeleton on `hasLoadedOnceRef`, added 5-min silent `visibilitychange` cooldown + open-dialog guard); added 1-tap read-only `ActivityDetailDialog` + completed historical task line in `ActivityRow` | 17 test scripts, 248 checks passed; Vercel Preview `READY`; promoted to `main` |
+| 18.14 | `BUILD_18.14` | `7f0342b910638f31096fa145062a9c545b6ed9bd` | End-to-end Sample Custody & Standalone Customer Samples (`supabase/11-sample-tracking.sql` + `src/lib/samples.ts`): tracks Given Date, Sample Qty, Handed To, Live Days With Client (`7d` Amber / `14d+` Red), Taken Back Date & Total Days Held across Deal Card (`SampleTracker` persistent on Won/Lost), Customer Card (`CustomerSampleCustody` + standalone samples without a Deal), auto-scheduled +7d Follow-up Task guard, and new `Samples` sidebar register (`/samples`) | 18 test scripts, 257 checks passed; Vercel Preview `READY` (`dpl_6CevuJQ3x7X9EPYZNQke2kKMunzp`); user confirmed working; promoted to `main` |
 
 ### Preview links for the tested builds
 - **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
@@ -29,11 +30,12 @@ numbered commit titles. They are now identified by immutable Git tags on the
 - **BUILD 18.11:** https://bishal-2dvbizo66-bishal-sales-crm.vercel.app
 - **BUILD 18.12:** https://bishal-n331cj69o-bishal-sales-crm.vercel.app
 - **BUILD 18.13:** https://bishal-7csgjq7bn-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-58eb58d5-bishal-crm-bishal-sales-crm.vercel.app)
+- **BUILD 18.14:** https://bishal-pf3r2e6fp-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-18ad9830-bishal-crm-bishal-sales-crm.vercel.app)
 - Preview URLs are subject to Vercel retention. The Git tags preserve source
   recovery points even if those deployment URLs expire.
 
 ### Required process for subsequent application builds
-1. **Next application build: BUILD 18.14**, then 18.15, 18.16, etc. These
+1. **Next application build: BUILD 18.15**, then 18.16, 18.17, etc. These
    are sequential labels, not decimal values. A major-number change requires
    the user's agreement; do not jump to the historical reserved BUILD 19.
 2. Prefix application-build commit messages with `BUILD <number> - <summary>`

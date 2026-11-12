@@ -40,6 +40,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { NewCompanyDialog } from "./new-company-dialog";
 import { SpancopStrip } from "./spancop-strip";
 import { FollowUpCell } from "./follow-up-cell";
+import { CustomerSampleCustody } from "@/components/samples/customer-sample-custody";
 import {
   TransferHistory,
   type TransferHistoryEntry,
@@ -513,6 +514,9 @@ export function CompanyDrawer({
               )}
             </div>
 
+            {/* 2b. Customer Sample Custody (Deal + Standalone samples) */}
+            <CustomerSampleCustody companyId={company.id} compact />
+
             {/* 3. Compact Primary Contact + Quick Actions */}
             <div className="rounded-xl border border-border bg-secondary/20 p-2.5">
               <div className="flex items-center gap-2.5">
@@ -729,6 +733,8 @@ export function CompanyDrawer({
             </div>
 
             {renderOpenTaskBar(false)}
+
+            <CustomerSampleCustody companyId={company.id} />
 
             <Separator />
 

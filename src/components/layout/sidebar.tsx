@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  PackageCheck,
   Plus,
   Settings,
   Target,
@@ -18,6 +19,11 @@ import {
 import { NAV_SECTIONS } from "@/lib/navigation";
 import { SPANCOP_MAP, SPANCOP_ORDER } from "@/lib/spancop";
 import { PIPELINE_STAGES } from "@/lib/pipeline";
+import {
+  SAMPLE_OVERDUE_DAYS,
+  effectiveSampleReturnStatus,
+  sampleDaysWithCustomer,
+} from "@/lib/samples";
 import { Logo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +92,45 @@ function useSpancopStats() {
   }, [companies]);
 }
 
+/** Count physical samples currently out with customers and overdue pickups (14d+). */
+function useSampleCustodyStats() {
+  const { deals, customerSamples } = useData();
+  return React.useMemo(() => {
+    const now = Date.now();
+    let outCount = 0;
+    let overdueCount = 0;
+
+    for (const deal of deals) {
+      for (const line of deal.lines) {
+        if (!line.sample?.sentAt) continue;
+        const st = effectiveSampleReturnStatus(
+          line.sample.returnStatus,
+          line.sample.returnedAt,
+        );
+        if (st === "out") {
+          outCount++;
+          if (sampleDaysWithCustomer(line.sample.sentAt, null, now) >= SAMPLE_OVERDUE_DAYS) {
+            overdueCount++;
+          }
+        }
+      }
+    }
+
+    for (const cs of customerSamples) {
+      if (cs.returnStatus === "cancelled") continue;
+      const st = effectiveSampleReturnStatus(cs.returnStatus, cs.returnedAt);
+      if (st === "out") {
+        outCount++;
+        if (sampleDaysWithCustomer(cs.sentAt, null, now) >= SAMPLE_OVERDUE_DAYS) {
+          overdueCount++;
+        }
+      }
+    }
+
+    return { outCount, overdueCount };
+  }, [deals, customerSamples]);
+}
+
 export function Sidebar({
   collapsed,
   onToggleCollapse,
@@ -103,6 +148,7 @@ export function Sidebar({
   const today = useTodayStats();
   const pipeline = useDealPipelineStats();
   const spancop = useSpancopStats();
+  const sampleStats = useSampleCustodyStats();
   const { user: currentUser } = useCurrentUser();
 
   const displayName = currentUser?.displayName ?? "User";
@@ -201,6 +247,9 @@ export function Sidebar({
                   )}
                 >
                   <Icon className="size-5" />
+                  {item.href === "/samples" && sampleStats.overdueCount > 0 && (
+                    <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-destructive" />
+                  )}
                 </Link>
               );
               return (
@@ -338,6 +387,18 @@ export function Sidebar({
                           <span className="relative flex-1 truncate">
                             {item.label}
                           </span>
+                          {item.href === "/samples" && sampleStats.outCount > 0 && (
+                            <span
+                              className={cn(
+                                "relative ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                                sampleStats.overdueCount > 0
+                                  ? "bg-destructive text-destructive-foreground"
+                                  : "bg-accent/15 text-accent",
+                              )}
+                            >
+                              {sampleStats.outCount} out
+                            </span>
+                          )}
                           {item.soon && (
                             <Badge
                               variant="outline"
@@ -387,7 +448,18 @@ export function Sidebar({
                 </span>
               </div>
             )}
-            {today.followUps === 0 && today.tasks === 0 && (
+            {sampleStats.overdueCount > 0 && (
+              <div className="flex items-center gap-2 text-[13px]">
+                <PackageCheck className="size-3.5 text-destructive" />
+                <span className="flex-1 text-destructive">Samples 14d+</span>
+                <span className="text-base font-bold tabular-nums text-destructive">
+                  {sampleStats.overdueCount}
+                </span>
+              </div>
+            )}
+            {today.followUps === 0 &&
+              today.tasks === 0 &&
+              sampleStats.overdueCount === 0 && (
               <div className="text-[13px] text-muted-foreground/60">
                 Nothing pending — you&apos;re all caught up.
               </div>

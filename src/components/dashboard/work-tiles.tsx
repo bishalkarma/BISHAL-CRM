@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import type {
   CashRow,
   ExpectedCloseRow,
@@ -236,6 +237,14 @@ export function SamplesAwaitingTile({
         }
         onShowLess={() => setVisibleCount(INITIAL_VISIBLE_ROWS)}
       />
+      <div className="mt-2 border-t border-border/50 pt-2 text-right">
+        <Link
+          href="/samples"
+          className="text-xs font-semibold text-accent hover:underline"
+        >
+          Open Samples Register →
+        </Link>
+      </div>
     </div>
   );
 }

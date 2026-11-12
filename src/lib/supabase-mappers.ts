@@ -23,8 +23,14 @@ import type {
   LineItem,
   LineStatus,
   LostReason,
+  SampleReturnStatus,
   Unit,
 } from "./deal-model";
+import type {
+  CustomerSample,
+  CustomerSampleStatus,
+  CustomerSampleVerdict,
+} from "./samples";
 import type { DealStage } from "./pipeline";
 import type { SpancopStage, StageTransition } from "./spancop";
 import type { CurrencyCode } from "./currency";
@@ -94,6 +100,13 @@ export type DealLineRow = {
   sample_sent_at?: string | null;
   sample_feedback_at?: string | null;
   sample_feedback?: string | null;
+  sample_qty?: number | string | null;
+  sample_returned_at?: string | null;
+  sample_return_status?: string | null;
+  sample_recipient?: string | null;
+  sample_handover_note?: string | null;
+  sample_return_note?: string | null;
+  sample_followup_activity_id?: string | null;
   position: number;
 };
 
@@ -228,13 +241,24 @@ export function toLineItem(row: DealLineRow): LineItem {
     unitPrice: num(row.unit_price),
     status: row.status as LineStatus,
     rejectReason: (row.reject_reason as LostReason) ?? undefined,
-    /* Columns added by supabase/05-line-samples.sql. Read defensively so the
-       app still works before the migration is run. */
+    /* Columns added by supabase/05-line-samples.sql & supabase/11-sample-tracking.sql.
+       Read defensively so the app works before or after migrations. */
     sample: row.sample_sent_at
       ? {
           sentAt: row.sample_sent_at,
           feedbackAt: row.sample_feedback_at ?? null,
           feedback: row.sample_feedback ?? null,
+          sampleQty:
+            row.sample_qty !== null && row.sample_qty !== undefined
+              ? num(row.sample_qty)
+              : null,
+          returnedAt: row.sample_returned_at ?? null,
+          returnStatus:
+            (row.sample_return_status as SampleReturnStatus | null) ?? null,
+          recipient: row.sample_recipient ?? null,
+          handoverNote: row.sample_handover_note ?? null,
+          returnNote: row.sample_return_note ?? null,
+          followUpActivityId: row.sample_followup_activity_id ?? null,
         }
       : null,
   };
@@ -426,6 +450,13 @@ export function fromLineItem(line: LineItem, dealId: string, position: number) {
     sample_sent_at: line.sample?.sentAt ?? null,
     sample_feedback_at: line.sample?.feedbackAt ?? null,
     sample_feedback: line.sample?.feedback ?? null,
+    sample_qty: line.sample?.sampleQty ?? null,
+    sample_returned_at: line.sample?.returnedAt ?? null,
+    sample_return_status: line.sample?.returnStatus ?? null,
+    sample_recipient: line.sample?.recipient ?? null,
+    sample_handover_note: line.sample?.handoverNote ?? null,
+    sample_return_note: line.sample?.returnNote ?? null,
+    sample_followup_activity_id: line.sample?.followUpActivityId ?? null,
     brand: line.brand,
     quantity: line.quantity,
     unit: line.unit,
@@ -505,5 +536,82 @@ export function fromActivity(a: Activity) {
     remind: a.task ? a.remind : false,
     owner: a.owner,
     created_at: a.createdAt,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Standalone Customer Samples (BUILD 18.14)                           */
+/* ------------------------------------------------------------------ */
+
+export type CustomerSampleRow = {
+  id: string;
+  company_id: string;
+  contact_id: string | null;
+  product: string;
+  brand: string;
+  sample_qty: number | string;
+  unit: string;
+  sent_at: string;
+  returned_at: string | null;
+  return_status: string;
+  verdict: string | null;
+  recipient_name: string;
+  handover_note: string;
+  return_note: string;
+  followup_activity_id: string | null;
+  owner: string;
+  owner_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function toCustomerSample(row: CustomerSampleRow): CustomerSample {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    contactId: row.contact_id,
+    product: row.product,
+    brand: row.brand ?? "",
+    sampleQty: num(row.sample_qty) || 1,
+    unit: (row.unit as Unit) || "Pcs",
+    sentAt: row.sent_at,
+    returnedAt: row.returned_at ?? null,
+    returnStatus: (row.return_status as CustomerSampleStatus) || "out",
+    verdict: (row.verdict as CustomerSampleVerdict | null) ?? null,
+    recipientName: row.recipient_name ?? "",
+    handoverNote: row.handover_note ?? "",
+    returnNote: row.return_note ?? "",
+    followUpActivityId: row.followup_activity_id ?? null,
+    owner: row.owner ?? "",
+    owner_id: row.owner_id ?? null,
+    created_by: row.created_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+  };
+}
+
+export function fromCustomerSample(s: CustomerSample) {
+  return {
+    id: s.id,
+    company_id: s.companyId,
+    contact_id: s.contactId,
+    product: s.product,
+    brand: s.brand,
+    sample_qty: s.sampleQty,
+    unit: s.unit,
+    sent_at: s.sentAt,
+    returned_at: s.returnedAt,
+    return_status: s.returnStatus,
+    verdict: s.verdict,
+    recipient_name: s.recipientName,
+    handover_note: s.handoverNote,
+    return_note: s.returnNote,
+    followup_activity_id: s.followUpActivityId,
+    owner: s.owner,
+    owner_id: s.owner_id,
+    created_by: s.created_by,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt,
   };
 }
