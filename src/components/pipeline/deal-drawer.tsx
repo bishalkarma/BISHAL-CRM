@@ -27,13 +27,11 @@ import {
 import { CURRENCIES } from "@/lib/currency";
 
 import {
-  LINE_STATUS_META,
   activeDays,
   currentRunDays,
   daysToFeedback,
   dormantDays,
   isReopened,
-  lineTotal,
   quotedValue,
   rejectedValue,
 } from "@/lib/deal-model";
@@ -42,10 +40,6 @@ import { useData } from "@/components/providers/data-provider";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { OrderProgress } from "./order-progress";
 import { SampleTracker } from "./sample-tracker";
-import {
-  GiveSampleDialog,
-  type GiveSampleDialogTarget,
-} from "@/components/samples/sample-dialogs";
 import {
   Dialog,
   DialogContent,
@@ -75,8 +69,6 @@ export function DealDrawer({
   const { display, toDisplay, format } = useCurrency();
   const { contactById, activitiesFor, updateDeal } = useData();
   const [editingDeal, setEditingDeal] = React.useState(false);
-  const [giveLineTarget, setGiveLineTarget] =
-    React.useState<GiveSampleDialogTarget | null>(null);
   // Deal-scoped: activitiesFor filters on dealId when one is supplied.
   const dealActivities = React.useMemo(
     () => (deal ? activitiesFor({ dealId: deal.id }) : []),
@@ -84,6 +76,7 @@ export function DealDrawer({
   );
   if (!deal) return null;
 
+  const hasAnySample = deal.lines.some((l) => Boolean(l.sample?.sentAt));
   const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
   const converted = toDisplay(deal.value, deal.currency);
   const isForeign = deal.currency !== display;
@@ -148,12 +141,8 @@ export function DealDrawer({
           {/* The order chain, on won deals only. An open deal has no PO,
               no delivery and no payment to record. */}
           {deal.stage === "won" && <OrderProgress deal={deal} />}
-          {(deal.stage === "sampling" ||
-            deal.lines.some((l) => Boolean(l.sample?.sentAt))) && (
-            <SampleTracker deal={deal} />
-          )}
 
-          {/* Value */}
+          {/* Value — #1 on top */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Deal value
@@ -211,93 +200,8 @@ export function DealDrawer({
             </div>
           </div>
 
-          {/* Line items */}
-          <div>
-            <div className="flex items-baseline justify-between pb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                Line items
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {deal.lines.length}{" "}
-                {deal.lines.length === 1 ? "product" : "products"}
-              </span>
-            </div>
-            <ul className="space-y-1.5">
-              {deal.lines.map((item) => {
-                const meta = LINE_STATUS_META[item.status];
-                return (
-                  <li
-                    key={item.id}
-                    className={cn(
-                      "rounded-lg border border-border p-2.5",
-                      item.status === "rejected" && "opacity-70",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div
-                          className={cn(
-                            "truncate text-sm font-medium",
-                            item.status === "rejected" && "line-through",
-                          )}
-                        >
-                          {item.product}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {item.brand && `${item.brand} · `}
-                          {item.quantity} {item.unit} ×{" "}
-                          {new Intl.NumberFormat("en-US", {
-                            maximumFractionDigits: 2,
-                          }).format(item.unitPrice)}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-sm font-semibold tabular-nums">
-                          {new Intl.NumberFormat("en-US", {
-                            maximumFractionDigits: 0,
-                          }).format(lineTotal(item))}
-                        </div>
-                        <span
-                          className={cn(
-                            "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase",
-                            meta.tint,
-                          )}
-                        >
-                          {meta.label}
-                        </span>
-                      </div>
-                    </div>
-                    {item.rejectReason && (
-                      <div className="mt-1 text-[10px] text-destructive">
-                        {item.rejectReason}
-                      </div>
-                    )}
-                    {!item.sample?.sentAt &&
-                      deal.stage !== "sampling" &&
-                      deal.stage !== "won" &&
-                      deal.stage !== "lost" && (
-                        <div className="mt-1.5 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setGiveLineTarget({
-                                mode: "deal-line",
-                                deal,
-                                line: item,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
-                          >
-                            <Package className="size-3" />
-                            + Give sample
-                          </button>
-                        </div>
-                      )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          {/* Unified Line Items & Samples (BUILD 18.15) */}
+          <SampleTracker deal={deal} />
 
           <Separator />
 
@@ -385,8 +289,8 @@ export function DealDrawer({
             </>
           )}
 
-          {/* Stage-gated: sample tracking appears only from Sampling on */}
-          {deal.sample && (
+          {/* Legacy deal-level sample fallback (only when no per-line samples exist) */}
+          {deal.sample && !hasAnySample && (
             <>
               <Separator />
               <div>
@@ -570,11 +474,6 @@ export function DealDrawer({
         onCreate={() => {}}
         onCreateCompany={() => {}}
         onSaveEdit={(patch) => updateDeal(deal.id, patch)}
-      />
-
-      <GiveSampleDialog
-        target={giveLineTarget}
-        onOpenChange={(o) => !o && setGiveLineTarget(null)}
       />
     </Dialog>
   );

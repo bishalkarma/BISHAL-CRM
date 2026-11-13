@@ -5,14 +5,15 @@ import {
   Beaker,
   CalendarClock,
   Check,
+  Package,
   PackageCheck,
   Pencil,
-  Plus,
   RotateCcw,
   X,
 } from "lucide-react";
 import type { Deal } from "@/lib/deals";
 import {
+  LINE_STATUS_META,
   LOST_REASONS,
   dealValue,
   lineTotal,
@@ -46,22 +47,38 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+const qtyPriceFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+const lineTotalFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
 /**
- * Persistent Sample Custody & Verdict panel inside DealDrawer (BUILD 18.14).
+ * Unified "Line Items & Samples" list inside DealDrawer (BUILD 18.15).
  *
- * Key upgrades over legacy SampleTracker:
- *  • Never disappears when a deal moves to Quotation, Negotiation, Won, or Lost
- *    if any line item has a sample record!
- *  • Separates Commercial Verdict (Approve / Reject) from Physical Custody
- *    (Out with customer -> Taken back, or Consumable).
- *  • Records exact Given Date, Sample Qty, Handed To, Taken Back Date, Total
- *    Days Held, and links directly to Follow-Up Tasks.
+ * Merges commercial quote line items (Brand, Quote Qty × Unit Price, Total,
+ * QUOTED / APPROVED / REJECTED status) and physical Sample Custody + Verdict
+ * into ONE card per product — eliminating duplicate product lists and keeping
+ * Deal Value at #1 on top of DealDrawer.
+ *
+ * Four adaptive card states:
+ *  1. Sample Out With Customer -> Commercial row + live custody clock
+ *     (7d Amber / 14d+ Red), Mark Taken Back, Approve/Reject, + Follow-up.
+ *  2. Sample Returned / Consumable, Verdict Open -> Commercial row +
+ *     Given -> Taken back (Held X days) + Approve/Reject + Undo return.
+ *  3. Completed (Verdict Decided + Sample Returned/Consumable) -> Collapses
+ *     into a 1-line compact sample audit strip with "Change" toggle & Edit.
+ *  4. Regular Quoted Product (No Sample) -> Slim commercial card with a
+ *     compact "+ Give sample" trigger on open deals.
  */
 export function SampleTracker({ deal }: { deal: Deal }) {
   const { companies, contacts, activities, updateDeal } = useData();
   const { toDisplay, format } = useCurrency();
   const [dismissed, setDismissed] = React.useState(false);
-  const [showUnsampledLines, setShowUnsampledLines] = React.useState(false);
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const [rejecting, setRejecting] = React.useState<LineItem | null>(null);
   const [giveTarget, setGiveTarget] =
     React.useState<GiveSampleDialogTarget | null>(null);
@@ -70,10 +87,16 @@ export function SampleTracker({ deal }: { deal: Deal }) {
   const [followUpEntry, setFollowUpEntry] =
     React.useState<SampleLedgerEntry | null>(null);
 
+  const toggleExpanded = (lineId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) next.delete(lineId);
+      else next.add(lineId);
+      return next;
+    });
+  };
+
   const hasAnySample = deal.lines.some((l) => Boolean(l.sample?.sentAt));
-  if (deal.stage !== "sampling" && !hasAnySample && !showUnsampledLines) {
-    return null;
-  }
 
   const dealLedger = buildSampleLedger({
     deals: [deal],
@@ -90,13 +113,14 @@ export function SampleTracker({ deal }: { deal: Deal }) {
   const returnedCount = dealLedger.filter(
     (e) => e.returnStatus === "returned",
   ).length;
+  const consumableCount = dealLedger.filter(
+    (e) => e.returnStatus === "consumable",
+  ).length;
   const overdueCount = dealLedger.filter(
     (e) => e.returnStatus === "out" && e.tone === "out-overdue",
   ).length;
 
   const money = (v: number) => format(v, { compact: true });
-  const lineMoney = (l: LineItem) =>
-    money(toDisplay(lineTotal(l), deal.currency));
 
   const patchLine = (id: string, patch: Partial<LineItem>) =>
     updateDeal(deal.id, {
@@ -121,7 +145,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
     });
   };
 
-  const approve = (l: LineItem) =>
+  const approve = (l: LineItem) => {
     patchLine(l.id, {
       status: "approved",
       rejectReason: undefined,
@@ -132,8 +156,15 @@ export function SampleTracker({ deal }: { deal: Deal }) {
           }
         : null,
     });
+    setExpandedIds((prev) => {
+      if (!prev.has(l.id)) return prev;
+      const next = new Set(prev);
+      next.delete(l.id);
+      return next;
+    });
+  };
 
-  const reject = (l: LineItem, reason: LostReason) =>
+  const reject = (l: LineItem, reason: LostReason) => {
     patchLine(l.id, {
       status: "rejected",
       rejectReason: reason,
@@ -144,6 +175,13 @@ export function SampleTracker({ deal }: { deal: Deal }) {
           }
         : null,
     });
+    setExpandedIds((prev) => {
+      if (!prev.has(l.id)) return prev;
+      const next = new Set(prev);
+      next.delete(l.id);
+      return next;
+    });
+  };
 
   const clearVerdict = (l: LineItem) =>
     patchLine(l.id, {
@@ -153,7 +191,6 @@ export function SampleTracker({ deal }: { deal: Deal }) {
     });
 
   const sentCount = deal.lines.filter((l) => Boolean(l.sample?.sentAt)).length;
-  const unsampledCount = deal.lines.length - sentCount;
   const decided = deal.lines.filter((l) => l.status !== "quoted");
   const allDecided =
     deal.stage === "sampling" &&
@@ -171,65 +208,56 @@ export function SampleTracker({ deal }: { deal: Deal }) {
       lastActivityAt: new Date().toISOString(),
     });
 
-  const linesToDisplay =
-    deal.stage === "sampling" || showUnsampledLines
-      ? deal.lines
-      : deal.lines.filter((l) => Boolean(l.sample?.sentAt));
+  const isClosedDeal = deal.stage === "won" || deal.stage === "lost";
 
   return (
-    <div
-      className={cn(
-        "rounded-xl border p-4",
-        overdueCount > 0
-          ? "border-destructive/45 bg-destructive/[0.04]"
-          : outCount > 0
-            ? "border-accent/35 bg-secondary/40"
-            : "border-border bg-secondary/40",
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Sample Custody &amp; Verdict
+    <div>
+      {/* Unified Section Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          {hasAnySample || deal.stage === "sampling"
+            ? "Line items & samples"
+            : "Line items"}
+        </span>
+
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] tabular-nums">
+          <span className="text-muted-foreground">
+            {deal.lines.length}{" "}
+            {deal.lines.length === 1 ? "product" : "products"}
           </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium tabular-nums">
+
           {outCount > 0 && (
             <span
               className={cn(
-                "rounded-full px-2 py-0.5",
+                "rounded-full px-2 py-0.5 font-semibold",
                 overdueCount > 0
                   ? "bg-destructive/15 text-destructive"
                   : "bg-accent/15 text-accent",
               )}
             >
-              {outCount} out with client
+              {overdueCount > 0
+                ? `${outCount} out · ${overdueCount} overdue`
+                : `${outCount} out`}
             </span>
           )}
+
           {returnedCount > 0 && (
-            <span className="rounded-full bg-success/15 px-2 py-0.5 text-success">
+            <span className="rounded-full bg-success/15 px-2 py-0.5 font-semibold text-success">
               {returnedCount} returned
             </span>
           )}
-          {deal.stage !== "sampling" &&
-            deal.stage !== "won" &&
-            deal.stage !== "lost" &&
-            unsampledCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowUnsampledLines((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground hover:border-accent/40 hover:text-foreground"
-              >
-                <Plus className="size-3" />
-                {showUnsampledLines ? "Hide unsampled" : "Give sample"}
-              </button>
-            )}
+
+          {outCount === 0 && returnedCount === 0 && consumableCount > 0 && (
+            <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-muted-foreground">
+              {consumableCount} consumable
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Closed-deal reminder if physical samples are still sitting at the hotel */}
-      {outCount > 0 && (deal.stage === "won" || deal.stage === "lost") && (
-        <div className="mt-2.5 rounded-lg border border-warning/45 bg-warning/10 px-3 py-2 text-xs text-warning">
+      {/* Closed-deal warning if physical samples are still out at customer */}
+      {outCount > 0 && isClosedDeal && (
+        <div className="mb-2.5 rounded-lg border border-warning/45 bg-warning/10 px-3 py-2 text-xs text-warning">
           Deal is marked <strong className="uppercase">{deal.stage}</strong>,
           but <strong>{outCount}</strong> physical{" "}
           {outCount === 1 ? "sample is" : "samples are"} still out with{" "}
@@ -238,14 +266,15 @@ export function SampleTracker({ deal }: { deal: Deal }) {
         </div>
       )}
 
+      {/* Sampling-stage nudge when no line sample has been recorded yet */}
       {sentCount === 0 && deal.stage === "sampling" && !dismissed && (
-        <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/[0.07] px-3 py-2">
+        <div className="mb-2.5 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/[0.07] px-3 py-2">
           <Beaker className="mt-0.5 size-3.5 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium">Give a sample for testing?</p>
             <p className="text-[11px] text-muted-foreground">
-              Click <strong>Give sample</strong> on any item below to record
-              handover date, qty, receiver, and pickup follow-up.
+              Click <strong>+ Give sample</strong> on any product below to
+              record handover date, qty, receiver, and pickup follow-up.
             </p>
           </div>
           <button
@@ -259,74 +288,39 @@ export function SampleTracker({ deal }: { deal: Deal }) {
         </div>
       )}
 
-      <ul className="mt-2.5 space-y-2">
-        {linesToDisplay.map((line) => {
+      {/* Unified Product Cards */}
+      <ul className="space-y-2">
+        {deal.lines.map((line) => {
+          const meta = LINE_STATUS_META[line.status];
           const entry = entryByLineId.get(line.id) ?? null;
+          const isVerdictDecided =
+            line.status === "approved" || line.status === "rejected";
+          const isCustodySettled = Boolean(
+            entry &&
+              (entry.returnStatus === "returned" ||
+                entry.returnStatus === "consumable"),
+          );
+          const isExpanded = expandedIds.has(line.id);
 
-          if (!entry) {
-            return (
-              <li
-                key={line.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2.5"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{line.product}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {line.brand ? `${line.brand} · ` : ""}Quote: {line.quantity}{" "}
-                    {line.unit} · {lineMoney(line)}
-                  </p>
-                </div>
+          // STATE 3: Both verdict decided AND physical custody settled -> 1-line compact strip!
+          const isCompactCompleted =
+            Boolean(entry) && isVerdictDecided && isCustodySettled && !isExpanded;
 
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                  {line.status === "approved" ? (
-                    <Verdict tone="won" onClear={() => clearVerdict(line)}>
-                      Approved
-                    </Verdict>
-                  ) : line.status === "rejected" ? (
-                    <Verdict tone="lost" onClear={() => clearVerdict(line)}>
-                      Lost · {line.rejectReason}
-                    </Verdict>
-                  ) : (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() =>
-                          setGiveTarget({ mode: "deal-line", deal, line })
-                        }
-                      >
-                        <Beaker className="size-3" />
-                        Give sample
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        title="Approve without sample"
-                        onClick={() => approve(line)}
-                      >
-                        <Check className="size-3.5" />
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        title="Reject without sample"
-                        onClick={() => setRejecting(line)}
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </li>
-            );
-          }
+          const cardBorderClass = !entry
+            ? "border-border"
+            : isCompactCompleted
+              ? "border-border"
+              : entry.returnStatus === "returned"
+                ? "border-success/35"
+                : entry.tone === "out-overdue"
+                  ? "border-destructive/45"
+                  : entry.tone === "out-followup"
+                    ? "border-warning/45"
+                    : "border-border";
 
           const qtyGiven = defaultSampleQtyForLine(line);
           const openFollowUp =
-            entry.followUpTask && !entry.followUpTask.taskDone
+            entry?.followUpTask && !entry.followUpTask.taskDone
               ? entry.followUpTask
               : null;
 
@@ -334,119 +328,284 @@ export function SampleTracker({ deal }: { deal: Deal }) {
             <li
               key={line.id}
               className={cn(
-                "space-y-2 rounded-xl border bg-card p-3",
-                entry.returnStatus === "returned"
-                  ? "border-success/35"
-                  : entry.tone === "out-overdue"
-                    ? "border-destructive/45"
-                    : entry.tone === "out-followup"
-                      ? "border-warning/45"
-                      : "border-border",
+                "rounded-xl border bg-card/60 p-3 transition-colors",
+                cardBorderClass,
+                line.status === "rejected" && !entry && "opacity-70",
               )}
             >
-              {/* Top line: Product + Sample Qty + Custody Days Badge */}
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              {/* TOP HALF: Commercial Product + Quote Qty × Unit Price + Total + Status Badge */}
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-semibold">
-                    {line.product}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (Sample: {qtyGiven} {line.unit})
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {entry.returnStatus === "returned" && entry.returnedAt ? (
-                      <>
-                        Given:{" "}
-                        <strong className="text-foreground">
-                          {formatSampleDate(entry.sentAt)}
-                        </strong>{" "}
-                        → Taken back:{" "}
-                        <strong className="text-success">
-                          {formatSampleDate(entry.returnedAt)}
-                        </strong>
-                      </>
-                    ) : (
-                      <>
-                        Given:{" "}
-                        <strong className="text-foreground">
-                          {formatSampleDate(entry.sentAt)}
-                        </strong>{" "}
-                        · To: {entry.recipientLabel}
-                      </>
+                  <div
+                    className={cn(
+                      "break-words text-sm font-semibold",
+                      line.status === "rejected" &&
+                        "text-muted-foreground line-through",
                     )}
-                  </p>
-                  {entry.handoverNote && (
-                    <p className="mt-0.5 break-words text-[11px] text-muted-foreground/90">
-                      Note: &ldquo;{entry.handoverNote}&rdquo;
-                    </p>
-                  )}
-                  {entry.returnNote && (
-                    <p className="mt-0.5 break-words text-[11px] text-success">
-                      Return note: &ldquo;{entry.returnNote}&rdquo;
-                    </p>
+                  >
+                    {line.product}
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {line.brand ? `${line.brand} · ` : ""}
+                    {line.quantity} {line.unit} ×{" "}
+                    {qtyPriceFormatter.format(line.unitPrice)}
+                  </div>
+                  {line.rejectReason && (
+                    <div className="mt-0.5 text-[11px] text-destructive">
+                      Lost · {line.rejectReason}
+                    </div>
                   )}
                 </div>
 
-                <SampleDaysBadge entry={entry} />
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold tabular-nums">
+                    {lineTotalFormatter.format(lineTotal(line))}
+                  </div>
+                  <span
+                    className={cn(
+                      "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase",
+                      meta.tint,
+                    )}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
               </div>
 
-              {/* Action bar: Commercial verdict + Physical custody */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-                {/* 1) Commercial verdict */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Verdict:
-                  </span>
-                  {line.status === "approved" ? (
-                    <Verdict tone="won" onClear={() => clearVerdict(line)}>
-                      Approved
-                    </Verdict>
-                  ) : line.status === "rejected" ? (
-                    <Verdict tone="lost" onClear={() => clearVerdict(line)}>
-                      Lost · {line.rejectReason}
-                    </Verdict>
+              {/* STATE 4: Regular Quoted Product (No Sample Given) */}
+              {!entry && !isClosedDeal && (
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                  {deal.stage === "sampling" ? (
+                    line.status === "quoted" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setGiveTarget({ mode: "deal-line", deal, line })
+                          }
+                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                        >
+                          <Package className="size-3" />
+                          + Give sample
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => approve(line)}
+                          title="Approve without sample"
+                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:border-success/40 hover:text-success"
+                        >
+                          <Check className="size-3" />
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejecting(line)}
+                          title="Reject without sample"
+                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                        >
+                          <X className="size-3" />
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => clearVerdict(line)}
+                        title="Reset verdict to Quoted"
+                        className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[10px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        <RotateCcw className="size-2.5" />
+                        Change verdict
+                      </button>
+                    )
                   ) : (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => approve(line)}
-                      >
-                        <Check className="size-3" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setRejecting(line)}
-                      >
-                        <X className="size-3" />
-                        Reject
-                      </Button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setGiveTarget({ mode: "deal-line", deal, line })
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                    >
+                      <Package className="size-3" />
+                      + Give sample
+                    </button>
                   )}
                 </div>
+              )}
 
-                {/* 2) Physical custody controls */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {entry.returnStatus === "out" && (
-                    <>
-                      <Button
-                        size="xs"
-                        className="h-7 bg-success text-xs text-success-foreground hover:bg-success/90"
-                        onClick={() => setTakeBackEntry(entry)}
-                      >
-                        <PackageCheck className="size-3" />
-                        Mark Taken Back
-                      </Button>
-                      {openFollowUp ? (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-accent/35 bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">
-                          <CalendarClock className="size-3" />
-                          Follow-up {formatSampleDate(openFollowUp.taskDueAt)}
-                        </span>
+              {/* STATE 3: Auto-Compact 1-Line Audit Strip (Verdict Decided + Custody Settled) */}
+              {entry && isCompactCompleted && (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-border/70 pt-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Check className="size-3.5 shrink-0 text-success" />
+                    <span className="truncate">
+                      <strong className="font-medium text-foreground">
+                        Sample: {qtyGiven} {line.unit}
+                      </strong>
+                      {entry.returnStatus === "returned" && entry.returnedAt ? (
+                        <>
+                          {" "}
+                          · Held {entry.daysWithCustomer}{" "}
+                          {entry.daysWithCustomer === 1 ? "day" : "days"} (
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.sentAt)}
+                          </span>{" "}
+                          →{" "}
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.returnedAt)}
+                          </span>
+                          )
+                        </>
                       ) : (
+                        <>
+                          {" "}
+                          · Given{" "}
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.sentAt)}
+                          </span>{" "}
+                          · Consumable
+                        </>
+                      )}
+                      {entry.returnNote ? ` · ${entry.returnNote}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(line.id)}
+                      className="inline-flex h-6 items-center rounded-md border border-border bg-secondary/30 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGiveTarget({ mode: "edit", entry })}
+                      title="Edit sample details"
+                      className="inline-flex size-6 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <Pencil className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STATES 1 & 2 (or Expanded State 3): Active Sample Custody & Verdict Strip */}
+              {entry && !isCompactCompleted && (
+                <div className="mt-2.5 space-y-2 border-t border-dashed border-border/70 pt-2.5">
+                  {/* Row 1: Sample Qty (left) + Custody Days Badge (right) */}
+                  {/* Row 2: Full-width Given -> Taken back / Recipient dates (BUILD 18.16) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-foreground">
+                        Sample: {qtyGiven} {line.unit}
+                      </span>
+                      <SampleDaysBadge entry={entry} />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      {entry.returnStatus === "returned" && entry.returnedAt ? (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          <span aria-hidden>→</span> Taken back:{" "}
+                          <strong className="whitespace-nowrap font-semibold text-success">
+                            {formatSampleDate(entry.returnedAt)}
+                          </strong>
+                        </>
+                      ) : entry.returnStatus === "consumable" ? (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          · Consumable (kept by client)
+                        </>
+                      ) : (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          · To: {entry.recipientLabel}
+                        </>
+                      )}
+                    </p>
+
+                    {entry.handoverNote && (
+                      <p className="break-words text-[11px] text-muted-foreground/90">
+                        Note: &ldquo;{entry.handoverNote}&rdquo;
+                      </p>
+                    )}
+                    {entry.returnNote && (
+                      <p className="break-words text-[11px] text-success">
+                        Return note: &ldquo;{entry.returnNote}&rdquo;
+                      </p>
+                    )}
+                    {entry.returnStatus === "out" && openFollowUp && (
+                      <p className="text-[11px] text-accent">
+                        Follow-up scheduled:{" "}
+                        <span className="whitespace-nowrap">
+                          {formatSampleDate(openFollowUp.taskDueAt)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Action Controls: Physical Return + Commercial Verdict + Utilities */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {entry.returnStatus === "out" && (
+                        <Button
+                          size="xs"
+                          className="h-7 bg-success text-xs text-success-foreground hover:bg-success/90"
+                          onClick={() => setTakeBackEntry(entry)}
+                        >
+                          <PackageCheck className="size-3" />
+                          Mark Taken Back
+                        </Button>
+                      )}
+
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Verdict:
+                      </span>
+
+                      {line.status === "approved" ? (
+                        <Verdict tone="won" onClear={() => clearVerdict(line)}>
+                          Approved
+                        </Verdict>
+                      ) : line.status === "rejected" ? (
+                        <Verdict tone="lost" onClear={() => clearVerdict(line)}>
+                          Lost · {line.rejectReason}
+                        </Verdict>
+                      ) : (
+                        <>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => approve(line)}
+                          >
+                            <Check className="size-3" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => setRejecting(line)}
+                          >
+                            <X className="size-3" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {entry.returnStatus === "out" && !openFollowUp && (
                         <button
                           type="button"
                           onClick={() => setFollowUpEntry(entry)}
@@ -454,56 +613,69 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                           title="Schedule pickup follow-up task"
                         >
                           <CalendarClock className="size-3" />
-                          Follow-up
+                          + Follow-up
                         </button>
                       )}
-                    </>
-                  )}
 
-                  {entry.returnStatus === "returned" && (
-                    <button
-                      type="button"
-                      onClick={() => undoReturned(line)}
-                      className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      title="Reopen as still out with customer"
-                    >
-                      <RotateCcw className="size-3" />
-                      Undo return
-                    </button>
-                  )}
+                      {entry.returnStatus === "returned" && (
+                        <button
+                          type="button"
+                          onClick={() => undoReturned(line)}
+                          className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          title="Reopen as still out with customer"
+                        >
+                          <RotateCcw className="size-3" />
+                          Undo return
+                        </button>
+                      )}
 
-                  <button
-                    type="button"
-                    onClick={() => setGiveTarget({ mode: "edit", entry })}
-                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    title="Edit sample handover details"
-                  >
-                    <Pencil className="size-3" />
-                  </button>
+                      {isVerdictDecided && isCustodySettled && isExpanded && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(line.id)}
+                          className="inline-flex h-7 items-center rounded-lg border border-border bg-secondary/40 px-2 text-[11px] font-medium text-foreground hover:bg-secondary"
+                        >
+                          Done
+                        </button>
+                      )}
 
-                  {entry.returnStatus !== "returned" && (
-                    <button
-                      type="button"
-                      onClick={() => undoSent(line)}
-                      title="Remove sample from this line"
-                      className="inline-flex h-7 items-center rounded-lg border border-border px-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => setGiveTarget({ mode: "edit", entry })}
+                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        title="Edit sample handover details"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+
+                      {entry.returnStatus !== "returned" && (
+                        <button
+                          type="button"
+                          onClick={() => undoSent(line)}
+                          title="Remove sample from this line"
+                          className="inline-flex h-7 items-center rounded-lg border border-border px-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </li>
           );
         })}
       </ul>
 
-      {/* Nothing is decided for the user — the deal is only ever offered. */}
+      {/* All items decided summary bar (Sampling stage) */}
       {allDecided && (
         <div className="mt-3 rounded-lg border border-accent/40 bg-accent/[0.06] px-3 py-2.5">
           <p className="text-xs font-medium">All items decided</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
             {money(taken)} taken · {money(notTaken)} not taken
+            {outCount > 0
+              ? ` · ${outCount} physical ${outCount === 1 ? "sample" : "samples"} still with client`
+              : ""}
           </p>
           <div className="mt-2 flex gap-2">
             {anyApproved && (
