@@ -278,32 +278,43 @@ export function CustomerSampleCustody({
               {historyRows.map((entry) => (
                 <li
                   key={entry.key}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-card/60 px-2.5 py-2 text-xs"
+                  className="space-y-1 rounded-lg border border-border/70 bg-card/60 px-2.5 py-2 text-xs"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium">
                       {entry.product} ({entry.sampleQty} {entry.unit})
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Given {formatSampleDate(entry.sentAt)}
-                      {entry.returnedAt
-                        ? ` → Back ${formatSampleDate(entry.returnedAt)}`
-                        : ""}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <SampleDaysBadge entry={entry} compact />
+                      {entry.returnStatus === "returned" && (
+                        <button
+                          type="button"
+                          onClick={() => handleUndoReturn(entry)}
+                          title="Undo return"
+                          className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          <RotateCcw className="size-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <SampleDaysBadge entry={entry} compact />
-                    {entry.returnStatus === "returned" && (
-                      <button
-                        type="button"
-                        onClick={() => handleUndoReturn(entry)}
-                        title="Undo return"
-                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      >
-                        <RotateCcw className="size-3" />
-                      </button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Given:{" "}
+                    <strong className="whitespace-nowrap font-medium text-foreground">
+                      {formatSampleDate(entry.sentAt)}
+                    </strong>
+                    {entry.returnedAt ? (
+                      <>
+                        {" "}
+                        <span aria-hidden>→</span> Taken back:{" "}
+                        <strong className="whitespace-nowrap font-semibold text-success">
+                          {formatSampleDate(entry.returnedAt)}
+                        </strong>
+                      </>
+                    ) : (
+                      " · Consumable"
                     )}
-                  </div>
+                  </p>
                 </li>
               ))}
             </ul>

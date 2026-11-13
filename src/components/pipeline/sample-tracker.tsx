@@ -433,60 +433,59 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                 </div>
               )}
 
-              {/* STATE 3: Auto-Compact 1-Line Audit Strip (Verdict Decided + Custody Settled) */}
+              {/* STATE 3: Auto-Compact Completed Strip — Same 2-Row Sample Layout (BUILD 18.17) */}
               {entry && isCompactCompleted && (
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-border/70 pt-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Check className="size-3.5 shrink-0 text-success" />
-                    <span className="truncate">
-                      <strong className="font-medium text-foreground">
-                        Sample: {qtyGiven} {line.unit}
-                      </strong>
-                      {entry.returnStatus === "returned" && entry.returnedAt ? (
-                        <>
-                          {" "}
-                          · Held {entry.daysWithCustomer}{" "}
-                          {entry.daysWithCustomer === 1 ? "day" : "days"} (
-                          <span className="whitespace-nowrap">
-                            {formatSampleDate(entry.sentAt)}
-                          </span>{" "}
-                          →{" "}
-                          <span className="whitespace-nowrap">
-                            {formatSampleDate(entry.returnedAt)}
-                          </span>
-                          )
-                        </>
-                      ) : (
-                        <>
-                          {" "}
-                          · Given{" "}
-                          <span className="whitespace-nowrap">
-                            {formatSampleDate(entry.sentAt)}
-                          </span>{" "}
-                          · Consumable
-                        </>
-                      )}
-                      {entry.returnNote ? ` · ${entry.returnNote}` : ""}
+                <div className="mt-2 space-y-1 border-t border-dashed border-border/70 pt-2">
+                  {/* Row 1: Sample Qty (left) + Held X days badge & Change/Edit (right) */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      Sample: {qtyGiven} {line.unit}
                     </span>
+
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <SampleDaysBadge entry={entry} compact />
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(line.id)}
+                        className="inline-flex h-6 items-center rounded-md border border-border bg-secondary/30 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGiveTarget({ mode: "edit", entry })}
+                        title="Edit sample details"
+                        className="inline-flex size-6 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleExpanded(line.id)}
-                      className="inline-flex h-6 items-center rounded-md border border-border bg-secondary/30 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
-                    >
-                      Change
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGiveTarget({ mode: "edit", entry })}
-                      title="Edit sample details"
-                      className="inline-flex size-6 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    >
-                      <Pencil className="size-3" />
-                    </button>
-                  </div>
+                  {/* Row 2: Full-width Given -> Taken back dates */}
+                  <p className="text-xs text-muted-foreground">
+                    {entry.returnStatus === "returned" && entry.returnedAt ? (
+                      <>
+                        Given:{" "}
+                        <strong className="whitespace-nowrap font-medium text-foreground">
+                          {formatSampleDate(entry.sentAt)}
+                        </strong>{" "}
+                        <span aria-hidden>→</span> Taken back:{" "}
+                        <strong className="whitespace-nowrap font-semibold text-success">
+                          {formatSampleDate(entry.returnedAt)}
+                        </strong>
+                      </>
+                    ) : (
+                      <>
+                        Given:{" "}
+                        <strong className="whitespace-nowrap font-medium text-foreground">
+                          {formatSampleDate(entry.sentAt)}
+                        </strong>{" "}
+                        · Consumable (kept by client)
+                      </>
+                    )}
+                    {entry.returnNote ? ` · ${entry.returnNote}` : ""}
+                  </p>
                 </div>
               )}
 
