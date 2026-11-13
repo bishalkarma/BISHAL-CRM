@@ -86,6 +86,25 @@ check("BUILD 18.16 places 'Sample: X Unit' + SampleDaysBadge on Row 1 and 'Given
   );
 });
 
+check("BUILD 18.17 State 3 completed strip ALSO splits 'Sample: X Unit' + SampleDaysBadge onto Row 1 and 'Given -> Taken back' onto Row 2", () => {
+  const tracker = readFileSync("src/components/pipeline/sample-tracker.tsx", "utf8");
+  const state3Idx = tracker.indexOf("STATE 3: Auto-Compact Completed Strip");
+  const state12Idx = tracker.indexOf("STATES 1 & 2 (or Expanded State 3)");
+  assert.ok(state3Idx !== -1 && state12Idx > state3Idx);
+
+  const state3Block = tracker.slice(state3Idx, state12Idx);
+  // Row 1 has Sample: {qtyGiven} {line.unit} + <SampleDaysBadge entry={entry} compact /> + Change + Edit
+  assert.match(state3Block, /Sample: \{qtyGiven\} \{line\.unit\}/);
+  assert.match(state3Block, /<SampleDaysBadge entry=\{entry\} compact \/>/);
+  assert.match(state3Block, /Change/);
+  // Row 2 has full-width Given -> Taken back with whitespace-nowrap dates (not old single-line parentheses)
+  assert.ok(!state3Block.includes("· Held {entry.daysWithCustomer}"));
+  assert.match(
+    state3Block,
+    /Given:\{" "\}\s*<strong className="whitespace-nowrap font-medium text-foreground">\s*\{formatSampleDate\(entry\.sentAt\)\}\s*<\/strong>\{" "\}\s*<span aria-hidden>→<\/span> Taken back:\{" "\}\s*<strong className="whitespace-nowrap font-semibold text-success">\s*\{formatSampleDate\(entry\.returnedAt\)\}/,
+  );
+});
+
 console.log("\nBUILD 18.15 — All 4 Unified Product Card States (D-2323 Scenario)");
 
 check("4 product lines evaluate cleanly into States 1, 2, 3, and 4 with commercial totals intact", () => {
