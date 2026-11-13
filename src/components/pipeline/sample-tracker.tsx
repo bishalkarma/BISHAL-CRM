@@ -447,13 +447,23 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                           {" "}
                           · Held {entry.daysWithCustomer}{" "}
                           {entry.daysWithCustomer === 1 ? "day" : "days"} (
-                          {formatSampleDate(entry.sentAt)} →{" "}
-                          {formatSampleDate(entry.returnedAt)})
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.sentAt)}
+                          </span>{" "}
+                          →{" "}
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.returnedAt)}
+                          </span>
+                          )
                         </>
                       ) : (
                         <>
                           {" "}
-                          · Given {formatSampleDate(entry.sentAt)} · Consumable
+                          · Given{" "}
+                          <span className="whitespace-nowrap">
+                            {formatSampleDate(entry.sentAt)}
+                          </span>{" "}
+                          · Consumable
                         </>
                       )}
                       {entry.returnNote ? ` · ${entry.returnNote}` : ""}
@@ -483,55 +493,65 @@ export function SampleTracker({ deal }: { deal: Deal }) {
               {/* STATES 1 & 2 (or Expanded State 3): Active Sample Custody & Verdict Strip */}
               {entry && !isCompactCompleted && (
                 <div className="mt-2.5 space-y-2 border-t border-dashed border-border/70 pt-2.5">
-                  {/* Custody Dates + Days Badge */}
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">
-                        <strong className="font-semibold text-foreground">
-                          Sample: {qtyGiven} {line.unit}
-                        </strong>{" "}
-                        {entry.returnStatus === "returned" &&
-                        entry.returnedAt ? (
-                          <>
-                            · Given:{" "}
-                            <strong className="font-medium text-foreground">
-                              {formatSampleDate(entry.sentAt)}
-                            </strong>{" "}
-                            → Taken back:{" "}
-                            <strong className="font-semibold text-success">
-                              {formatSampleDate(entry.returnedAt)}
-                            </strong>
-                          </>
-                        ) : (
-                          <>
-                            · Given:{" "}
-                            <strong className="font-medium text-foreground">
-                              {formatSampleDate(entry.sentAt)}
-                            </strong>{" "}
-                            · To: {entry.recipientLabel}
-                          </>
-                        )}
-                      </p>
-
-                      {entry.handoverNote && (
-                        <p className="mt-0.5 break-words text-[11px] text-muted-foreground/90">
-                          Note: &ldquo;{entry.handoverNote}&rdquo;
-                        </p>
-                      )}
-                      {entry.returnNote && (
-                        <p className="mt-0.5 break-words text-[11px] text-success">
-                          Return note: &ldquo;{entry.returnNote}&rdquo;
-                        </p>
-                      )}
-                      {entry.returnStatus === "out" && openFollowUp && (
-                        <p className="mt-0.5 text-[11px] text-accent">
-                          Follow-up scheduled:{" "}
-                          {formatSampleDate(openFollowUp.taskDueAt)}
-                        </p>
-                      )}
+                  {/* Row 1: Sample Qty (left) + Custody Days Badge (right) */}
+                  {/* Row 2: Full-width Given -> Taken back / Recipient dates (BUILD 18.16) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-foreground">
+                        Sample: {qtyGiven} {line.unit}
+                      </span>
+                      <SampleDaysBadge entry={entry} />
                     </div>
 
-                    <SampleDaysBadge entry={entry} />
+                    <p className="text-xs text-muted-foreground">
+                      {entry.returnStatus === "returned" && entry.returnedAt ? (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          <span aria-hidden>→</span> Taken back:{" "}
+                          <strong className="whitespace-nowrap font-semibold text-success">
+                            {formatSampleDate(entry.returnedAt)}
+                          </strong>
+                        </>
+                      ) : entry.returnStatus === "consumable" ? (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          · Consumable (kept by client)
+                        </>
+                      ) : (
+                        <>
+                          Given:{" "}
+                          <strong className="whitespace-nowrap font-medium text-foreground">
+                            {formatSampleDate(entry.sentAt)}
+                          </strong>{" "}
+                          · To: {entry.recipientLabel}
+                        </>
+                      )}
+                    </p>
+
+                    {entry.handoverNote && (
+                      <p className="break-words text-[11px] text-muted-foreground/90">
+                        Note: &ldquo;{entry.handoverNote}&rdquo;
+                      </p>
+                    )}
+                    {entry.returnNote && (
+                      <p className="break-words text-[11px] text-success">
+                        Return note: &ldquo;{entry.returnNote}&rdquo;
+                      </p>
+                    )}
+                    {entry.returnStatus === "out" && openFollowUp && (
+                      <p className="text-[11px] text-accent">
+                        Follow-up scheduled:{" "}
+                        <span className="whitespace-nowrap">
+                          {formatSampleDate(openFollowUp.taskDueAt)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Action Controls: Physical Return + Commercial Verdict + Utilities */}

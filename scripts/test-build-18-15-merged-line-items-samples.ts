@@ -72,6 +72,20 @@ check("State 3 auto-compact strip triggers only when BOTH Verdict is decided AND
   assert.match(tracker, /Undo return/);
 });
 
+check("BUILD 18.16 places 'Sample: X Unit' + SampleDaysBadge on Row 1 and 'Given -> Taken back' on Row 2 with whitespace-nowrap dates", () => {
+  const tracker = readFileSync("src/components/pipeline/sample-tracker.tsx", "utf8");
+  // Row 1 pairs Sample: {qtyGiven} {line.unit} directly with <SampleDaysBadge entry={entry} />
+  assert.match(
+    tracker,
+    /<div className="flex items-center justify-between gap-2">\s*<span className="text-xs font-semibold text-foreground">\s*Sample: \{qtyGiven\} \{line\.unit\}\s*<\/span>\s*<SampleDaysBadge entry=\{entry\} \/>\s*<\/div>/,
+  );
+  // Row 2 renders Given / Taken back on its own full-width <p> below Row 1 with whitespace-nowrap dates
+  assert.match(
+    tracker,
+    /Given:\{" "\}\s*<strong className="whitespace-nowrap font-medium text-foreground">\s*\{formatSampleDate\(entry\.sentAt\)\}\s*<\/strong>\{" "\}\s*<span aria-hidden>→<\/span> Taken back:\{" "\}\s*<strong className="whitespace-nowrap font-semibold text-success">\s*\{formatSampleDate\(entry\.returnedAt\)\}/,
+  );
+});
+
 console.log("\nBUILD 18.15 — All 4 Unified Product Card States (D-2323 Scenario)");
 
 check("4 product lines evaluate cleanly into States 1, 2, 3, and 4 with commercial totals intact", () => {
