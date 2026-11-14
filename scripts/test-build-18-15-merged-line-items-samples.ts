@@ -25,7 +25,18 @@ function check(name: string, fn: () => void) {
   }
 }
 
-console.log("\nBUILD 18.15 — DealDrawer Layout Order & Zero Duplicate Lists");
+console.log("\nBUILD 18.15–18.18 — DealDrawer Layout Order & Zero Duplicate Lists");
+
+check("DealDrawer shows the created date above active days", () => {
+  const drawer = readFileSync("src/components/pipeline/deal-drawer.tsx", "utf8");
+  const created = drawer.indexOf('Created {new Date(deal.createdAt).toLocaleDateString("en-GB"');
+  const active = drawer.indexOf("{activeDays(deal.periods)}");
+  assert.ok(created >= 0, "deal created date should be rendered");
+  assert.ok(active > created, "created date should appear above active days");
+  assert.match(drawer.slice(created, active), /day: "2-digit"/);
+  assert.match(drawer.slice(created, active), /month: "short"/);
+  assert.match(drawer.slice(created, active), /year: "numeric"/);
+});
 
 check("DealDrawer renders Deal value ABOVE unified SampleTracker (Line Items & Samples)", () => {
   const dealDrawer = readFileSync("src/components/pipeline/deal-drawer.tsx", "utf8");

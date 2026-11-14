@@ -167,6 +167,13 @@ export function DealDrawer({
                 {new Intl.NumberFormat("en-US").format(quotedValue(deal.lines))}
               </div>
             )}
+            <div className="mt-1.5 text-[11px] text-muted-foreground">
+              Created {new Date(deal.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
               <span>
                 <strong className="font-medium text-foreground">
