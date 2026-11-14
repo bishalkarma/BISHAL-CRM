@@ -22,6 +22,7 @@ numbered commit titles. They are now identified by immutable Git tags on the
 | 18.15 | `BUILD_18.15` | `893d67b0402bf3a0721e9f79bd0fb5cc6ccafc39` | Unified `Line items & samples` inside `DealDrawer` (`src/components/pipeline/deal-drawer.tsx` + `src/components/pipeline/sample-tracker.tsx`): restored `Deal value` to `#1` on top, eliminated duplicate product lists by merging commercial quote lines (`Qty × Price`, `Total`, `QUOTED`/`APPROVED`/`REJECTED`) with Sample Custody & Verdict in 1 card per product, and added State 3 auto-compact 1-line strip (`Held X days` + `Change`) when both Verdict & Return are completed | 19 test scripts, 261 checks passed; Vercel Preview `READY` (`dpl_FyJZH2B5YMgApwT2u1dH1vpztYEc`); user confirmed working; promoted to `main` |
 | 18.16 | `BUILD_18.16` | `ca13fd78d6b8c31d8b1b5d5f7a96b8ce37f63a17` | Clean 2-row sample custody layout inside unified Deal line-item cards (`src/components/pipeline/sample-tracker.tsx`): moved `Sample: X Unit` + `SampleDaysBadge` (`Held X days` / `With client`) onto Row 1 and full-width `Given: <date> → Taken back: <date>` onto Row 2 with `whitespace-nowrap` date tokens so dates never wrap mid-date | 19 test scripts, 262 checks passed; Vercel Preview `READY` (`dpl_86GKg8EvyGfjk7xLwM6YC2HUerDc`); user confirmed working; promoted to `main` |
 | 18.17 | `BUILD_18.17` | `ac375e4c03f8d9d6edb08ddb8e8ac922b9c1f786` | Consistent 2-row sample custody layout on completed State 3 cards (`APPROVED` / `REJECTED`) & Customer Card history (`src/components/pipeline/sample-tracker.tsx` + `src/components/samples/customer-sample-custody.tsx`): places `Sample: X Unit` + `Held X days` + `Change` / `Edit` on Row 1 and full-width `Given: <date> → Taken back: <date>` on Row 2 | 19 test scripts, 263 checks passed; Vercel Preview `READY` (`dpl_JCQRhgt2cZ2ttRqj9JDAEAz7TPAr`); user confirmed working; promoted to `main` |
+| 18.18 | `BUILD_18.18` | `d8f5c165f6fccbf5bb5222b7810b36b010b8c36f` | Show deal creation date (`Created <DD Mon YYYY>`) in muted metadata immediately above active days in the DealDrawer Deal Value card (`src/components/pipeline/deal-drawer.tsx`) | Local `npm run build` passed; targeted ESLint passed; all 19 test scripts passed including new ordering/date-format check; Vercel Preview `READY` (`dpl_4FRF6csoYoHcpyvtyo8dKQh1RnSR`); promoted to `main` |
 
 ### Preview links for the tested builds
 - **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
@@ -37,11 +38,12 @@ numbered commit titles. They are now identified by immutable Git tags on the
 - **BUILD 18.15:** https://bishal-ux8dh3tp8-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-db87fb5c-bishal-crm-bishal-sales-crm.vercel.app)
 - **BUILD 18.16:** https://bishal-hgc8olm5j-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-db87fb5c-bishal-crm-bishal-sales-crm.vercel.app)
 - **BUILD 18.17:** https://bishal-6do4bc7yp-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-1c691789-bishal-crm-bishal-sales-crm.vercel.app)
+- **BUILD 18.18:** https://bishal-1xvh4n6fr-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-fa4c48dc-bishal-crm-bishal-sales-crm.vercel.app)
 - Preview URLs are subject to Vercel retention. The Git tags preserve source
   recovery points even if those deployment URLs expire.
 
 ### Required process for subsequent application builds
-1. **Next application build: BUILD 18.18**, then 18.19, 18.20, etc. These
+1. **Next application build: BUILD 18.19**, then 18.20, 18.21, etc. These
    are sequential labels, not decimal values. A major-number change requires
    the user's agreement; do not jump to the historical reserved BUILD 19.
 2. Prefix application-build commit messages with `BUILD <number> - <summary>`
