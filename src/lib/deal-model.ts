@@ -10,7 +10,10 @@
  */
 
 
+/** Legacy sample verdict stored on lines before the commercial/sample split. */
 export type LineStatus = "quoted" | "approved" | "rejected";
+export type CommercialLineStatus = "potential" | "won" | "lost";
+export type SampleVerdict = "approved" | "rejected";
 
 export type LostReason =
   | "Budget Constraint"
@@ -47,8 +50,13 @@ export type LineItem = {
   quantity: number;
   unit: Unit;
   unitPrice: number;
+  /** Deprecated legacy verdict field retained for backward-compatible reads. */
   status: LineStatus;
-  /** Only when status is "rejected". */
+  /** Commercial result, independent from sample feedback. */
+  commercialStatus?: CommercialLineStatus;
+  /** Sample evaluation only; never affects line value or commercial outcome. */
+  sampleVerdict?: SampleVerdict | null;
+  /** Only for a commercially lost line when a structured reason is known. */
   rejectReason?: LostReason;
   /**
    * Sampling is per line, not per deal.
@@ -84,6 +92,16 @@ export type LineSample = {
   followUpActivityId?: string | null;
 };
 
+export const COMMERCIAL_STATUS_META: Record<
+  CommercialLineStatus,
+  { label: string; tint: string; dot: string }
+> = {
+  potential: { label: "Potential", tint: "bg-warning/15 text-warning", dot: "bg-warning" },
+  won: { label: "Won", tint: "bg-success/12 text-success", dot: "bg-success" },
+  lost: { label: "Lost", tint: "bg-destructive/12 text-destructive", dot: "bg-destructive" },
+};
+
+/** Legacy labels retained for migration and activity history only. */
 export const LINE_STATUS_META: Record<
   LineStatus,
   { label: string; tint: string; dot: string }
@@ -109,30 +127,44 @@ export function lineTotal(line: LineItem) {
   return line.quantity * line.unitPrice;
 }
 
-/**
- * A line counts toward deal value unless it was explicitly rejected.
- * "Quoted" is treated as approved so a single-click Won stays accurate
- * for anyone who never bothers to mark lines.
- */
+/** Use the explicit commercial outcome; legacy records fall back conservatively. */
+export function lineCommercialStatus(line: LineItem): CommercialLineStatus {
+  return line.commercialStatus ?? (line.status === "rejected" ? "lost" : "potential");
+}
+
+/** Pending and Won lines contribute to opportunity value; Lost lines do not. */
 export function lineCounts(line: LineItem) {
-  return line.status !== "rejected";
+  return lineCommercialStatus(line) !== "lost";
 }
 
+export function potentialValue(lines: LineItem[]) {
+  return lines
+    .filter((line) => lineCommercialStatus(line) === "potential")
+    .reduce((sum, line) => sum + lineTotal(line), 0);
+}
+
+export function wonValue(lines: LineItem[]) {
+  return lines
+    .filter((line) => lineCommercialStatus(line) === "won")
+    .reduce((sum, line) => sum + lineTotal(line), 0);
+}
+
+export function lostLineValue(lines: LineItem[]) {
+  return lines
+    .filter((line) => lineCommercialStatus(line) === "lost")
+    .reduce((sum, line) => sum + lineTotal(line), 0);
+}
+
+/** Potential + Won value; a closed deal has no Potential lines. */
 export function dealValue(lines: LineItem[]) {
-  return lines.filter(lineCounts).reduce((sum, l) => sum + lineTotal(l), 0);
+  return lines.filter(lineCounts).reduce((sum, line) => sum + lineTotal(line), 0);
 }
 
-/**
- * Value of the lines the customer turned down.
- *
- * This is the money that actually walked away. `dealValue` deliberately
- * excludes rejected lines, so a deal where every line was rejected reports a
- * value of zero — which made the Deal Loss tile read AED 0 for a real loss.
- */
+/** Legacy loss helper, retained for old reports while they migrate. */
 export function rejectedValue(lines: LineItem[]) {
   return lines
-    .filter((l) => l.status === "rejected")
-    .reduce((sum, l) => sum + lineTotal(l), 0);
+    .filter((line) => lineCommercialStatus(line) === "lost")
+    .reduce((sum, line) => sum + lineTotal(line), 0);
 }
 
 export function quotedValue(lines: LineItem[]) {

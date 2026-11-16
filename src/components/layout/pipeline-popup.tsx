@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Target, Users, X } from "lucide-react";
 import { useData } from "@/components/providers/data-provider";
+import { isOpenDeal } from "@/lib/deals";
 import { PopupPanel } from "./popup-panel";
 import { SPANCOP_MAP, SPANCOP_ORDER, type SpancopStage } from "@/lib/spancop";
 import { PIPELINE_STAGES, type DealStage } from "@/lib/pipeline";
@@ -15,7 +16,7 @@ export function PipelinePopup({ onClose }: { onClose: () => void }) {
   const [selectedSpancopStage, setSelectedSpancopStage] = React.useState<SpancopStage | null>(null);
 
   const stats = React.useMemo(() => {
-    const open = deals.filter((d) => d.stage !== "won" && d.stage !== "lost");
+    const open = deals.filter(isOpenDeal);
     const total = open.reduce((sum, d) => sum + d.value, 0);
     const byStage: Record<string, typeof open> = {};
     PIPELINE_STAGES.forEach((s) => {

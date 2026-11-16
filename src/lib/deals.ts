@@ -49,7 +49,11 @@ export type Deal = {
   /** Derived from `lines` — kept for sorting and quick reads. */
   value: number;
   currency: CurrencyCode;
+  /** Current active sales stage; legacy stage values are normalized by the mapper. */
   stage: DealStage;
+  /** Separate lifecycle so mixed line outcomes do not force deal-level Won/Lost. */
+  lifecycleStatus?: "open" | "closed";
+  closedAt?: string | null;
   /**
    * The open stage a deal sat in immediately before it was closed.
    * Lets won/lost deals be shown back in the column they closed from.
@@ -90,6 +94,14 @@ export type Deal = {
   fulfilment: Fulfilment;
 };
 
+export function isClosedDeal(deal: Pick<Deal, "stage" | "lifecycleStatus">) {
+  return deal.lifecycleStatus === "closed" || deal.stage === "won" || deal.stage === "lost";
+}
+
+export function isOpenDeal(deal: Pick<Deal, "stage" | "lifecycleStatus">) {
+  return !isClosedDeal(deal);
+}
+
 const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 
 let lineSeq = 0;
@@ -108,6 +120,9 @@ const line = (
   unit: "Pcs",
   unitPrice,
   status,
+  commercialStatus: "potential",
+  sampleVerdict:
+    status === "approved" || status === "rejected" ? status : null,
   rejectReason,
 });
 
@@ -674,8 +689,24 @@ export const DEALS: Deal[] = [
   },
 ];
 
-// Deal value is always derived from the line items.
+// Demo data uses the new independent commercial and sample dimensions.
 DEALS.forEach((deal) => {
+  const legacyOutcome = deal.stage === "won" || deal.stage === "lost" ? deal.stage : null;
+  deal.lifecycleStatus = legacyOutcome ? "closed" : "open";
+  deal.closedAt = legacyOutcome ? deal.lastActivityAt : null;
+  deal.lines = deal.lines.map((line) => ({
+    ...line,
+    // Closed legacy examples keep their old deal result as the safest seed
+    // approximation; open sample verdicts never decide commercial status.
+    commercialStatus: legacyOutcome === "lost"
+      ? "lost"
+      : legacyOutcome === "won"
+        ? line.status === "rejected" ? "lost" : "won"
+        : "potential",
+    sampleVerdict:
+      line.sampleVerdict ??
+      (line.status === "approved" || line.status === "rejected" ? line.status : null),
+  }));
   deal.value = dealValue(deal.lines);
 });
 

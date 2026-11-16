@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import type { Deal, DealPriority } from "@/lib/deals";
+import { isClosedDeal, isOpenDeal, type Deal, type DealPriority } from "@/lib/deals";
 import {
-  closePeriods,
   currentRunDays,
-  reopenPeriods,
+  lineCommercialStatus,
+  lostLineValue,
+  potentialValue,
+  wonValue,
   type LostReason,
 } from "@/lib/deal-model";
 import {
@@ -82,32 +84,15 @@ export function usePipeline() {
       }
 
       const nowIso = new Date().toISOString();
-      const closing = !isOpenStage(toStage);
-      const reopening = !isOpenStage(deal.stage) && isOpenStage(toStage);
 
-      // Routed through the shared store so the stage change reaches Supabase.
+      // Dragging changes only the active customer-journey stage. Deal closure
+      // is driven by every line reaching Won/Lost in the line-item tracker.
       updateDealShared(dealId, {
         stage: toStage,
-        // Ageing counts active days only: close the run when the deal closes,
-        // start a fresh one when it is reopened.
-        periods: closing
-          ? closePeriods(deal.periods, nowIso)
-          : reopening
-            ? reopenPeriods(deal.periods, nowIso)
-            : deal.periods,
-        lostReason: toStage === "lost" ? options?.lostReason : undefined,
-        lostNote: toStage === "lost" ? options?.lostNote : undefined,
-        // Remember where a deal closed from so it can still be shown in that
-        // column. Reopening a deal clears the marker.
-        closedFromStage: isOpenStage(toStage)
-          ? undefined
-          : isOpenStage(deal.stage)
-            ? deal.stage
-            : deal.closedFromStage,
-        // Manual overrides are dropped so the new stage default applies.
-        probability: isOpenStage(toStage)
-          ? null
-          : STAGE_MAP[toStage].probability,
+        lifecycleStatus: "open",
+        closedAt: null,
+        closedFromStage: undefined,
+        probability: null,
         lastActivityAt: nowIso,
       });
 
@@ -207,7 +192,7 @@ export function usePipeline() {
       }
       if (filters.rottingOnly) {
         const def = STAGE_MAP[deal.stage];
-        if (!isOpenStage(deal.stage)) return false;
+        if (!isOpenDeal(deal)) return false;
         // Use the current active run so a reopened deal is not instantly red.
         const runDays = currentRunDays(deal.periods);
         const idle =
@@ -221,12 +206,10 @@ export function usePipeline() {
   /**
    * Which set of deals the board is currently showing.
    *
-   *  "open" — the live pipeline (default)
-   *  "won"  — ONLY won deals, placed in the stage they were won from
-   *  "lost" — ONLY lost deals, placed in the stage they were lost from
-   *
-   * Tapping the "Closed won" / "Deal lost" tiles switches into that view;
-   * tapping the active tile again returns to the open pipeline.
+   *  "open" — active pipeline
+   *  "won"  — closed opportunities containing Won lines
+   *  "lost" — closed opportunities containing Lost lines
+   * A mixed opportunity can appear in both outcome views.
    */
   const [outcomeView, setOutcomeView] = React.useState<OutcomeView>("open");
 
@@ -238,22 +221,23 @@ export function usePipeline() {
   const columns = React.useMemo(
     () =>
       PIPELINE_STAGES.map((stage) => {
-        // In an outcome view the board shows only closed deals of that
-        // outcome, positioned in the stage they closed from. Otherwise it
-        // shows the live pipeline for this stage.
-        const stageDeals =
-          outcomeView === "open"
-            ? filtered.filter((deal) => deal.stage === stage.id)
-            : filtered.filter(
-                (deal) =>
-                  deal.stage === outcomeView &&
-                  (deal.closedFromStage ?? "lead") === stage.id,
-              );
+        // Outcome views show neutral Closed deals that contain at least one
+        // matching line, grouped under the last active stage for context.
+        const stageDeals = outcomeView === "open"
+          ? filtered.filter((deal) => isOpenDeal(deal) && deal.stage === stage.id)
+            : filtered.filter((deal) =>
+              deal.stage === stage.id &&
+              deal.lines.some((line) => lineCommercialStatus(line) === outcomeView),
+            );
 
-        const total = stageDeals.reduce(
-          (sum, deal) => sum + toDisplay(deal.value, deal.currency),
-          0,
-        );
+        const total = stageDeals.reduce((sum, deal) => {
+          const amount = outcomeView === "open"
+            ? potentialValue(deal.lines)
+            : outcomeView === "won"
+              ? wonValue(deal.lines)
+              : lostLineValue(deal.lines);
+          return sum + toDisplay(amount, deal.currency);
+        }, 0);
 
         // Weighting only means something for open deals; a closed deal's
         // value is already realised, so the weighted figure mirrors the total.
@@ -264,7 +248,7 @@ export function usePipeline() {
                   deal.probability ?? STAGE_MAP[deal.stage].probability;
                 return (
                   sum +
-                  toDisplay(deal.value, deal.currency) * (probability / 100)
+                  toDisplay(potentialValue(deal.lines), deal.currency) * (probability / 100)
                 );
               }, 0)
             : total;
@@ -275,52 +259,54 @@ export function usePipeline() {
   );
 
   const stats = React.useMemo(() => {
-    const open = filtered.filter((deal) => isOpenStage(deal.stage));
-    const won = filtered.filter((deal) => deal.stage === "won");
-    const lost = filtered.filter((deal) => deal.stage === "lost");
+    const open = filtered.filter(isOpenDeal);
+    const closedDeals = filtered.filter(isClosedDeal);
+    const wonCount = filtered.reduce(
+      (sum, deal) => sum + deal.lines.filter((line) => lineCommercialStatus(line) === "won").length,
+      0,
+    );
+    const lostCount = filtered.reduce(
+      (sum, deal) => sum + deal.lines.filter((line) => lineCommercialStatus(line) === "lost").length,
+      0,
+    );
     const openValue = open.reduce(
-      (sum, deal) => sum + toDisplay(deal.value, deal.currency),
+      (sum, deal) => sum + toDisplay(potentialValue(deal.lines), deal.currency),
       0,
     );
     const weighted = open.reduce((sum, deal) => {
       const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
-      return sum + toDisplay(deal.value, deal.currency) * (probability / 100);
+      return sum + toDisplay(potentialValue(deal.lines), deal.currency) * (probability / 100);
     }, 0);
-    const wonValue = won.reduce(
-      (sum, deal) => sum + toDisplay(deal.value, deal.currency),
+    const wonAmount = filtered.reduce(
+      (sum, deal) => sum + toDisplay(wonValue(deal.lines), deal.currency),
       0,
     );
-    const lostValue = lost.reduce(
-      (sum, deal) => sum + toDisplay(deal.value, deal.currency),
+    const lostAmount = filtered.reduce(
+      (sum, deal) => sum + toDisplay(lostLineValue(deal.lines), deal.currency),
       0,
     );
+    const decidedItems = wonCount + lostCount;
+    const winRate = decidedItems ? Math.round((wonCount / decidedItems) * 100) : 0;
 
-    // Win and loss rates are shares of *closed* deals, so they always sum
-    // to 100% (rounding aside) and stay consistent with each other.
-    const closed = won.length + lost.length;
-    const winRate = closed ? Math.round((won.length / closed) * 100) : 0;
-
-    return {
-      openCount: open.length,
+  return {
+    openCount: open.length,
       openValue,
       weighted,
-      wonValue,
-      wonCount: won.length,
-      lostValue,
-      lostCount: lost.length,
-      closedCount: closed,
+      wonValue: wonAmount,
+      wonCount,
+      lostValue: lostAmount,
+      lostCount,
+      closedCount: closedDeals.length,
       winRate,
-      // Derived from winRate so the two tiles can never disagree.
-      lossRate: closed ? 100 - winRate : 0,
+      lossRate: decidedItems ? 100 - winRate : 0,
     };
   }, [filtered, toDisplay]);
 
-  /** Deals for the list view, honouring the current outcome view. */
+  /** Deals for the list view, filtered by line outcome when selected. */
   const visibleDeals = React.useMemo(
-    () =>
-      outcomeView === "open"
-        ? filtered
-        : filtered.filter((deal) => deal.stage === outcomeView),
+    () => outcomeView === "open"
+      ? filtered.filter(isOpenDeal)
+      : filtered.filter((deal) => deal.lines.some((line) => lineCommercialStatus(line) === outcomeView)),
     [filtered, outcomeView],
   );
 

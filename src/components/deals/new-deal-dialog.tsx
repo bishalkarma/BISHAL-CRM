@@ -35,6 +35,8 @@ const emptyLine = (): LineItem => ({
   unit: "Pcs",
   unitPrice: 0,
   status: "quoted",
+  commercialStatus: "potential",
+  sampleVerdict: null,
 });
 
 export function NewDealDialog({
@@ -220,6 +222,8 @@ export function NewDealDialog({
         value: dealValue(cleaned),
         currency: "AED",
         stage: "lead",
+        lifecycleStatus: "open",
+        closedAt: null,
         probability: null,
         owner,
         owner_id: finalOwnerId,

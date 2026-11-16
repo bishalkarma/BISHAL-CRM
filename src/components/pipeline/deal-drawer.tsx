@@ -16,10 +16,9 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import type { Deal } from "@/lib/deals";
+import { isClosedDeal, type Deal } from "@/lib/deals";
 import {
   PIPELINE_STAGES,
-  CLOSED_STAGES,
   STAGE_MAP,
   daysSince,
   type DealStage,
@@ -32,8 +31,12 @@ import {
   daysToFeedback,
   dormantDays,
   isReopened,
-  quotedValue,
-  rejectedValue,
+  potentialValue,
+  wonValue,
+  lostLineValue,
+  lineCommercialStatus,
+  closePeriods,
+  reopenPeriods,
 } from "@/lib/deal-model";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
@@ -78,7 +81,12 @@ export function DealDrawer({
 
   const hasAnySample = deal.lines.some((l) => Boolean(l.sample?.sentAt));
   const probability = deal.probability ?? STAGE_MAP[deal.stage].probability;
-  const converted = toDisplay(deal.value, deal.currency);
+  const closed = isClosedDeal(deal);
+  const potential = potentialValue(deal.lines);
+  const won = wonValue(deal.lines);
+  const lost = lostLineValue(deal.lines);
+  const shownValue = closed ? won : potential;
+  const converted = toDisplay(shownValue, deal.currency);
   const isForeign = deal.currency !== display;
 
   return (
@@ -104,6 +112,7 @@ export function DealDrawer({
               />
               {STAGE_MAP[deal.stage].label}
             </Badge>
+            {closed && <Badge variant="outline">Closed</Badge>}
             {deal.onHold && (
               <Badge variant="warning" className="gap-1">
                 <PauseCircle />
@@ -138,35 +147,30 @@ export function DealDrawer({
 
         <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-5 overflow-y-auto p-5 lg:border-r lg:border-border">
-          {/* The order chain, on won deals only. An open deal has no PO,
-              no delivery and no payment to record. */}
-          {deal.stage === "won" && <OrderProgress deal={deal} />}
+          {/* Fulfillment attaches to awarded line value, even when the deal box
+              stays open for other Potential lines. */}
+          {won > 0 && <OrderProgress deal={deal} />}
 
           {/* Value — #1 on top */}
           <div className="rounded-xl border border-border bg-secondary/40 p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Deal value
+              {closed ? "Won value" : "Potential value"}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {format(converted)}
             </div>
             {isForeign && (
               <div className="mt-0.5 text-xs text-muted-foreground">
-                Booked in {CURRENCIES[deal.currency].symbol}{" "}
-                {new Intl.NumberFormat("en-US").format(deal.value)}{" "}
+                {closed ? "Won" : "Potential"} in {CURRENCIES[deal.currency].symbol}{" "}
+                {new Intl.NumberFormat("en-US").format(shownValue)}{" "}
                 {deal.currency}
               </div>
             )}
-            {rejectedValue(deal.lines) > 0 && (
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {CURRENCIES[deal.currency].symbol}{" "}
-                {new Intl.NumberFormat("en-US").format(
-                  rejectedValue(deal.lines),
-                )}{" "}
-                not taken · quoted{" "}
-                {new Intl.NumberFormat("en-US").format(quotedValue(deal.lines))}
-              </div>
-            )}
+            <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+              <span>Won: {format(toDisplay(won, deal.currency))}</span>
+              <span>Lost: {format(toDisplay(lost, deal.currency))}</span>
+              {!closed && <span>Potential: {format(toDisplay(potential, deal.currency))}</span>}
+            </div>
             <div className="mt-1.5 text-[11px] text-muted-foreground">
               Created {new Date(deal.createdAt).toLocaleDateString("en-GB", {
                 day: "2-digit",
@@ -190,25 +194,66 @@ export function DealDrawer({
                 </>
               )}
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-500"
-                  style={{ width: `${probability}%` }}
-                />
-              </div>
-              <span className="text-xs font-semibold tabular-nums">
-                {probability}%
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-              <TrendingUp className="size-3" />
-              Weighted: {format(converted * (probability / 100))}
-            </div>
+            {!closed && (
+              <>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-accent transition-[width] duration-500"
+                      style={{ width: `${probability}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums">{probability}%</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <TrendingUp className="size-3" />
+                  Weighted potential: {format(toDisplay(potential * (probability / 100), deal.currency))}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Unified Line Items & Samples (BUILD 18.15) */}
+          {/* Unified line outcomes & independent sample feedback */}
           <SampleTracker deal={deal} />
+          <div className="rounded-xl border border-border p-3">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Line outcomes</div>
+            <div className="space-y-2">
+              {deal.lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate">{line.product}</span>
+                  <select
+                    aria-label={`Commercial status for ${line.product}`}
+                    className="rounded-md border border-border bg-background px-2 py-1"
+                    value={lineCommercialStatus(line)}
+                    onChange={(event) => {
+                      const commercialStatus = event.target.value as "potential" | "won" | "lost";
+                      const lines = deal.lines.map((item) => item.id === line.id ? { ...item, commercialStatus } : item);
+                      const remainsOpen = lines.some((item) => lineCommercialStatus(item) === "potential");
+                      const next = {
+                        ...deal,
+                        lines,
+                        lifecycleStatus: remainsOpen ? "open" as const : "closed" as const,
+                        closedAt: remainsOpen ? null : deal.closedAt ?? new Date().toISOString(),
+                        closedFromStage: remainsOpen ? undefined : deal.closedFromStage ?? deal.stage,
+                      };
+                      next.value = potentialValue(lines) + wonValue(lines);
+                      const now = new Date().toISOString();
+                      if (deal.lifecycleStatus === "closed" && remainsOpen) {
+                        next.periods = reopenPeriods(deal.periods, now);
+                      } else if (deal.lifecycleStatus !== "closed" && !remainsOpen) {
+                        next.periods = closePeriods(deal.periods, now);
+                      }
+                      updateDeal(deal.id, next);
+                    }}
+                  >
+                    <option value="potential">Potential</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <Separator />
 
@@ -332,22 +377,23 @@ export function DealDrawer({
             </>
           )}
 
-          {/* Move stage */}
+          {/* Only active customer-journey stages; closure is determined by line outcomes. */}
           <div>
             <div className="pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              Move to stage
+              {closed ? "Last active stage" : "Move to stage"}
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {[...PIPELINE_STAGES, ...CLOSED_STAGES].map((stage) => (
+              {PIPELINE_STAGES.map((stage) => (
                 <button
                   key={stage.id}
                   onClick={() => onMove(deal.id, stage.id)}
-                  disabled={stage.id === deal.stage}
+                  disabled={closed || stage.id === deal.stage}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
                     stage.id === deal.stage
                       ? "cursor-default border-accent bg-accent/10 text-accent"
                       : "border-border text-muted-foreground hover:border-accent/40 hover:bg-secondary hover:text-foreground",
+                    closed && "cursor-default opacity-70",
                   )}
                 >
                   <span className={cn("size-1.5 rounded-full", stage.color)} />
@@ -355,6 +401,7 @@ export function DealDrawer({
                 </button>
               ))}
             </div>
+            {closed && <p className="mt-1.5 text-[11px] text-muted-foreground">Change a Lost line back to Potential to reopen this same deal.</p>}
           </div>
 
           <Separator />

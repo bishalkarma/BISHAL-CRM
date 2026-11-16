@@ -22,7 +22,7 @@ import {
   type Activity,
   type ActivityType,
 } from "@/lib/activities";
-import { DEAL_OWNERS } from "@/lib/deals";
+import { DEAL_OWNERS, isOpenDeal } from "@/lib/deals";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useData } from "@/components/providers/data-provider";
 import {
@@ -162,7 +162,7 @@ export function LogActivityDialog({
   const companyDeals = React.useMemo(
     () =>
       deals.filter(
-        (d) => d.companyId === companyId && d.stage !== "won" && d.stage !== "lost",
+        (d) => d.companyId === companyId && isOpenDeal(d),
       ),
     [deals, companyId],
   );

@@ -15,7 +15,7 @@ import {
   daysSinceDelivery,
   fulfilmentStage,
   ageingTone,
-
+  wonValue,
 } from "@/lib/deal-model";
 import { useData } from "@/components/providers/data-provider";
 import { useCurrency } from "@/components/providers/currency-provider";
@@ -46,11 +46,12 @@ export function OrderProgress({ deal }: { deal: Deal }) {
     "po" | "delivery" | "payment" | null
   >(null);
 
-  if (deal.stage !== "won") return null;
+  const awardedValue = wonValue(deal.lines);
+  if (awardedValue <= 0) return null;
 
   const f = deal.fulfilment;
   const step = fulfilmentStage(f);
-  const value = toDisplay(deal.value, deal.currency);
+  const value = toDisplay(awardedValue, deal.currency);
   const received = toDisplay(f.amountReceived, deal.currency);
   const balance = balanceOutstanding(value, f);
   const credit = received > value ? received - value : 0;
