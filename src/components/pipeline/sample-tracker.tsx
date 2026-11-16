@@ -17,9 +17,6 @@ import {
   dealValue,
   lineCommercialStatus,
   lineTotal,
-  lostLineValue,
-  potentialValue,
-  wonValue,
   closePeriods,
   reopenPeriods,
   type CommercialLineStatus,
@@ -33,7 +30,6 @@ import {
   type SampleLedgerEntry,
 } from "@/lib/samples";
 import { useData } from "@/components/providers/data-provider";
-import { useCurrency } from "@/components/providers/currency-provider";
 import {
   GiveSampleDialog,
   SampleDaysBadge,
@@ -79,7 +75,6 @@ const lineTotalFormatter = new Intl.NumberFormat("en-US", {
  */
 export function SampleTracker({ deal }: { deal: Deal }) {
   const { companies, contacts, activities, updateDeal } = useData();
-  const { toDisplay, format } = useCurrency();
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
     () => new Set(),
   );
@@ -123,8 +118,6 @@ export function SampleTracker({ deal }: { deal: Deal }) {
   const overdueCount = dealLedger.filter(
     (e) => e.returnStatus === "out" && e.tone === "out-overdue",
   ).length;
-
-  const money = (v: number) => format(v, { compact: true });
 
   const patchLine = (id: string, patch: Partial<LineItem>) =>
     updateDeal(deal.id, {
@@ -216,9 +209,6 @@ export function SampleTracker({ deal }: { deal: Deal }) {
     });
 
   const isClosed = isClosedDeal(deal);
-  const wonTotal = toDisplay(wonValue(deal.lines), deal.currency);
-  const lostTotal = toDisplay(lostLineValue(deal.lines), deal.currency);
-  const potentialTotal = toDisplay(potentialValue(deal.lines), deal.currency);
 
   return (
     <div>
@@ -232,15 +222,6 @@ export function SampleTracker({ deal }: { deal: Deal }) {
           <span className="text-muted-foreground">
             {deal.lines.length}{" "}
             {deal.lines.length === 1 ? "product" : "products"}
-          </span>
-          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-warning">
-            Potential {money(potentialTotal)}
-          </span>
-          <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">
-            Won {money(wonTotal)}
-          </span>
-          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-destructive">
-            Lost {money(lostTotal)}
           </span>
 
           {outCount > 0 && (
@@ -369,7 +350,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
 
               <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
                 <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Sales outcome
+                  Commercial result
                 </span>
                 {(["potential", "won", "lost"] as const).map((status) => (
                   <Button

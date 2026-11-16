@@ -34,9 +34,6 @@ import {
   potentialValue,
   wonValue,
   lostLineValue,
-  lineCommercialStatus,
-  closePeriods,
-  reopenPeriods,
 } from "@/lib/deal-model";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { useData } from "@/components/providers/data-provider";
@@ -215,45 +212,6 @@ export function DealDrawer({
 
           {/* Unified line outcomes & independent sample feedback */}
           <SampleTracker deal={deal} />
-          <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Line outcomes</div>
-            <div className="space-y-2">
-              {deal.lines.map((line) => (
-                <div key={line.id} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="min-w-0 truncate">{line.product}</span>
-                  <select
-                    aria-label={`Commercial status for ${line.product}`}
-                    className="rounded-md border border-border bg-background px-2 py-1"
-                    value={lineCommercialStatus(line)}
-                    onChange={(event) => {
-                      const commercialStatus = event.target.value as "potential" | "won" | "lost";
-                      const lines = deal.lines.map((item) => item.id === line.id ? { ...item, commercialStatus } : item);
-                      const remainsOpen = lines.some((item) => lineCommercialStatus(item) === "potential");
-                      const next = {
-                        ...deal,
-                        lines,
-                        lifecycleStatus: remainsOpen ? "open" as const : "closed" as const,
-                        closedAt: remainsOpen ? null : deal.closedAt ?? new Date().toISOString(),
-                        closedFromStage: remainsOpen ? undefined : deal.closedFromStage ?? deal.stage,
-                      };
-                      next.value = potentialValue(lines) + wonValue(lines);
-                      const now = new Date().toISOString();
-                      if (deal.lifecycleStatus === "closed" && remainsOpen) {
-                        next.periods = reopenPeriods(deal.periods, now);
-                      } else if (deal.lifecycleStatus !== "closed" && !remainsOpen) {
-                        next.periods = closePeriods(deal.periods, now);
-                      }
-                      updateDeal(deal.id, next);
-                    }}
-                  >
-                    <option value="potential">Potential</option>
-                    <option value="won">Won</option>
-                    <option value="lost">Lost</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <Separator />
 
