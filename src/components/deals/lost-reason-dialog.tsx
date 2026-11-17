@@ -25,6 +25,7 @@ export function LostReasonDialog({
   initialReason,
   initialNote,
   isEdit,
+  subjectLabel = "deal",
   onConfirm,
   onCancel,
 }: {
@@ -34,6 +35,7 @@ export function LostReasonDialog({
   initialReason?: LostReason;
   initialNote?: string;
   isEdit?: boolean;
+  subjectLabel?: "deal" | "line";
   onConfirm: (reason: LostReason, note: string) => void;
   onCancel?: () => void;
 }) {
@@ -61,7 +63,7 @@ export function LostReasonDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <XCircle className="size-4 text-destructive" />
-            {isEdit ? "Edit lost reason" : "Why was this deal lost?"}
+            {isEdit ? "Edit lost reason" : `Why was this ${subjectLabel} lost?`}
           </DialogTitle>
           <DialogDescription className="truncate">{dealTitle}</DialogDescription>
         </DialogHeader>

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, formatCurrency, initials } from "@/lib/utils";
 import { useData } from "@/components/providers/data-provider";
+import { isOpenDeal } from "@/lib/deals";
 import {
   Tooltip,
   TooltipContent,
@@ -70,7 +71,7 @@ function useTodayStats() {
 function useDealPipelineStats() {
   const { deals } = useData();
   return React.useMemo(() => {
-    const open = deals.filter((d) => d.stage !== "won" && d.stage !== "lost");
+    const open = deals.filter(isOpenDeal);
     const total = open.reduce((sum, d) => sum + d.value, 0);
     const byStage: Record<string, number> = {};
     PIPELINE_STAGES.forEach((s) => {

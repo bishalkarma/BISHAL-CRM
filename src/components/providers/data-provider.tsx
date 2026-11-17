@@ -3,7 +3,7 @@
 import * as React from "react";
 import { COMPANIES, STAGE_TRANSITIONS, type Company } from "@/lib/companies";
 import { CONTACTS, type Contact } from "@/lib/contacts";
-import { DEALS, type Deal } from "@/lib/deals";
+import { DEALS, isOpenDeal, type Deal } from "@/lib/deals";
 import { ACTIVITIES, type Activity } from "@/lib/activities";
 import {
   DEMO_CUSTOMER_SAMPLES,
@@ -175,7 +175,7 @@ function withOpenDeals(companies: Company[], deals: Deal[]): Company[] {
     openDealIds: deals
       .filter(
         (d) =>
-          d.companyId === c.id && d.stage !== "won" && d.stage !== "lost",
+          d.companyId === c.id && isOpenDeal(d),
       )
       .map((d) => d.id),
   }));

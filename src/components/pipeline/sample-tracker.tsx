@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Beaker,
   CalendarClock,
   Check,
   Package,
@@ -11,13 +10,16 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import type { Deal } from "@/lib/deals";
+import { isClosedDeal, type Deal } from "@/lib/deals";
 import {
-  LINE_STATUS_META,
+  COMMERCIAL_STATUS_META,
   LOST_REASONS,
   dealValue,
+  lineCommercialStatus,
   lineTotal,
-  rejectedValue,
+  closePeriods,
+  reopenPeriods,
+  type CommercialLineStatus,
   type LineItem,
   type LostReason,
 } from "@/lib/deal-model";
@@ -28,7 +30,7 @@ import {
   type SampleLedgerEntry,
 } from "@/lib/samples";
 import { useData } from "@/components/providers/data-provider";
-import { useCurrency } from "@/components/providers/currency-provider";
+import { LostReasonDialog } from "@/components/deals/lost-reason-dialog";
 import {
   GiveSampleDialog,
   SampleDaysBadge,
@@ -74,12 +76,11 @@ const lineTotalFormatter = new Intl.NumberFormat("en-US", {
  */
 export function SampleTracker({ deal }: { deal: Deal }) {
   const { companies, contacts, activities, updateDeal } = useData();
-  const { toDisplay, format } = useCurrency();
-  const [dismissed, setDismissed] = React.useState(false);
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
     () => new Set(),
   );
   const [rejecting, setRejecting] = React.useState<LineItem | null>(null);
+  const [losingLine, setLosingLine] = React.useState<LineItem | null>(null);
   const [giveTarget, setGiveTarget] =
     React.useState<GiveSampleDialogTarget | null>(null);
   const [takeBackEntry, setTakeBackEntry] =
@@ -120,18 +121,66 @@ export function SampleTracker({ deal }: { deal: Deal }) {
     (e) => e.returnStatus === "out" && e.tone === "out-overdue",
   ).length;
 
-  const money = (v: number) => format(v, { compact: true });
-
   const patchLine = (id: string, patch: Partial<LineItem>) =>
     updateDeal(deal.id, {
       lines: deal.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     });
 
+  const setCommercialStatus = (
+    line: LineItem,
+    status: CommercialLineStatus,
+    reason?: LostReason,
+    note?: string,
+  ) => {
+    const now = new Date().toISOString();
+    const previousStatus = lineCommercialStatus(line);
+    if (previousStatus === status && status !== "lost") return;
+    const history = line.commercialHistory ?? [];
+    const sameStatusEdit = previousStatus === status;
+    const commercialHistory = sameStatusEdit && history.length
+      ? history.map((event, index) => index === history.length - 1
+          ? { ...event, reason, note: note?.trim() || undefined }
+          : event)
+      : [...history, {
+          status,
+          changedAt: now,
+          ...(reason ? { reason } : {}),
+          ...(note?.trim() ? { note: note.trim() } : {}),
+        }];
+    const lines = deal.lines.map((item) =>
+      item.id === line.id
+        ? {
+            ...item,
+            commercialStatus: status,
+            rejectReason: status === "lost" ? reason : undefined,
+            lostReasonNote: status === "lost" ? note?.trim() || undefined : undefined,
+            commercialHistory,
+          }
+        : item,
+    );
+    const willClose = lines.length > 0 && lines.every((item) => lineCommercialStatus(item) !== "potential");
+    const wasClosed = isClosedDeal(deal);
+    const patch: Partial<Deal> = {
+      lines,
+      value: dealValue(lines),
+      lifecycleStatus: willClose ? "closed" : "open",
+      closedAt: willClose ? deal.closedAt ?? now : null,
+      closedFromStage: willClose ? deal.closedFromStage ?? deal.stage : undefined,
+      lastActivityAt: now,
+    };
+    if (willClose && !wasClosed) patch.periods = closePeriods(deal.periods, now);
+    if (!willClose && wasClosed) {
+      patch.stage = deal.closedFromStage ?? "negotiation";
+      patch.closedFromStage = undefined;
+      patch.periods = reopenPeriods(deal.periods, now);
+    }
+    updateDeal(deal.id, patch);
+  };
+
   const undoSent = (l: LineItem) =>
     patchLine(l.id, {
       sample: null,
-      status: "quoted",
-      rejectReason: undefined,
+      sampleVerdict: null,
     });
 
   const undoReturned = (l: LineItem) => {
@@ -147,8 +196,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
 
   const approve = (l: LineItem) => {
     patchLine(l.id, {
-      status: "approved",
-      rejectReason: undefined,
+      sampleVerdict: "approved",
       sample: l.sample
         ? {
             ...l.sample,
@@ -166,11 +214,11 @@ export function SampleTracker({ deal }: { deal: Deal }) {
 
   const reject = (l: LineItem, reason: LostReason) => {
     patchLine(l.id, {
-      status: "rejected",
-      rejectReason: reason,
+      sampleVerdict: "rejected",
       sample: l.sample
         ? {
             ...l.sample,
+            feedback: reason,
             feedbackAt: l.sample.feedbackAt ?? new Date().toISOString(),
           }
         : null,
@@ -185,39 +233,18 @@ export function SampleTracker({ deal }: { deal: Deal }) {
 
   const clearVerdict = (l: LineItem) =>
     patchLine(l.id, {
-      status: "quoted",
-      rejectReason: undefined,
-      sample: l.sample ? { ...l.sample, feedbackAt: null } : null,
+      sampleVerdict: null,
+      sample: l.sample ? { ...l.sample, feedbackAt: null, feedback: null } : null,
     });
 
-  const sentCount = deal.lines.filter((l) => Boolean(l.sample?.sentAt)).length;
-  const decided = deal.lines.filter((l) => l.status !== "quoted");
-  const allDecided =
-    deal.stage === "sampling" &&
-    deal.lines.length > 0 &&
-    decided.length === deal.lines.length;
-  const anyApproved = deal.lines.some((l) => l.status === "approved");
-
-  const taken = toDisplay(dealValue(deal.lines), deal.currency);
-  const notTaken = toDisplay(rejectedValue(deal.lines), deal.currency);
-
-  const closeDeal = (stage: "won" | "lost") =>
-    updateDeal(deal.id, {
-      stage,
-      closedFromStage: "sampling",
-      lastActivityAt: new Date().toISOString(),
-    });
-
-  const isClosedDeal = deal.stage === "won" || deal.stage === "lost";
+  const isClosed = isClosedDeal(deal);
 
   return (
     <div>
       {/* Unified Section Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+      <div className="flex flex-wrap items-center justify-start gap-2 pb-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          {hasAnySample || deal.stage === "sampling"
-            ? "Line items & samples"
-            : "Line items"}
+          {hasAnySample ? "Line items & samples" : "Line items"}
         </span>
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] tabular-nums">
@@ -256,45 +283,22 @@ export function SampleTracker({ deal }: { deal: Deal }) {
       </div>
 
       {/* Closed-deal warning if physical samples are still out at customer */}
-      {outCount > 0 && isClosedDeal && (
+      {outCount > 0 && isClosed && (
         <div className="mb-2.5 rounded-lg border border-warning/45 bg-warning/10 px-3 py-2 text-xs text-warning">
-          Deal is marked <strong className="uppercase">{deal.stage}</strong>,
-          but <strong>{outCount}</strong> physical{" "}
+          This opportunity is closed, but <strong>{outCount}</strong> physical{" "}
           {outCount === 1 ? "sample is" : "samples are"} still out with{" "}
-          <strong>{deal.company}</strong>. Click{" "}
-          <strong>Mark Taken Back</strong> once collected.
-        </div>
-      )}
-
-      {/* Sampling-stage nudge when no line sample has been recorded yet */}
-      {sentCount === 0 && deal.stage === "sampling" && !dismissed && (
-        <div className="mb-2.5 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/[0.07] px-3 py-2">
-          <Beaker className="mt-0.5 size-3.5 shrink-0 text-warning" />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium">Give a sample for testing?</p>
-            <p className="text-[11px] text-muted-foreground">
-              Click <strong>+ Give sample</strong> on any product below to
-              record handover date, qty, receiver, and pickup follow-up.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            aria-label="Dismiss"
-            className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="size-3" />
-          </button>
+          <strong>{deal.company}</strong>. Click <strong>Mark Taken Back</strong> once collected.
         </div>
       )}
 
       {/* Unified Product Cards */}
       <ul className="space-y-2">
         {deal.lines.map((line) => {
-          const meta = LINE_STATUS_META[line.status];
+          const commercialStatus = lineCommercialStatus(line);
+          const meta = COMMERCIAL_STATUS_META[commercialStatus];
           const entry = entryByLineId.get(line.id) ?? null;
           const isVerdictDecided =
-            line.status === "approved" || line.status === "rejected";
+            line.sampleVerdict === "approved" || line.sampleVerdict === "rejected";
           const isCustodySettled = Boolean(
             entry &&
               (entry.returnStatus === "returned" ||
@@ -330,16 +334,72 @@ export function SampleTracker({ deal }: { deal: Deal }) {
               className={cn(
                 "rounded-xl border bg-card/60 p-3 transition-colors",
                 cardBorderClass,
-                line.status === "rejected" && !entry && "opacity-70",
+                commercialStatus === "lost" && "opacity-75",
               )}
             >
-              {/* TOP HALF: Commercial Product + Quote Qty × Unit Price + Total + Status Badge */}
+              <div className="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-secondary/35 px-2.5 py-2">
+                <span className="mr-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground">
+                  Commercial result
+                </span>
+                {(["potential", "won", "lost"] as const).map((status) => (
+                  <Button
+                    key={status}
+                    size="xs"
+                    variant={commercialStatus === status ? "default" : "outline"}
+                    className={cn(
+                      "h-6 px-2 text-[10px]",
+                      status === "won" && commercialStatus === status && "bg-success text-success-foreground hover:bg-success/90",
+                      status === "lost" && commercialStatus === status && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                    )}
+                    onClick={() => {
+                      if (status === "lost") setLosingLine(line);
+                      else setCommercialStatus(line, status);
+                    }}
+                  >
+                    {status === "potential" ? "Potential" : status === "won" ? "Won" : "Lost"}
+                  </Button>
+                ))}
+                {!entry && (
+                  <button
+                    type="button"
+                    onClick={() => setGiveTarget({ mode: "deal-line", deal, line })}
+                    className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                  >
+                    <Package className="size-3" />
+                    + Give sample
+                  </button>
+                )}
+              </div>
+
+              {line.commercialHistory?.length ? (
+                <details className="mb-2 rounded-md bg-secondary/30 px-2.5 py-1.5 text-[10px] text-muted-foreground">
+                  <summary className="cursor-pointer font-semibold text-foreground">
+                    Outcome history ({line.commercialHistory.length})
+                  </summary>
+                  <ol className="mt-1.5 space-y-1">
+                    {line.commercialHistory.map((event, index) => (
+                      <li key={`${event.changedAt}-${index}`}>
+                        {new Date(event.changedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                        {" · "}{COMMERCIAL_STATUS_META[event.status].label}
+                        {event.reason ? ` · ${event.reason}` : ""}
+                        {event.note ? ` — ${event.note}` : ""}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              ) : commercialStatus === "lost" && line.rejectReason ? (
+                <div className="mb-2 text-[10px] font-medium text-destructive">
+                  Lost reason: {line.rejectReason}{line.lostReasonNote ? ` — ${line.lostReasonNote}` : ""}
+                </div>
+              ) : null}
+
+              {/* Product details and quoted line value */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div
                     className={cn(
                       "break-words text-sm font-semibold",
-                      line.status === "rejected" &&
+                      commercialStatus === "lost" &&
                         "text-muted-foreground line-through",
                     )}
                   >
@@ -350,9 +410,10 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                     {line.quantity} {line.unit} ×{" "}
                     {qtyPriceFormatter.format(line.unitPrice)}
                   </div>
-                  {line.rejectReason && (
-                    <div className="mt-0.5 text-[11px] text-destructive">
-                      Lost · {line.rejectReason}
+                  {line.sampleVerdict && (
+                    <div className={cn("mt-0.5 text-[11px]", line.sampleVerdict === "approved" ? "text-success" : "text-warning")}>
+                      Sample {line.sampleVerdict}
+                      {line.sample?.feedback ? ` · ${line.sample.feedback}` : ""}
                     </div>
                   )}
                 </div>
@@ -372,66 +433,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                 </div>
               </div>
 
-              {/* STATE 4: Regular Quoted Product (No Sample Given) */}
-              {!entry && !isClosedDeal && (
-                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
-                  {deal.stage === "sampling" ? (
-                    line.status === "quoted" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setGiveTarget({ mode: "deal-line", deal, line })
-                          }
-                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
-                        >
-                          <Package className="size-3" />
-                          + Give sample
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => approve(line)}
-                          title="Approve without sample"
-                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:border-success/40 hover:text-success"
-                        >
-                          <Check className="size-3" />
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRejecting(line)}
-                          title="Reject without sample"
-                          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                        >
-                          <X className="size-3" />
-                          Reject
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => clearVerdict(line)}
-                        title="Reset verdict to Quoted"
-                        className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[10px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      >
-                        <RotateCcw className="size-2.5" />
-                        Change verdict
-                      </button>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setGiveTarget({ mode: "deal-line", deal, line })
-                      }
-                      className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
-                    >
-                      <Package className="size-3" />
-                      + Give sample
-                    </button>
-                  )}
-                </div>
-              )}
+
 
               {/* STATE 3: Auto-Compact Completed Strip — Same 2-Row Sample Layout (BUILD 18.17) */}
               {entry && isCompactCompleted && (
@@ -568,16 +570,16 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                       )}
 
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Verdict:
+                        Sample feedback:
                       </span>
 
-                      {line.status === "approved" ? (
+                      {line.sampleVerdict === "approved" ? (
                         <Verdict tone="won" onClear={() => clearVerdict(line)}>
                           Approved
                         </Verdict>
-                      ) : line.status === "rejected" ? (
+                      ) : line.sampleVerdict === "rejected" ? (
                         <Verdict tone="lost" onClear={() => clearVerdict(line)}>
-                          Lost · {line.rejectReason}
+                          Rejected
                         </Verdict>
                       ) : (
                         <>
@@ -588,7 +590,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                             onClick={() => approve(line)}
                           >
                             <Check className="size-3" />
-                            Approve
+                            Approved
                           </Button>
                           <Button
                             size="xs"
@@ -597,7 +599,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                             onClick={() => setRejecting(line)}
                           >
                             <X className="size-3" />
-                            Reject
+                            Rejected
                           </Button>
                         </>
                       )}
@@ -666,32 +668,20 @@ export function SampleTracker({ deal }: { deal: Deal }) {
         })}
       </ul>
 
-      {/* All items decided summary bar (Sampling stage) */}
-      {allDecided && (
-        <div className="mt-3 rounded-lg border border-accent/40 bg-accent/[0.06] px-3 py-2.5">
-          <p className="text-xs font-medium">All items decided</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-            {money(taken)} taken · {money(notTaken)} not taken
-            {outCount > 0
-              ? ` · ${outCount} physical ${outCount === 1 ? "sample" : "samples"} still with client`
-              : ""}
-          </p>
-          <div className="mt-2 flex gap-2">
-            {anyApproved && (
-              <Button size="sm" onClick={() => closeDeal("won")}>
-                Mark won
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => closeDeal("lost")}
-            >
-              Mark lost
-            </Button>
-          </div>
-        </div>
-      )}
+      <LostReasonDialog
+        open={Boolean(losingLine)}
+        onOpenChange={(open) => !open && setLosingLine(null)}
+        dealTitle={`${losingLine?.product ?? "Product line"} · ${deal.title}`}
+        subjectLabel="line"
+        isEdit={Boolean(losingLine && lineCommercialStatus(losingLine) === "lost")}
+        initialReason={losingLine?.rejectReason}
+        initialNote={losingLine?.lostReasonNote}
+        onCancel={() => setLosingLine(null)}
+        onConfirm={(reason, note) => {
+          if (losingLine) setCommercialStatus(losingLine, "lost", reason, note);
+          setLosingLine(null);
+        }}
+      />
 
       <RejectDialog
         line={rejecting}

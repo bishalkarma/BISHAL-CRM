@@ -36,6 +36,8 @@ export function LineItemsEditor({
         unit: "Pcs",
         unitPrice: 0,
         status: "quoted",
+        commercialStatus: "potential",
+        sampleVerdict: null,
       },
     ]);
 

@@ -22,7 +22,10 @@ import type {
   ContactTrailEntry,
   LineItem,
   LineStatus,
+  CommercialLineStatus,
+  SampleVerdict,
   LostReason,
+  CommercialOutcomeEvent,
   SampleReturnStatus,
   Unit,
 } from "./deal-model";
@@ -34,6 +37,7 @@ import type {
 import type { DealStage } from "./pipeline";
 import type { SpancopStage, StageTransition } from "./spancop";
 import type { CurrencyCode } from "./currency";
+import { dealValue } from "./deal-model";
 
 /* ------------------------------------------------------------------ */
 /* Row shapes                                                          */
@@ -97,6 +101,10 @@ export type DealLineRow = {
   unit_price: number | string;
   status: string;
   reject_reason: string | null;
+  lost_reason_note?: string | null;
+  commercial_history?: CommercialOutcomeEvent[] | null;
+  commercial_status?: string | null;
+  sample_verdict?: string | null;
   sample_sent_at?: string | null;
   sample_feedback_at?: string | null;
   sample_feedback?: string | null;
@@ -123,6 +131,8 @@ export type DealRow = {
   value: number | string;
   currency: string;
   stage: string;
+  lifecycle_status?: string | null;
+  closed_at?: string | null;
   closed_from_stage: string | null;
   probability: number | null;
   on_hold: boolean;
@@ -231,7 +241,10 @@ export function toContact(row: ContactRow): Contact {
   };
 }
 
-export function toLineItem(row: DealLineRow): LineItem {
+export function toLineItem(
+  row: DealLineRow,
+  fallbackCommercialStatus: CommercialLineStatus = "potential",
+): LineItem {
   return {
     id: row.id,
     product: row.product,
@@ -240,7 +253,16 @@ export function toLineItem(row: DealLineRow): LineItem {
     unit: row.unit as Unit,
     unitPrice: num(row.unit_price),
     status: row.status as LineStatus,
+    commercialStatus:
+      (row.commercial_status as CommercialLineStatus | null) ?? fallbackCommercialStatus,
+    sampleVerdict:
+      (row.sample_verdict as SampleVerdict | null) ??
+      (row.sample_sent_at && (row.status === "approved" || row.status === "rejected")
+        ? row.status
+        : null),
     rejectReason: (row.reject_reason as LostReason) ?? undefined,
+    lostReasonNote: row.lost_reason_note ?? undefined,
+    commercialHistory: Array.isArray(row.commercial_history) ? row.commercial_history : [],
     /* Columns added by supabase/05-line-samples.sql & supabase/11-sample-tracking.sql.
        Read defensively so the app works before or after migrations. */
     sample: row.sample_sent_at
@@ -264,11 +286,35 @@ export function toLineItem(row: DealLineRow): LineItem {
   };
 }
 
+function activeStage(value: string | null | undefined): DealStage {
+  if (value === "quotation") return "qualified";
+  if (value === "sampling" || value === "won" || value === "lost") return "negotiation";
+  if (value === "lead" || value === "qualified" || value === "negotiation") return value;
+  return "lead";
+}
+
 export function toDeal(row: DealRow): Deal {
+  const wasLegacyWon = row.stage === "won";
+  const wasLegacyLost = row.stage === "lost";
+  const isLegacyClosed = wasLegacyWon || wasLegacyLost;
+  const restoredStage = activeStage(row.closed_from_stage ?? row.stage);
+  const stage = activeStage(row.stage);
+  const lifecycleStatus =
+    (row.lifecycle_status as "open" | "closed" | null) ??
+    (isLegacyClosed ? "closed" : "open");
   const lines = (row.deal_lines ?? [])
     .slice()
     .sort((a, b) => a.position - b.position)
-    .map(toLineItem);
+    .map((line) =>
+      toLineItem(
+        line,
+        wasLegacyLost
+          ? "lost"
+          : wasLegacyWon
+            ? line.status === "rejected" ? "lost" : "won"
+            : "potential",
+      ),
+    );
 
   return {
     id: row.id,
@@ -281,10 +327,12 @@ export function toDeal(row: DealRow): Deal {
     currentContactId: row.current_contact_id ?? "",
     contactTrail: row.contact_trail ?? [],
     lines,
-    value: num(row.value),
+    value: dealValue(lines),
     currency: row.currency as CurrencyCode,
-    stage: row.stage as DealStage,
-    closedFromStage: (row.closed_from_stage as DealStage) ?? undefined,
+    stage: isLegacyClosed ? restoredStage : stage,
+    lifecycleStatus,
+    closedAt: row.closed_at ?? (lifecycleStatus === "closed" ? row.last_activity_at : null),
+    closedFromStage: lifecycleStatus === "closed" ? restoredStage : undefined,
     probability: row.probability,
     owner: row.owner,
     owner_id: row.owner_id ?? null,
@@ -408,7 +456,11 @@ export function fromDeal(d: Deal) {
     value: d.value,
     currency: d.currency,
     stage: d.stage,
-    closed_from_stage: d.closedFromStage ?? null,
+    lifecycle_status: d.lifecycleStatus ?? "open",
+    closed_at: d.closedAt ?? null,
+    closed_from_stage: d.lifecycleStatus === "closed"
+      ? (d.closedFromStage ?? d.stage)
+      : null,
     probability: d.probability,
     on_hold: d.onHold,
     owner: d.owner,
@@ -462,7 +514,11 @@ export function fromLineItem(line: LineItem, dealId: string, position: number) {
     unit: line.unit,
     unit_price: line.unitPrice,
     status: line.status,
+    commercial_status: line.commercialStatus,
+    sample_verdict: line.sampleVerdict ?? null,
     reject_reason: line.rejectReason ?? null,
+    lost_reason_note: line.lostReasonNote ?? null,
+    commercial_history: line.commercialHistory ?? [],
     position,
   };
 }

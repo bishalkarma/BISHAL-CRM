@@ -33,7 +33,8 @@ import {
   type PeriodKey,
 } from "@/lib/reports";
 import type { Company } from "@/lib/companies";
-import type { Deal } from "@/lib/deals";
+import { isOpenDeal, type Deal } from "@/lib/deals";
+import { potentialValue } from "@/lib/deal-model";
 
 type Props = {
   deals: Deal[];
@@ -104,7 +105,7 @@ export function PipelineHealthReport({
   );
 
   // Only include active deals (not won/lost) for the funnel and pipeline value
-  const activeDeals = filteredDeals.filter((d) => d.stage !== "won" && d.stage !== "lost");
+  const activeDeals = filteredDeals.filter(isOpenDeal);
   const stageData = React.useMemo(() => {
     const raw = dealsByStage(filteredDeals);
     return raw.map((s) => ({
@@ -116,10 +117,7 @@ export function PipelineHealthReport({
   }, [filteredDeals]);
 
   // Compute KPIs — pipeline value = sum of ALL line values from open deals
-  const totalPipeline = activeDeals.reduce((sum, deal) => {
-    const lineTotal = (deal.lines || []).reduce((lineSum, line) => lineSum + line.unitPrice * line.quantity, 0);
-    return sum + (lineTotal > 0 ? lineTotal : deal.value);
-  }, 0);
+  const totalPipeline = activeDeals.reduce((sum, deal) => sum + potentialValue(deal.lines), 0);
   const openDeals = activeDeals.length;
 
   // Avg days in stage (simplified)

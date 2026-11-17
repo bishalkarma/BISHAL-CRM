@@ -6,7 +6,8 @@
  */
 
 import type { Company } from "@/lib/companies";
-import type { Deal } from "@/lib/deals";
+import { isOpenDeal, type Deal } from "@/lib/deals";
+import { lineCommercialStatus, potentialValue, wonValue, lostLineValue } from "@/lib/deal-model";
 import type { Activity } from "@/lib/activities";
 import type { Contact } from "@/lib/contacts";
 
@@ -214,69 +215,36 @@ export function dealsByMonth(
     current.setMonth(current.getMonth() + 1);
   }
 
-  // Sum won deals by month — uses approved line values
-  deals
-    .filter((d) => d.stage === "won" && inPeriod(d.createdAt, period))
-    .forEach((d) => {
-      const key = d.createdAt.slice(0, 7);
-      const entry = map.get(key);
-      if (entry) {
-        const approvedLines = (d.lines || []).filter((line) => line.status === "approved");
-        const lineTotal = approvedLines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
-        entry.revenue += approvedLines.length > 0 ? lineTotal : d.value;
-        entry.deals += 1;
-      }
-    });
+  // Won line value is revenue; sample approval is independent.
+  deals.filter((d) => inPeriod(d.createdAt, period)).forEach((d) => {
+    const amount = wonValue(d.lines);
+    if (amount <= 0) return;
+    const entry = map.get(d.createdAt.slice(0, 7));
+    if (entry) { entry.revenue += amount; entry.deals += 1; }
+  });
 
   return months.map((key) => ({ month: map.get(key)!.month, revenue: map.get(key)!.revenue, deals: map.get(key)!.deals }));
 }
 
 /** Compute KPI metrics for a set of deals — uses line items for accuracy */
 export function computeDealMetrics(deals: Deal[]) {
-  const won = deals.filter((d) => d.stage === "won");
-  const lost = deals.filter((d) => d.stage === "lost");
-  const total = deals.filter((d) => d.stage !== "lost");
-
-  // Revenue = sum of APPROVED line values from won deals only
-  const revenue = won.reduce((sum, deal) => {
-    const approvedLines = (deal.lines || []).filter((line) => line.status === "approved");
-    const lineTotal = approvedLines.reduce((lineSum, line) => lineSum + line.unitPrice * line.quantity, 0);
-    // If no lines marked, use full deal value (backward compatibility)
-    return sum + (approvedLines.length > 0 ? lineTotal : deal.value);
-  }, 0);
-
-  // Lost value = rejected lines from won deals + full value of lost deals
-  const lostValue = won.reduce((sum, deal) => {
-    const rejectedLines = (deal.lines || []).filter((line) => line.status === "rejected");
-    const rejectedTotal = rejectedLines.reduce((lineSum, line) => lineSum + line.unitPrice * line.quantity, 0);
-    return sum + rejectedTotal;
-  }, 0) + lost.reduce((sum, deal) => sum + deal.value, 0);
-
-  const winRate = total.length > 0 ? (won.length / total.length) * 100 : 0;
-  const avgDealSize = won.length > 0 ? revenue / won.length : 0;
-
-  return {
-    revenue,
-    lostValue,
-    dealsWon: won.length,
-    dealsLost: lost.length,
-    winRate,
-    avgDealSize,
-    totalDeals: total.length,
-  };
+  const won = deals.reduce((n, d) => n + d.lines.filter((l) => lineCommercialStatus(l) === "won").length, 0);
+  const lost = deals.reduce((n, d) => n + d.lines.filter((l) => lineCommercialStatus(l) === "lost").length, 0);
+  const revenue = deals.reduce((sum, d) => sum + wonValue(d.lines), 0);
+  const lostValue = deals.reduce((sum, d) => sum + lostLineValue(d.lines), 0);
+  const decided = won + lost;
+  return { revenue, lostValue, dealsWon: won, dealsLost: lost,
+    winRate: decided ? won / decided * 100 : 0,
+    avgDealSize: won ? revenue / won : 0, totalDeals: deals.length };
 }
 
 /** Group deals by pipeline stage for funnel data. */
 export function dealsByStage(deals: Deal[]): { stage: string; count: number; value: number }[] {
-  const stages = ["lead", "qualified", "quotation", "negotiation", "sampling", "won", "lost"];
+  const stages = ["lead", "qualified", "negotiation"];
   const labels: Record<string, string> = {
     lead: "Lead",
     qualified: "Qualified",
-    quotation: "Quotation",
     negotiation: "Negotiation",
-    sampling: "Sampling",
-    won: "Won",
-    lost: "Lost",
   };
   return stages.map((stage) => {
     const stageDeals = deals.filter((d) => d.stage === stage);
@@ -308,16 +276,16 @@ export function metricsByOwner(
 
   return Array.from(ownerMap.entries())
     .map(([, { ownerId, displayName, deals }]) => {
-      const won = deals.filter((d) => d.stage === "won");
-      const total = deals.filter((d) => d.stage !== "lost");
-      const revenue = won.reduce((sum, d) => sum + d.value, 0);
+      const wonCount = deals.reduce((sum, d) => sum + d.lines.filter((l) => lineCommercialStatus(l) === "won").length, 0);
+      const decided = deals.reduce((sum, d) => sum + d.lines.filter((l) => lineCommercialStatus(l) !== "potential").length, 0);
+      const revenue = deals.reduce((sum, d) => sum + wonValue(d.lines), 0);
       return {
         owner: displayName,
         ownerId,
         revenue,
-        dealsWon: won.length,
-        winRate: total.length > 0 ? (won.length / total.length) * 100 : 0,
-        deals: total.length,
+        dealsWon: wonCount,
+        winRate: decided ? (wonCount / decided) * 100 : 0,
+        deals: deals.length,
       };
     })
     .sort((a, b) => b.revenue - a.revenue);
@@ -357,8 +325,8 @@ export function customerMetrics(
 
   return companies.map((c) => {
     const cDeals = companyDeals.get(c.id) ?? [];
-    const wonDeals = cDeals.filter((d) => d.stage === "won");
-    const revenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
+    const wonDeals = cDeals.filter((d) => d.lines.some((l) => lineCommercialStatus(l) === "won"));
+    const revenue = cDeals.reduce((sum, d) => sum + wonValue(d.lines), 0);
     const lastOrderAt = wonDeals.length > 0
       ? wonDeals.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))[0].createdAt
       : null;

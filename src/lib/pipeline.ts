@@ -1,14 +1,14 @@
 /**
  * Pipeline stage model.
  *
- * Stage order is defined by the business:
- *   Lead → Qualified → Quotation → Negotiation → Sampling → Won / Lost
+ * Active sales stages are the customer's buying journey. Quotes are logged
+ * as activities and sample custody/feedback stays on each product line.
+ * Deal closure is a separate neutral lifecycle state, not a Won/Lost stage.
  *
- * Sampling sits AFTER negotiation on purpose: commercial terms are agreed
- * first, then samples go out for the chef's / F&B manager's final sign-off
- * before the contract is awarded.
+ *   Lead → Qualified → Negotiation → Closed
  */
 
+/** Legacy values remain readable during migration; new deals use ActiveDealStage. */
 export type DealStage =
   | "lead"
   | "qualified"
@@ -17,6 +17,8 @@ export type DealStage =
   | "sampling"
   | "won"
   | "lost";
+export type ActiveDealStage = "lead" | "qualified" | "negotiation";
+export type DealLifecycleStatus = "open" | "closed";
 
 export type StageDefinition = {
   id: DealStage;
@@ -60,17 +62,6 @@ export const PIPELINE_STAGES: StageDefinition[] = [
     tint: "bg-chart-3/12 text-chart-3",
   },
   {
-    id: "quotation",
-    label: "Quotation",
-    shortLabel: "Quote",
-    description: "Formal pricing issued to the customer",
-    probability: 45,
-    rotDays: 10,
-    color: "bg-chart-2",
-    chartColor: "var(--color-chart-2)",
-    tint: "bg-chart-2/12 text-chart-2",
-  },
-  {
     id: "negotiation",
     label: "Negotiation",
     shortLabel: "Nego",
@@ -81,11 +72,26 @@ export const PIPELINE_STAGES: StageDefinition[] = [
     chartColor: "var(--color-chart-1)",
     tint: "bg-chart-1/12 text-chart-1",
   },
+];
+
+/** Legacy columns kept only to decode old stage history/data safely. */
+const LEGACY_STAGES: StageDefinition[] = [
+  {
+    id: "quotation",
+    label: "Quotation (legacy)",
+    shortLabel: "Quote",
+    description: "Legacy stage; quote activity is now tracked in the deal journal.",
+    probability: 45,
+    rotDays: 10,
+    color: "bg-chart-2",
+    chartColor: "var(--color-chart-2)",
+    tint: "bg-chart-2/12 text-chart-2",
+  },
   {
     id: "sampling",
-    label: "Sampling",
+    label: "Sampling (legacy)",
     shortLabel: "Sampling",
-    description: "Samples with the chef for final approval",
+    description: "Legacy stage; samples are tracked per product line.",
     probability: 80,
     rotDays: 7,
     color: "bg-chart-5",
@@ -121,6 +127,7 @@ export const CLOSED_STAGES: StageDefinition[] = [
 
 export const ALL_STAGES: StageDefinition[] = [
   ...PIPELINE_STAGES,
+  ...LEGACY_STAGES,
   ...CLOSED_STAGES,
 ];
 

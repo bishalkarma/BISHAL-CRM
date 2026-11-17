@@ -22,11 +22,16 @@ import {
   lineCounts,
   lineTotal,
   rejectedValue,
+  lineCommercialStatus,
+  potentialValue,
+  wonValue,
+  lostLineValue,
   type AgeingTone,
   type LineItem,
   type LostReason,
 } from "./deal-model";
 import { STAGE_MAP, isOpenStage } from "./pipeline";
+import { isOpenDeal } from "./deals";
 import { isOpenTask, taskCounts, type Activity } from "./activities";
 
 /* ------------------------------------------------------------------ */
@@ -118,42 +123,19 @@ export function dealTotals(
   deals: Deal[],
   convert: (amount: number, from: CurrencyCode) => number,
 ): DealTotals {
-  let totalValue = 0;
-  let wonCount = 0;
-  let wonValue = 0;
-  let lostCount = 0;
-  let lostValue = 0;
-
-  for (const deal of deals) {
-    const value = convert(deal.value, deal.currency);
-    totalValue += value;
-    if (deal.stage === "won") {
-      wonCount += 1;
-      wonValue += value;
-    } else if (deal.stage === "lost") {
-      lostCount += 1;
-      /*
-        The money lost is the rejected lines, not deal.value.
-
-        dealValue() excludes rejected lines by design, so a deal where the
-        customer turned everything down reported a value of zero — the tile
-        showed AED 0 for a real AED 132,000 loss. Fall back to deal.value for
-        older deals that were lost without any line being marked rejected.
-      */
-      const rejected = convert(rejectedValue(deal.lines), deal.currency);
-      lostValue += rejected > 0 ? rejected : value;
-    }
-  }
-
+  const totalValue = deals.reduce((sum, d) => sum + convert(potentialValue(d.lines), d.currency), 0);
+  const wonCount = deals.reduce((sum, d) => sum + d.lines.filter((l) => lineCommercialStatus(l) === "won").length, 0);
+  const lostCount = deals.reduce((sum, d) => sum + d.lines.filter((l) => lineCommercialStatus(l) === "lost").length, 0);
+  const wonAmount = deals.reduce((sum, d) => sum + convert(wonValue(d.lines), d.currency), 0);
+  const lostValue = deals.reduce((sum, d) => sum + convert(lostLineValue(d.lines), d.currency), 0);
   const closed = wonCount + lostCount;
-  // Zero closed deals is 0% won and 0% lost, not 0% and 100%.
   const winRate = closed === 0 ? 0 : Math.round((wonCount / closed) * 100);
 
   return {
     totalDeals: deals.length,
     totalValue,
     wonCount,
-    wonValue,
+    wonValue: wonAmount,
     lostCount,
     lostValue,
     winRate,
@@ -282,7 +264,7 @@ export function revenueTrend(
   firstStart.setMonth(firstStart.getMonth() - (months - 1));
 
   for (const deal of deals) {
-    if (deal.stage !== "won") continue;
+    if (wonValue(deal.lines) <= 0) continue;
     const last = deal.periods[deal.periods.length - 1];
     const closed = last?.closedAt ?? deal.lastActivityAt;
     if (!closed) continue;
@@ -292,7 +274,7 @@ export function revenueTrend(
       (at.getFullYear() - firstStart.getFullYear()) * 12 +
       (at.getMonth() - firstStart.getMonth());
     if (index < 0 || index >= buckets.length) continue;
-    buckets[index].revenue += convert(deal.value, deal.currency);
+    buckets[index].revenue += convert(wonValue(deal.lines), deal.currency);
   }
 
   return buckets;
@@ -646,7 +628,7 @@ export function cashToCollect(
 ): CashRow[] {
   const owing = deals.filter(
     (d) =>
-      d.stage === "won" &&
+      wonValue(d.lines) > 0 &&
       isAwaitingPayment(d.fulfilment) &&
       withinPeriod(d.fulfilment.deliveredAt, period, now),
   );
@@ -748,8 +730,8 @@ export function dealsByOwner(
     };
     row.dealCount += 1;
     row.totalValue += convert(deal.value, deal.currency);
-    if (deal.stage === "won") row.wonCount += 1;
-    if (isOpenStage(deal.stage) && !deal.onHold) row.openCount += 1;
+    row.wonCount += deal.lines.filter((line) => lineCommercialStatus(line) === "won").length;
+    if (isOpenDeal(deal) && !deal.onHold) row.openCount += 1;
     map.set(key, row);
   }
   return [...map.values()].sort((a, b) => b.totalValue - a.totalValue);
