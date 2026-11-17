@@ -25,6 +25,7 @@ import type {
   CommercialLineStatus,
   SampleVerdict,
   LostReason,
+  CommercialOutcomeEvent,
   SampleReturnStatus,
   Unit,
 } from "./deal-model";
@@ -100,6 +101,8 @@ export type DealLineRow = {
   unit_price: number | string;
   status: string;
   reject_reason: string | null;
+  lost_reason_note?: string | null;
+  commercial_history?: CommercialOutcomeEvent[] | null;
   commercial_status?: string | null;
   sample_verdict?: string | null;
   sample_sent_at?: string | null;
@@ -258,6 +261,8 @@ export function toLineItem(
         ? row.status
         : null),
     rejectReason: (row.reject_reason as LostReason) ?? undefined,
+    lostReasonNote: row.lost_reason_note ?? undefined,
+    commercialHistory: Array.isArray(row.commercial_history) ? row.commercial_history : [],
     /* Columns added by supabase/05-line-samples.sql & supabase/11-sample-tracking.sql.
        Read defensively so the app works before or after migrations. */
     sample: row.sample_sent_at
@@ -512,6 +517,8 @@ export function fromLineItem(line: LineItem, dealId: string, position: number) {
     commercial_status: line.commercialStatus,
     sample_verdict: line.sampleVerdict ?? null,
     reject_reason: line.rejectReason ?? null,
+    lost_reason_note: line.lostReasonNote ?? null,
+    commercial_history: line.commercialHistory ?? [],
     position,
   };
 }

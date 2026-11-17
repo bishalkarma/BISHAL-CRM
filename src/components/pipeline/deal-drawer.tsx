@@ -163,10 +163,16 @@ export function DealDrawer({
                 {deal.currency}
               </div>
             )}
-            <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-              <span>Won: {format(toDisplay(won, deal.currency))}</span>
-              <span>Lost: {format(toDisplay(lost, deal.currency))}</span>
-              {!closed && <span>Potential: {format(toDisplay(potential, deal.currency))}</span>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-bold text-warning">
+                POTENTIAL <strong className="ml-1 text-xs">{format(toDisplay(potential, deal.currency))}</strong>
+              </span>
+              <span className="rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
+                WON <strong className="ml-1 text-xs">{format(toDisplay(won, deal.currency))}</strong>
+              </span>
+              <span className="rounded-full bg-destructive/15 px-2.5 py-1 text-[11px] font-bold text-destructive">
+                LOST <strong className="ml-1 text-xs">{format(toDisplay(lost, deal.currency))}</strong>
+              </span>
             </div>
             <div className="mt-1.5 text-[11px] text-muted-foreground">
               Created {new Date(deal.createdAt).toLocaleDateString("en-GB", {

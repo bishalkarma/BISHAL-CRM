@@ -15,6 +15,14 @@ export type LineStatus = "quoted" | "approved" | "rejected";
 export type CommercialLineStatus = "potential" | "won" | "lost";
 export type SampleVerdict = "approved" | "rejected";
 
+/** Append-only audit trail for commercial status changes on one line. */
+export type CommercialOutcomeEvent = {
+  status: CommercialLineStatus;
+  changedAt: string;
+  reason?: LostReason;
+  note?: string;
+};
+
 export type LostReason =
   | "Budget Constraint"
   | "Item not in scope"
@@ -58,6 +66,10 @@ export type LineItem = {
   sampleVerdict?: SampleVerdict | null;
   /** Only for a commercially lost line when a structured reason is known. */
   rejectReason?: LostReason;
+  /** Optional note attached to the current/most recent commercial loss. */
+  lostReasonNote?: string;
+  /** Append-only record of commercial decisions, including reopenings. */
+  commercialHistory?: CommercialOutcomeEvent[];
   /**
    * Sampling is per line, not per deal.
    *

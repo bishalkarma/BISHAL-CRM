@@ -30,6 +30,7 @@ import {
   type SampleLedgerEntry,
 } from "@/lib/samples";
 import { useData } from "@/components/providers/data-provider";
+import { LostReasonDialog } from "@/components/deals/lost-reason-dialog";
 import {
   GiveSampleDialog,
   SampleDaysBadge,
@@ -79,6 +80,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
     () => new Set(),
   );
   const [rejecting, setRejecting] = React.useState<LineItem | null>(null);
+  const [losingLine, setLosingLine] = React.useState<LineItem | null>(null);
   const [giveTarget, setGiveTarget] =
     React.useState<GiveSampleDialogTarget | null>(null);
   const [takeBackEntry, setTakeBackEntry] =
@@ -124,10 +126,37 @@ export function SampleTracker({ deal }: { deal: Deal }) {
       lines: deal.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     });
 
-  const setCommercialStatus = (line: LineItem, status: CommercialLineStatus) => {
+  const setCommercialStatus = (
+    line: LineItem,
+    status: CommercialLineStatus,
+    reason?: LostReason,
+    note?: string,
+  ) => {
     const now = new Date().toISOString();
+    const previousStatus = lineCommercialStatus(line);
+    if (previousStatus === status && status !== "lost") return;
+    const history = line.commercialHistory ?? [];
+    const sameStatusEdit = previousStatus === status;
+    const commercialHistory = sameStatusEdit && history.length
+      ? history.map((event, index) => index === history.length - 1
+          ? { ...event, reason, note: note?.trim() || undefined }
+          : event)
+      : [...history, {
+          status,
+          changedAt: now,
+          ...(reason ? { reason } : {}),
+          ...(note?.trim() ? { note: note.trim() } : {}),
+        }];
     const lines = deal.lines.map((item) =>
-      item.id === line.id ? { ...item, commercialStatus: status } : item,
+      item.id === line.id
+        ? {
+            ...item,
+            commercialStatus: status,
+            rejectReason: status === "lost" ? reason : undefined,
+            lostReasonNote: status === "lost" ? note?.trim() || undefined : undefined,
+            commercialHistory,
+          }
+        : item,
     );
     const willClose = lines.length > 0 && lines.every((item) => lineCommercialStatus(item) !== "potential");
     const wasClosed = isClosedDeal(deal);
@@ -213,7 +242,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
   return (
     <div>
       {/* Unified Section Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+      <div className="flex flex-wrap items-center justify-start gap-2 pb-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           {hasAnySample ? "Line items & samples" : "Line items"}
         </span>
@@ -308,7 +337,63 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                 commercialStatus === "lost" && "opacity-75",
               )}
             >
-              {/* TOP HALF: Commercial Product + Quote Qty × Unit Price + Total + Status Badge */}
+              <div className="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-secondary/35 px-2.5 py-2">
+                <span className="mr-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground">
+                  Commercial result
+                </span>
+                {(["potential", "won", "lost"] as const).map((status) => (
+                  <Button
+                    key={status}
+                    size="xs"
+                    variant={commercialStatus === status ? "default" : "outline"}
+                    className={cn(
+                      "h-6 px-2 text-[10px]",
+                      status === "won" && commercialStatus === status && "bg-success text-success-foreground hover:bg-success/90",
+                      status === "lost" && commercialStatus === status && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                    )}
+                    onClick={() => {
+                      if (status === "lost") setLosingLine(line);
+                      else setCommercialStatus(line, status);
+                    }}
+                  >
+                    {status === "potential" ? "Potential" : status === "won" ? "Won" : "Lost"}
+                  </Button>
+                ))}
+                {!entry && (
+                  <button
+                    type="button"
+                    onClick={() => setGiveTarget({ mode: "deal-line", deal, line })}
+                    className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+                  >
+                    <Package className="size-3" />
+                    + Give sample
+                  </button>
+                )}
+              </div>
+
+              {line.commercialHistory?.length ? (
+                <details className="mb-2 rounded-md bg-secondary/30 px-2.5 py-1.5 text-[10px] text-muted-foreground">
+                  <summary className="cursor-pointer font-semibold text-foreground">
+                    Outcome history ({line.commercialHistory.length})
+                  </summary>
+                  <ol className="mt-1.5 space-y-1">
+                    {line.commercialHistory.map((event, index) => (
+                      <li key={`${event.changedAt}-${index}`}>
+                        {new Date(event.changedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                        {" · "}{COMMERCIAL_STATUS_META[event.status].label}
+                        {event.reason ? ` · ${event.reason}` : ""}
+                        {event.note ? ` — ${event.note}` : ""}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              ) : commercialStatus === "lost" && line.rejectReason ? (
+                <div className="mb-2 text-[10px] font-medium text-destructive">
+                  Lost reason: {line.rejectReason}{line.lostReasonNote ? ` — ${line.lostReasonNote}` : ""}
+                </div>
+              ) : null}
+
+              {/* Product details and quoted line value */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div
@@ -348,36 +433,7 @@ export function SampleTracker({ deal }: { deal: Deal }) {
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Commercial result
-                </span>
-                {(["potential", "won", "lost"] as const).map((status) => (
-                  <Button
-                    key={status}
-                    size="xs"
-                    variant={commercialStatus === status ? "default" : "outline"}
-                    className={cn(
-                      "h-6 px-2 text-[10px]",
-                      status === "won" && commercialStatus === status && "bg-success text-success-foreground hover:bg-success/90",
-                      status === "lost" && commercialStatus === status && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-                    )}
-                    onClick={() => setCommercialStatus(line, status)}
-                  >
-                    {status === "potential" ? "Potential" : status === "won" ? "Won" : "Lost"}
-                  </Button>
-                ))}
-                {!entry && (
-                  <button
-                    type="button"
-                    onClick={() => setGiveTarget({ mode: "deal-line", deal, line })}
-                    className="ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border bg-secondary/40 px-2 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
-                  >
-                    <Package className="size-3" />
-                    + Give sample
-                  </button>
-                )}
-              </div>
+
 
               {/* STATE 3: Auto-Compact Completed Strip — Same 2-Row Sample Layout (BUILD 18.17) */}
               {entry && isCompactCompleted && (
@@ -611,6 +667,21 @@ export function SampleTracker({ deal }: { deal: Deal }) {
           );
         })}
       </ul>
+
+      <LostReasonDialog
+        open={Boolean(losingLine)}
+        onOpenChange={(open) => !open && setLosingLine(null)}
+        dealTitle={`${losingLine?.product ?? "Product line"} · ${deal.title}`}
+        subjectLabel="line"
+        isEdit={Boolean(losingLine && lineCommercialStatus(losingLine) === "lost")}
+        initialReason={losingLine?.rejectReason}
+        initialNote={losingLine?.lostReasonNote}
+        onCancel={() => setLosingLine(null)}
+        onConfirm={(reason, note) => {
+          if (losingLine) setCommercialStatus(losingLine, "lost", reason, note);
+          setLosingLine(null);
+        }}
+      />
 
       <RejectDialog
         line={rejecting}
