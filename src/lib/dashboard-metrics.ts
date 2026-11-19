@@ -30,7 +30,7 @@ import {
   type LineItem,
   type LostReason,
 } from "./deal-model";
-import { STAGE_MAP, isOpenStage } from "./pipeline";
+import { PIPELINE_STAGES, STAGE_MAP, isOpenStage, type DealStage } from "./pipeline";
 import { isOpenDeal } from "./deals";
 import { isOpenTask, taskCounts, type Activity } from "./activities";
 
@@ -87,6 +87,27 @@ export function dealsInPeriod(
   const from = periodStart(period, now);
   if (from === null) return deals;
   return deals.filter((d) => new Date(d.createdAt).getTime() >= from);
+}
+
+/** Open deals by active sales stage, using the same scope and potential-only value as Pipeline. */
+export function openPipelineStageRows(
+  deals: Deal[],
+  toDisplay: (amount: number, from: CurrencyCode) => number,
+): { stage: DealStage; deals: Deal[]; count: number; value: number }[] {
+  return PIPELINE_STAGES.map(({ id: stage }) => {
+    const stageDeals = deals.filter(
+      (deal) => isOpenDeal(deal) && deal.stage === stage,
+    );
+    return {
+      stage,
+      deals: stageDeals,
+      count: stageDeals.length,
+      value: stageDeals.reduce(
+        (sum, deal) => sum + toDisplay(potentialValue(deal.lines), deal.currency),
+        0,
+      ),
+    };
+  });
 }
 
 export function companiesInPeriod(

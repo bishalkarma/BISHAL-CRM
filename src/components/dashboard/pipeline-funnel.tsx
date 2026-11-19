@@ -5,20 +5,19 @@ import { motion } from "framer-motion";
 import { useData } from "@/components/providers/data-provider";
 import { useCurrency } from "@/components/providers/currency-provider";
 import {
-  PIPELINE_STAGES,
   STAGE_MAP,
   isRotting,
   daysSince,
   type DealStage,
 } from "@/lib/pipeline";
+import { potentialValue } from "@/lib/deal-model";
+import { openPipelineStageRows } from "@/lib/dashboard-metrics";
 import type { Deal } from "@/lib/deals";
 import { AnimatedNumber } from "@/components/dashboard/animated-number";
 import {
   DetailDialog,
   type DetailRow,
 } from "@/components/dashboard/detail-dialog";
-
-const FUNNEL_STAGES: DealStage[] = PIPELINE_STAGES.map((stage) => stage.id);
 
 /**
  * Deals are passed in rather than read here, so the funnel answers the same
@@ -39,18 +38,10 @@ export function PipelineFunnel({
   /** Which stage column the read-only pop-up is showing, if any. */
   const [openStage, setOpenStage] = React.useState<DealStage | null>(null);
 
-  const rows = FUNNEL_STAGES.map((stage) => {
-    const stageDeals = allDeals.filter((deal) => deal.stage === stage);
-    return {
-      stage,
-      deals: stageDeals,
-      count: stageDeals.length,
-      value: stageDeals.reduce(
-        (sum, deal) => sum + toDisplay(deal.value, deal.currency),
-        0,
-      ),
-    };
-  });
+  const rows = React.useMemo(
+    () => openPipelineStageRows(allDeals, toDisplay),
+    [allDeals, toDisplay],
+  );
 
   const max = Math.max(...rows.map((row) => row.value), 1);
   const active = rows.find((row) => row.stage === openStage) ?? null;
@@ -62,13 +53,17 @@ export function PipelineFunnel({
     return [...active.deals]
       .sort(
         (a, b) =>
-          toDisplay(b.value, b.currency) - toDisplay(a.value, a.currency),
+          toDisplay(potentialValue(b.lines), b.currency) -
+          toDisplay(potentialValue(a.lines), a.currency),
       )
       .map((deal) => ({
         id: deal.id,
         title: deal.title,
         meta: `${deal.company} · ${deal.owner}`,
-        value: format(toDisplay(deal.value, deal.currency), { compact: true }),
+        value: format(
+          toDisplay(potentialValue(deal.lines), deal.currency),
+          { compact: true },
+        ),
         hint: `closes ${new Date(deal.expectedCloseDate).toLocaleDateString(
           "en-GB",
           { day: "numeric", month: "short" },

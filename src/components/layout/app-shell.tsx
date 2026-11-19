@@ -8,7 +8,6 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { TodayPopup } from "./today-popup";
-import { PipelinePopup } from "./pipeline-popup";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { NewCompanyDialog } from "@/components/companies/new-company-dialog";
 import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
@@ -56,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
-  const [activePopup, setActivePopup] = React.useState<"today" | "pipeline" | null>(null);
+  const [activePopup, setActivePopup] = React.useState<"today" | null>(null);
 
   /* FAB dialog state */
   const [newDealOpen, setNewDealOpen] = React.useState(false);
@@ -171,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             collapsed ? "w-[72px]" : "w-[280px]",
           )}
         >
-          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} onOpenPopup={setActivePopup} />
+          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} />
         </div>
 
         {/* Mobile drawer */}
@@ -225,9 +224,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Detail popups — overlay the main content */}
         {activePopup === "today" && (
           <TodayPopup onClose={() => setActivePopup(null)} />
-        )}
-        {activePopup === "pipeline" && (
-          <PipelinePopup onClose={() => setActivePopup(null)} />
         )}
 
         {/* FAB dialogs */}
