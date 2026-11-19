@@ -375,12 +375,13 @@ export function lossReasons(
     }
 
     for (const line of deal.lines) {
-      if (deal.stage !== "lost" && line.status !== "rejected") continue;
+      const isLostLine = lineCommercialStatus(line) === "lost";
+      if (deal.stage !== "lost" && !isLostLine) continue;
       hits.push({
         deal,
         line,
         reason: reasonFor(
-          line.status === "rejected"
+          isLostLine
             ? (line.rejectReason ?? (deal.stage === "lost" ? deal.lostReason : undefined))
             : deal.lostReason,
         ),
