@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
+  BriefcaseBusiness,
+  ExternalLink,
   AlertTriangle,
   ArrowRight,
   Building2,
@@ -22,6 +25,7 @@ import type { Activity } from "@/lib/activities";
 import type { Company } from "@/lib/companies";
 import { LEAD_STATUS_META } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/spancop";
+import { STAGE_MAP } from "@/lib/pipeline";
 import {
   alertFor,
   suggestionFor,
@@ -60,7 +64,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, formatCurrency, initials, relativeTime } from "@/lib/utils";
 
-export type MobileCompanyTab = "activity" | "history";
+export type MobileCompanyTab = "activity" | "deals" | "history";
 export const DEFAULT_MOBILE_COMPANY_TAB: MobileCompanyTab = "activity";
 
 export function CompanyDrawer({
@@ -357,6 +361,47 @@ export function CompanyDrawer({
       </div>
     ) : null;
 
+  const renderDealsPanel = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">Deals with this customer</h3>
+          <p className="text-xs text-muted-foreground">Track every linked opportunity</p>
+        </div>
+        <Badge variant="outline" className="shrink-0">{companyDeals.length}</Badge>
+      </div>
+      {companyDeals.length ? (
+        <div className="space-y-2">
+          {companyDeals.map((deal) => (
+            <div key={deal.id} className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{deal.title}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Owner: {deal.owner}</div>
+                </div>
+                <Badge className={cn("shrink-0", STAGE_MAP[deal.stage].tint)}>{STAGE_MAP[deal.stage].shortLabel}</Badge>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="font-semibold">{formatCurrency(deal.value, deal.currency)}</span>
+                <span className="text-muted-foreground">Updated {relativeTime(deal.lastActivityAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+          <BriefcaseBusiness className="mx-auto mb-2 size-5 opacity-60" />
+          No deals linked to this customer yet.
+        </div>
+      )}
+      <Button variant="outline" size="sm" className="w-full" asChild>
+        <Link href={`/pipeline?companyId=${encodeURIComponent(company.id)}`}>
+          <ExternalLink /> View all deals
+        </Link>
+      </Button>
+    </div>
+  );
+
   const renderStageHistoryList = (showCount = false) => (
     <div>
       <div className="pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -618,7 +663,7 @@ export function CompanyDrawer({
               }
               className="flex flex-1 flex-col pt-0.5"
             >
-              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
+              <TabsList className="grid h-9 w-full grid-cols-3 rounded-xl bg-secondary p-1">
                 <TabsTrigger
                   value="activity"
                   className="gap-1.5 px-2 text-xs font-semibold"
@@ -630,6 +675,14 @@ export function CompanyDrawer({
                       ? ` · ${openTasks.length} ${openTasks.length === 1 ? "task" : "tasks"}`
                       : ""}
                   </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="deals"
+                  className="gap-1 px-1.5 text-xs font-semibold"
+                >
+                  <BriefcaseBusiness className="size-3.5" />
+                  <span>Deals</span>
+                  <span className="text-[11px] opacity-80">({companyDeals.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="history"
@@ -651,6 +704,12 @@ export function CompanyDrawer({
                     scope="company"
                     companyId={company.id}
                   />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="deals" className="mt-2.5 flex-1">
+                <div className="h-full overflow-y-auto rounded-xl border border-border bg-card/40 p-3">
+                  {renderDealsPanel()}
                 </div>
               </TabsContent>
 
@@ -840,12 +899,27 @@ export function CompanyDrawer({
             Every activity for this customer, across all deals — the widest of
             the three scopes, so it keeps the full summary and risk flag.
           */}
-          <div className="overflow-y-auto p-5">
-            <DrawerJournal
-              activities={companyActivities}
-              scope="company"
-              companyId={company.id}
-            />
+          <div className="min-h-0 overflow-y-auto p-5">
+            <Tabs defaultValue="activity" className="flex min-h-full flex-col">
+              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
+                <TabsTrigger value="activity" className="gap-1.5 text-xs font-semibold">
+                  Activity <span className="text-[11px] opacity-80">({companyActivities.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="deals" className="gap-1.5 text-xs font-semibold">
+                  Deals <span className="text-[11px] opacity-80">({companyDeals.length})</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-3 flex-1">
+                <DrawerJournal
+                  activities={companyActivities}
+                  scope="company"
+                  companyId={company.id}
+                />
+              </TabsContent>
+              <TabsContent value="deals" className="mt-3 flex-1">
+                {renderDealsPanel()}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </DialogContent>

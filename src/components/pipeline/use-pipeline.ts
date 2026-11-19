@@ -22,6 +22,7 @@ import { fulfilmentSignals, suggestSpancopStage } from "@/lib/spancop";
 
 export type PipelineFilters = {
   query: string;
+  companyId: string;
   owners: string[];
   priorities: DealPriority[];
   rottingOnly: boolean;
@@ -29,6 +30,7 @@ export type PipelineFilters = {
 
 const EMPTY_FILTERS: PipelineFilters = {
   query: "",
+  companyId: "",
   owners: [],
   priorities: [],
   rottingOnly: false,
@@ -171,6 +173,7 @@ export function usePipeline() {
   const filtered = React.useMemo(() => {
     const q = filters.query.trim().toLowerCase();
     return deals.filter((deal) => {
+      if (filters.companyId && deal.companyId !== filters.companyId) return false;
       if (
         q &&
         !`${deal.title} ${deal.company} ${deal.city} ${deal.id} ${deal.lines
@@ -312,6 +315,7 @@ export function usePipeline() {
 
   const activeFilterCount =
     (filters.query ? 1 : 0) +
+    (filters.companyId ? 1 : 0) +
     filters.owners.length +
     filters.priorities.length +
     (filters.rottingOnly ? 1 : 0);

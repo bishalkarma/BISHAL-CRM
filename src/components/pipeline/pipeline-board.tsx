@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -65,6 +66,15 @@ export function PipelineBoard() {
   } = usePipeline();
   const { format } = useCurrency();
   const { companies, addCompany, loading: dataLoading } = useData();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requestedCompanyId = searchParams.get("companyId") ?? "";
+  const requestedCompany = companies.find((company) => company.id === requestedCompanyId);
+
+  React.useEffect(() => {
+    if (!requestedCompanyId) return;
+    setFilters((current) => ({ ...current, companyId: requestedCompanyId }));
+  }, [requestedCompanyId, setFilters]);
 
   const [view, setView] = React.useState<"board" | "list">("board");
   const [activeDeal, setActiveDeal] = React.useState<Deal | null>(null);
@@ -126,13 +136,20 @@ export function PipelineBoard() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
-        title="Pipeline"
-        description="Drag deals between stages. Totals and forecasts update instantly."
+        title={requestedCompany ? `Deals · ${requestedCompany.name}` : "Pipeline"}
+        description={requestedCompany ? `Showing deals linked to ${requestedCompany.name}.` : "Drag deals between stages. Totals and forecasts update instantly."}
         actions={
-          <Button size="sm" onClick={() => setNewDealOpen(true)}>
-            <Plus />
-            New Deal
-          </Button>
+          <div className="flex items-center gap-2">
+            {requestedCompanyId && (
+              <Button variant="outline" size="sm" onClick={() => { setFilters((current) => ({ ...current, companyId: "" })); router.replace("/pipeline"); }}>
+                View all pipeline
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setNewDealOpen(true)}>
+              <Plus />
+              New Deal
+            </Button>
+          </div>
         }
       />
 
