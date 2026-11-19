@@ -170,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             collapsed ? "w-[72px]" : "w-[280px]",
           )}
         >
-          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} onOpenPopup={setActivePopup} />
+          <Sidebar collapsed={collapsed} onToggleCollapse={toggleSidebar} />
         </div>
 
         {/* Mobile drawer */}

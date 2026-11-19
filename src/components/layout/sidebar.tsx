@@ -107,17 +107,14 @@ export function Sidebar({
   collapsed,
   onToggleCollapse,
   onNavigate,
-  onOpenPopup,
   className,
 }: {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onNavigate?: () => void;
-  onOpenPopup?: (popup: "today") => void;
   className?: string;
 }) {
   const pathname = usePathname();
-  const today = useTodayStats();
   const sampleStats = useSampleCustodyStats();
   const { user: currentUser } = useCurrentUser();
 
@@ -386,56 +383,6 @@ export function Sidebar({
             </div>
           );
         })}
-
-        {/* Today summary card — clickable to open detail popup */}
-        <button
-          type="button"
-          onClick={() => onOpenPopup?.("today")}
-          className="w-full cursor-pointer rounded-xl border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-left transition-colors hover:bg-accent/[0.10]"
-        >
-          <div className="flex items-center gap-1.5 pb-1.5">
-            <CalendarClock className="size-3.5 text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-              Today
-            </span>
-          </div>
-          <div className="space-y-1">
-            {today.followUps > 0 && (
-              <div className="flex items-center gap-2 text-[13px]">
-                <CalendarClock className="size-3.5 text-muted-foreground" />
-                <span className="flex-1 text-muted-foreground">Follow-ups</span>
-                <span className="text-base font-bold tabular-nums text-foreground">
-                  {today.followUps}
-                </span>
-              </div>
-            )}
-            {today.tasks > 0 && (
-              <div className="flex items-center gap-2 text-[13px]">
-                <CheckSquare className="size-3.5 text-muted-foreground" />
-                <span className="flex-1 text-muted-foreground">Tasks due</span>
-                <span className="text-base font-bold tabular-nums text-foreground">
-                  {today.tasks}
-                </span>
-              </div>
-            )}
-            {sampleStats.overdueCount > 0 && (
-              <div className="flex items-center gap-2 text-[13px]">
-                <PackageCheck className="size-3.5 text-destructive" />
-                <span className="flex-1 text-destructive">Samples 14d+</span>
-                <span className="text-base font-bold tabular-nums text-destructive">
-                  {sampleStats.overdueCount}
-                </span>
-              </div>
-            )}
-            {today.followUps === 0 &&
-              today.tasks === 0 &&
-              sampleStats.overdueCount === 0 && (
-              <div className="text-[13px] text-muted-foreground/60">
-                Nothing pending — you&apos;re all caught up.
-              </div>
-            )}
-          </div>
-        </button>
 
 
       </div>
