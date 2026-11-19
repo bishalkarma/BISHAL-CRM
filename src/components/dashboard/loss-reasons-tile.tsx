@@ -38,29 +38,59 @@ export function LossReasonsTile({
   const maxCount = Math.max(...rows.map((r) => r.count), 1);
   const totalCount = rows.reduce((sum, r) => sum + r.count, 0);
 
-  /* Line-level entries avoid counting a package twice. Legacy losses without
-     product lines are shown as the deal itself, not as an invented product. */
+  /* Club lost entries by customer + date: same customer on the same date
+     becomes 1 row with its line items; different dates stay separate rows. */
   const detailRows: DetailRow[] = React.useMemo(() => {
     if (!active) return [];
-    return active.lines
-      .slice()
+    const groups = new Map<
+      string,
+      {
+        id: string;
+        company: string;
+        dealTitles: Set<string>;
+        items: string[];
+        value: number;
+        dateIso: string | null;
+      }
+    >();
+
+    for (const { deal, line, value } of active.lines) {
+      const dateIso =
+        (deal.stage === "lost" ? closedAt(deal) : null) ?? deal.createdAt ?? null;
+      const dateKey = dateIso ? dateIso.slice(0, 10) : "unknown";
+      const customerKey = deal.companyId || deal.company;
+      const key = `${customerKey}::${dateKey}`;
+
+      let group = groups.get(key);
+      if (!group) {
+        group = {
+          id: key,
+          company: deal.company,
+          dealTitles: new Set(),
+          items: [],
+          value: 0,
+          dateIso,
+        };
+        groups.set(key, group);
+      }
+      group.dealTitles.add(deal.title);
+      group.items.push(line?.product ?? deal.title);
+      group.value += value;
+    }
+
+    return Array.from(groups.values())
       .sort((a, b) => b.value - a.value)
-      .map(({ deal, line, value }) => ({
-        id: `${deal.id}-${line?.id ?? "deal"}`,
-        title: line?.product ?? deal.title,
-        meta: `${deal.company} · ${deal.title}`,
-        value: formatMoney(value),
-        hint: (() => {
-          const at = deal.stage === "lost" ? closedAt(deal) : null;
-          return at
-            ? `lost ${new Date(at).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-              })}`
-            : deal.stage === "won"
-              ? "not taken"
-              : undefined;
-        })(),
+      .map((group) => ({
+        id: group.id,
+        title: group.company,
+        meta: `${Array.from(group.dealTitles).join(", ")} · ${group.items.join(", ")}`,
+        value: formatMoney(group.value),
+        hint: group.dateIso
+          ? new Date(group.dateIso).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            })
+          : undefined,
       }));
   }, [active, formatMoney]);
 
@@ -122,6 +152,8 @@ export function LossReasonsTile({
         open={active !== null}
         onOpenChange={(next) => !next && setOpenIndex(null)}
         title={active?.reason ?? ""}
+        linkHref="/pipeline?outcome=lost"
+        linkLabel="Deal lost"
         summary={
           active
             ? `${active.count} ${

@@ -69,7 +69,14 @@ export function PipelineBoard() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const requestedCompanyId = searchParams.get("companyId") ?? "";
+  const requestedOutcome = searchParams.get("outcome");
   const requestedCompany = companies.find((company) => company.id === requestedCompanyId);
+
+  React.useEffect(() => {
+    if (requestedOutcome === "lost" || requestedOutcome === "won") {
+      if (outcomeView !== requestedOutcome) toggleOutcomeView(requestedOutcome);
+    }
+  }, [requestedOutcome]);
 
   React.useEffect(() => {
     if (!requestedCompanyId) return;
