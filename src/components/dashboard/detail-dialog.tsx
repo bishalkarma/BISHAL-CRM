@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, PencilOff } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, PencilOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,9 @@ export function DetailDialog({
   emptyLabel = "Nothing to show here.",
   linkHref = "/pipeline",
   linkLabel = "Deal Pipeline",
+  onRowClick,
+  backLabel,
+  onBack,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,6 +54,9 @@ export function DetailDialog({
   emptyLabel?: string;
   linkHref?: string;
   linkLabel?: string;
+  onRowClick?: (row: DetailRow) => void;
+  backLabel?: string;
+  onBack?: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,13 +64,25 @@ export function DetailDialog({
         <DialogHeader className="space-y-1">
           {/* Top-left, above the title: the user asked for the way out to sit
               here rather than repeated at the bottom of every pop-up. */}
-          <Link
-            href={linkHref}
-            className="flex w-fit items-center gap-1 text-xs font-medium text-accent transition-opacity hover:opacity-80"
-          >
-            <ArrowUpRight className="size-3.5" />
-            {linkLabel}
-          </Link>
+          <div className="flex items-center gap-3">
+            {onBack && backLabel && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="flex w-fit cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="size-3.5" />
+                {backLabel}
+              </button>
+            )}
+            <Link
+              href={linkHref}
+              className="flex w-fit items-center gap-1 text-xs font-medium text-accent transition-opacity hover:opacity-80"
+            >
+              <ArrowUpRight className="size-3.5" />
+              {linkLabel}
+            </Link>
+          </div>
           <DialogTitle className="break-words">{title}</DialogTitle>
           <DialogDescription className="break-words">
             {summary}

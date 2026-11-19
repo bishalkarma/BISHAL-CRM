@@ -32,6 +32,7 @@ export function LossReasonsTile({
   periodLabel: string;
 }) {
   const [openIndex, setOpenIndex] = React.useState<number | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
   const active = openIndex === null ? null : rows[openIndex];
 
   const maxValue = Math.max(...rows.map((r) => r.value), 0);
@@ -40,21 +41,24 @@ export function LossReasonsTile({
 
   /* Club lost entries by customer + date: same customer on the same date
      becomes 1 row with its line items; different dates stay separate rows. */
-  const detailRows: DetailRow[] = React.useMemo(() => {
+  const groupedEntries = React.useMemo(() => {
     if (!active) return [];
     const groups = new Map<
       string,
       {
         id: string;
         company: string;
+        companyId: string;
         dealTitles: Set<string>;
         items: string[];
         value: number;
         dateIso: string | null;
+        entries: LossReasonRow["lines"];
       }
     >();
 
-    for (const { deal, line, value } of active.lines) {
+    for (const entry of active.lines) {
+      const { deal, line, value } = entry;
       const dateIso =
         (deal.stage === "lost" ? closedAt(deal) : null) ?? deal.createdAt ?? null;
       const dateKey = dateIso ? dateIso.slice(0, 10) : "unknown";
@@ -66,33 +70,62 @@ export function LossReasonsTile({
         group = {
           id: key,
           company: deal.company,
+          companyId: deal.companyId,
           dealTitles: new Set(),
           items: [],
           value: 0,
           dateIso,
+          entries: [],
         };
         groups.set(key, group);
       }
       group.dealTitles.add(deal.title);
       group.items.push(line?.product ?? deal.title);
       group.value += value;
+      group.entries.push(entry);
     }
 
-    return Array.from(groups.values())
-      .sort((a, b) => b.value - a.value)
-      .map((group) => ({
-        id: group.id,
-        title: group.company,
-        meta: `${Array.from(group.dealTitles).join(", ")} · ${group.items.join(", ")}`,
-        value: formatMoney(group.value),
-        hint: group.dateIso
-          ? new Date(group.dateIso).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-            })
-          : undefined,
-      }));
-  }, [active, formatMoney]);
+    return Array.from(groups.values()).sort((a, b) => b.value - a.value);
+  }, [active]);
+
+  const selectedGroup = React.useMemo(
+    () => groupedEntries.find((g) => g.id === selectedGroupId) ?? null,
+    [groupedEntries, selectedGroupId],
+  );
+
+  const detailRows: DetailRow[] = React.useMemo(() => {
+    if (selectedGroup) {
+      return selectedGroup.entries
+        .slice()
+        .sort((a, b) => b.value - a.value)
+        .map(({ deal, line, value }) => ({
+          id: `${deal.id}-${line?.id ?? "deal"}`,
+          title: line
+            ? `${line.product}${line.brand ? ` (${line.brand})` : ""}`
+            : deal.title,
+          meta: line
+            ? `${deal.title} · ${line.quantity} ${line.unit} × ${formatMoney(line.unitPrice)}${
+                line.lostReasonNote ? ` — ${line.lostReasonNote}` : ""
+              }`
+            : deal.title,
+          value: formatMoney(value),
+          hint: line?.rejectReason ?? deal.lostReason ?? active?.reason,
+        }));
+    }
+
+    return groupedEntries.map((group) => ({
+      id: group.id,
+      title: group.company,
+      meta: `${Array.from(group.dealTitles).join(", ")} · ${group.items.join(", ")}`,
+      value: formatMoney(group.value),
+      hint: group.dateIso
+        ? new Date(group.dateIso).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+          })
+        : undefined,
+    }));
+  }, [groupedEntries, selectedGroup, active?.reason, formatMoney]);
 
   if (totalCount === 0) {
     return (
@@ -150,16 +183,39 @@ export function LossReasonsTile({
 
       <DetailDialog
         open={active !== null}
-        onOpenChange={(next) => !next && setOpenIndex(null)}
-        title={active?.reason ?? ""}
-        linkHref="/pipeline?outcome=lost"
-        linkLabel="Deal lost"
+        onOpenChange={(next) => {
+          if (!next) {
+            setOpenIndex(null);
+            setSelectedGroupId(null);
+          }
+        }}
+        title={selectedGroup ? selectedGroup.company : (active?.reason ?? "")}
+        linkHref={
+          selectedGroup?.companyId
+            ? `/pipeline?outcome=lost&companyId=${selectedGroup.companyId}`
+            : "/pipeline?outcome=lost"
+        }
+        linkLabel={selectedGroup ? "Open in Deal lost" : "Deal lost"}
+        backLabel={selectedGroup && active ? `Back to ${active.reason}` : undefined}
+        onBack={selectedGroup ? () => setSelectedGroupId(null) : undefined}
+        onRowClick={selectedGroup ? undefined : (row) => setSelectedGroupId(row.id)}
         summary={
-          active
-            ? `${active.count} ${
-                active.count === 1 ? "loss entry" : "loss entries"
-              } · ${formatMoney(active.value)} · ${periodLabel}`
-            : ""
+          selectedGroup
+            ? `${
+                selectedGroup.dateIso
+                  ? `${new Date(selectedGroup.dateIso).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })} · `
+                  : ""
+              }${formatMoney(selectedGroup.value)} · ${selectedGroup.entries.length} ${
+                selectedGroup.entries.length === 1 ? "lost item" : "lost items"
+              }`
+            : active
+              ? `${active.count} ${
+                  active.count === 1 ? "loss entry" : "loss entries"
+                } · ${formatMoney(active.value)} · ${periodLabel}`
+              : ""
         }
         rows={detailRows}
       />
