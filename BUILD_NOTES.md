@@ -24,6 +24,7 @@ numbered commit titles. They are now identified by immutable Git tags on the
 | 18.17 | `BUILD_18.17` | `ac375e4c03f8d9d6edb08ddb8e8ac922b9c1f786` | Consistent 2-row sample custody layout on completed State 3 cards (`APPROVED` / `REJECTED`) & Customer Card history (`src/components/pipeline/sample-tracker.tsx` + `src/components/samples/customer-sample-custody.tsx`): places `Sample: X Unit` + `Held X days` + `Change` / `Edit` on Row 1 and full-width `Given: <date> → Taken back: <date>` on Row 2 | 19 test scripts, 263 checks passed; Vercel Preview `READY` (`dpl_JCQRhgt2cZ2ttRqj9JDAEAz7TPAr`); user confirmed working; promoted to `main` |
 | 18.18 | `BUILD_18.18` | `d8f5c165f6fccbf5bb5222b7810b36b010b8c36f` | Show deal creation date (`Created <DD Mon YYYY>`) in muted metadata immediately above active days in the DealDrawer Deal Value card (`src/components/pipeline/deal-drawer.tsx`) | Local `npm run build` passed; targeted ESLint passed; all 19 test scripts passed including new ordering/date-format check; Vercel Preview `READY` (`dpl_4FRF6csoYoHcpyvtyo8dKQh1RnSR`); promoted to `main` |
 | 18.19 | `BUILD_18.19` | `7434aebec302cb25caa6c44cac597eb5788d4082` | Compact six-card full-width KPI row and rebalance dashboard widgets; count physically-out samples across deal stages independent of feedback; exclude returned/consumable samples and reset older saved layouts | `npx tsc --noEmit`, `npm run lint`, `npm run build`, focused custody test (3 assertions), and `git diff --check` passed; 43 lint warnings; Vercel Preview `READY` (`dpl_AR9Fz79HXpV4qAGghrQvNpi6u2sS`, [preview](https://bishal-rillmzs1a-bishal-sales-crm.vercel.app)); user acceptance not recorded; promotion requested by user |
+| 18.20 | `BUILD_18.20` | `22559bf478ea883cd6eb4b964de868a839d73aba` | Customer profile Deals tab with clickable per-deal drawers; deal number and created date; open/closed outcome, active days and close date; All/Ongoing/Won/Lost filters with counts; full customer-filtered Pipeline list includes open and closed deals | `npx tsc --noEmit`, `npm run lint -- --no-cache`, `npm run build`, and `git diff --check` passed; 43 lint warnings; Vercel Preview `READY` (`dpl_EnWQDdu4dCM1HGetDgKYDsUMCED1`, [preview](https://bishal-bvkjnlxrq-bishal-sales-crm.vercel.app)); user accepted and requested promotion |
 
 ### Preview links for the tested builds
 - **BUILD 18.5:** https://bishal-n7d1ow7kb-bishal-sales-crm.vercel.app
@@ -40,11 +41,12 @@ numbered commit titles. They are now identified by immutable Git tags on the
 - **BUILD 18.16:** https://bishal-hgc8olm5j-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-db87fb5c-bishal-crm-bishal-sales-crm.vercel.app)
 - **BUILD 18.17:** https://bishal-6do4bc7yp-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-1c691789-bishal-crm-bishal-sales-crm.vercel.app)
 - **BUILD 18.18:** https://bishal-1xvh4n6fr-bishal-sales-crm.vercel.app (branch alias: https://bishal-crm-git-arena-fa4c48dc-bishal-crm-bishal-sales-crm.vercel.app)
+- **BUILD 18.20:** https://bishal-bvkjnlxrq-bishal-sales-crm.vercel.app
 - Preview URLs are subject to Vercel retention. The Git tags preserve source
   recovery points even if those deployment URLs expire.
 
 ### Required process for subsequent application builds
-1. **Next application build: BUILD 18.19**, then 18.20, 18.21, etc. These
+1. **Next application build: BUILD 18.21**, then 18.22, 18.23, etc. These
    are sequential labels, not decimal values. A major-number change requires
    the user's agreement; do not jump to the historical reserved BUILD 19.
 2. Prefix application-build commit messages with `BUILD <number> - <summary>`

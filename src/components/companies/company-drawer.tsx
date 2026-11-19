@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
+  BriefcaseBusiness,
+  ExternalLink,
   AlertTriangle,
   ArrowRight,
   Building2,
@@ -20,8 +23,13 @@ import {
 } from "lucide-react";
 import type { Activity } from "@/lib/activities";
 import type { Company } from "@/lib/companies";
+import { isClosedDeal, type Deal } from "@/lib/deals";
+import { LostReasonDialog } from "@/components/deals/lost-reason-dialog";
+import { activeDays, lostLineValue, wonValue } from "@/lib/deal-model";
+import { DealDrawer } from "@/components/pipeline/deal-drawer";
 import { LEAD_STATUS_META } from "@/lib/companies";
 import { SPANCOP_MAP, type SpancopStage, type StageTransition } from "@/lib/spancop";
+import { STAGE_MAP } from "@/lib/pipeline";
 import {
   alertFor,
   suggestionFor,
@@ -60,7 +68,8 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, formatCurrency, initials, relativeTime } from "@/lib/utils";
 
-export type MobileCompanyTab = "activity" | "history";
+export type MobileCompanyTab = "activity" | "deals" | "history";
+type CustomerDealFilter = "all" | "ongoing" | "won" | "lost";
 export const DEFAULT_MOBILE_COMPANY_TAB: MobileCompanyTab = "activity";
 
 export function CompanyDrawer({
@@ -93,6 +102,9 @@ export function CompanyDrawer({
   const [mobileTab, setMobileTab] = React.useState<MobileCompanyTab>(
     DEFAULT_MOBILE_COMPANY_TAB,
   );
+  const [selectedDealId, setSelectedDealId] = React.useState<string | null>(null);
+  const [dealFilter, setDealFilter] = React.useState<CustomerDealFilter>("all");
+  const [pendingLostDeal, setPendingLostDeal] = React.useState<Deal | null>(null);
   const [transfers, setTransfers] = React.useState<TransferHistoryEntry[]>([]);
   const [transfersLoading, setTransfersLoading] = React.useState(false);
   const [dismissed] = useDismissedSuggestions();
@@ -106,6 +118,7 @@ export function CompanyDrawer({
     updateCompanyWithContact,
     deleteCompany,
     activitiesFor,
+    updateDeal,
   } = useData();
   const companyActivities = React.useMemo(
     () => (company ? activitiesFor({ companyId: company.id }) : []),
@@ -119,6 +132,34 @@ export function CompanyDrawer({
     () => (company ? deals.filter((d) => d.companyId === company.id) : []),
     [deals, company],
   );
+  const selectedDeal = React.useMemo(
+    () => companyDeals.find((deal) => deal.id === selectedDealId) ?? null,
+    [companyDeals, selectedDealId],
+  );
+  const dealFilterCounts = React.useMemo(() => {
+    const counts = { all: companyDeals.length, ongoing: 0, won: 0, lost: 0 };
+    for (const deal of companyDeals) {
+      if (!isClosedDeal(deal)) {
+        counts.ongoing += 1;
+        continue;
+      }
+      const won = deal.stage === "won" || wonValue(deal.lines) > 0;
+      const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
+      if (won) counts.won += 1;
+      if (lost) counts.lost += 1;
+    }
+    return counts;
+  }, [companyDeals]);
+  const filteredCompanyDeals = React.useMemo(
+    () => companyDeals.filter((deal) => {
+      if (dealFilter === "all") return true;
+      if (dealFilter === "ongoing") return !isClosedDeal(deal);
+      const won = deal.stage === "won" || wonValue(deal.lines) > 0;
+      const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
+      return dealFilter === "won" ? won : lost;
+    }),
+    [companyDeals, dealFilter],
+  );
   const openTasks = React.useMemo(
     () =>
       company ? openTasksForCompany(company.id, companyActivities) : [],
@@ -129,10 +170,16 @@ export function CompanyDrawer({
   const companyOwner = company?.owner;
 
   React.useEffect(() => {
+    if (!open) setSelectedDealId(null);
+  }, [open]);
+
+  React.useEffect(() => {
     setCompletingTask(null);
     setConfirmDeleteOpen(false);
     setDeleteError(null);
     setMobileTab(DEFAULT_MOBILE_COMPANY_TAB);
+    setSelectedDealId(null);
+    setDealFilter("all");
   }, [customerId]);
 
   React.useEffect(() => {
@@ -356,6 +403,105 @@ export function CompanyDrawer({
         </div>
       </div>
     ) : null;
+
+  const renderDealsPanel = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">Deals with this customer</h3>
+          <p className="text-xs text-muted-foreground">Select a deal to open its full details</p>
+        </div>
+        <Badge variant="outline" className="shrink-0">{companyDeals.length}</Badge>
+      </div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter customer deals by status">
+        {(["all", "ongoing", "won", "lost"] as const).map((filter) => {
+          const label = filter === "all" ? "All" : filter === "ongoing" ? "Ongoing" : filter === "won" ? "Won" : "Lost";
+          const selected = dealFilter === filter;
+          return (
+            <button
+              key={filter}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setDealFilter(filter)}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors",
+                selected
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              <span>{label}</span>
+              <span className={cn("tabular-nums", selected ? "opacity-90" : "opacity-70")}>
+                {dealFilterCounts[filter]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {companyDeals.length && filteredCompanyDeals.length ? (
+        <div className="space-y-2">
+          {filteredCompanyDeals.map((deal) => {
+            const closed = isClosedDeal(deal);
+            const won = deal.stage === "won" || wonValue(deal.lines) > 0;
+            const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
+            const outcome = won && lost ? "Won & Lost" : won ? "Won" : lost ? "Lost" : "Closed";
+            const statusLabel = closed ? outcome : "Ongoing";
+            const closedDate = deal.closedAt ?? (closed ? deal.lastActivityAt : null);
+            const statusTone = closed
+              ? won && !lost ? "border-success/40 bg-success/10 text-success" : lost && !won ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-warning/40 bg-warning/10 text-warning"
+              : "border-accent/40 bg-accent/10 text-accent";
+            return (
+              <button
+                key={deal.id}
+                type="button"
+                onClick={() => setSelectedDealId(deal.id)}
+                className="group w-full rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-accent/50 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label={`Open deal ${deal.title}, ${deal.id}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{deal.title}</div>
+                    <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">Deal #{deal.id}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Created {new Date(deal.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge className={cn("max-w-28 truncate", STAGE_MAP[deal.stage].tint)}>{STAGE_MAP[deal.stage].shortLabel}</Badge>
+                    <Badge variant="outline" className={cn("border", statusTone)}>{statusLabel}</Badge>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
+                  <span className="font-semibold">{formatCurrency(deal.value, deal.currency)}</span>
+                  <span className="text-muted-foreground">Owner: {deal.owner}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <span>Active {activeDays(deal.periods)} days</span>
+                  {closed && closedDate ? (
+                    <span>{outcome} · {new Date(closedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  ) : (
+                    <span>Updated {relativeTime(deal.lastActivityAt)}</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+          <BriefcaseBusiness className="mx-auto mb-2 size-5 opacity-60" />
+          {companyDeals.length === 0
+            ? "No deals linked to this customer yet."
+            : `No ${dealFilter} deals linked to this customer.`}
+        </div>
+      )}
+      <Button variant="outline" size="sm" className="w-full" asChild>
+        <Link href={`/pipeline?companyId=${encodeURIComponent(company.id)}`}>
+          <ExternalLink /> View all deals
+        </Link>
+      </Button>
+    </div>
+  );
 
   const renderStageHistoryList = (showCount = false) => (
     <div>
@@ -618,7 +764,7 @@ export function CompanyDrawer({
               }
               className="flex flex-1 flex-col pt-0.5"
             >
-              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
+              <TabsList className="grid h-9 w-full grid-cols-3 rounded-xl bg-secondary p-1">
                 <TabsTrigger
                   value="activity"
                   className="gap-1.5 px-2 text-xs font-semibold"
@@ -630,6 +776,14 @@ export function CompanyDrawer({
                       ? ` · ${openTasks.length} ${openTasks.length === 1 ? "task" : "tasks"}`
                       : ""}
                   </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="deals"
+                  className="gap-1 px-1.5 text-xs font-semibold"
+                >
+                  <BriefcaseBusiness className="size-3.5" />
+                  <span>Deals</span>
+                  <span className="text-[11px] opacity-80">({companyDeals.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="history"
@@ -651,6 +805,12 @@ export function CompanyDrawer({
                     scope="company"
                     companyId={company.id}
                   />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="deals" className="mt-2.5 flex-1">
+                <div className="h-full overflow-y-auto rounded-xl border border-border bg-card/40 p-3">
+                  {renderDealsPanel()}
                 </div>
               </TabsContent>
 
@@ -840,15 +1000,72 @@ export function CompanyDrawer({
             Every activity for this customer, across all deals — the widest of
             the three scopes, so it keeps the full summary and risk flag.
           */}
-          <div className="overflow-y-auto p-5">
-            <DrawerJournal
-              activities={companyActivities}
-              scope="company"
-              companyId={company.id}
-            />
+          <div className="min-h-0 overflow-y-auto p-5">
+            <Tabs defaultValue="activity" className="flex min-h-full flex-col">
+              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
+                <TabsTrigger value="activity" className="gap-1.5 text-xs font-semibold">
+                  Activity <span className="text-[11px] opacity-80">({companyActivities.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="deals" className="gap-1.5 text-xs font-semibold">
+                  Deals <span className="text-[11px] opacity-80">({companyDeals.length})</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-3 flex-1">
+                <DrawerJournal
+                  activities={companyActivities}
+                  scope="company"
+                  companyId={company.id}
+                />
+              </TabsContent>
+              <TabsContent value="deals" className="mt-3 flex-1">
+                {renderDealsPanel()}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </DialogContent>
+
+      <DealDrawer
+        deal={selectedDeal}
+        open={Boolean(selectedDeal)}
+        onOpenChange={(isOpen) => !isOpen && setSelectedDealId(null)}
+        onMove={(dealId, stage) => {
+          const current = companyDeals.find((item) => item.id === dealId);
+          if (!current) return;
+          if (stage === "lost") {
+            setPendingLostDeal(current);
+            return;
+          }
+          updateDeal(dealId, {
+            stage,
+            lifecycleStatus: stage === "won" ? "closed" : "open",
+            closedAt: stage === "won" ? new Date().toISOString() : null,
+            closedFromStage: stage === "won" ? current.stage : undefined,
+            probability: stage === "won" ? current.probability : null,
+          });
+        }}
+      />
+
+      <LostReasonDialog
+        open={Boolean(pendingLostDeal)}
+        onOpenChange={(isOpen) => !isOpen && setPendingLostDeal(null)}
+        dealTitle={pendingLostDeal?.title ?? ""}
+        onCancel={() => setPendingLostDeal(null)}
+        onConfirm={(reason, note) => {
+          if (pendingLostDeal) {
+            updateDeal(pendingLostDeal.id, {
+              stage: "lost",
+              lifecycleStatus: "closed",
+              closedAt: new Date().toISOString(),
+              closedFromStage: pendingLostDeal.stage,
+              probability: null,
+              lostReason: reason,
+              lostNote: note,
+            });
+          }
+          setPendingLostDeal(null);
+        }}
+      />
 
       {/* Safe Delete Customer Confirmation Modal (BUILD 18.10 Option A) */}
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
