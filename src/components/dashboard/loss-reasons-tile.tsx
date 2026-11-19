@@ -34,7 +34,8 @@ export function LossReasonsTile({
   const [openIndex, setOpenIndex] = React.useState<number | null>(null);
   const active = openIndex === null ? null : rows[openIndex];
 
-  const max = Math.max(...rows.map((r) => r.value), 1);
+  const maxValue = Math.max(...rows.map((r) => r.value), 0);
+  const maxCount = Math.max(...rows.map((r) => r.count), 1);
   const totalCount = rows.reduce((sum, r) => sum + r.count, 0);
 
   /* Line-level entries avoid counting a package twice. Legacy losses without
@@ -98,7 +99,13 @@ export function LossReasonsTile({
             <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${(row.value / max) * 100}%` }}
+                animate={{
+                  width: `${
+                    maxValue > 0
+                      ? (row.value / maxValue) * 100
+                      : (row.count / maxCount) * 100
+                  }%`,
+                }}
                 transition={{
                   duration: 0.7,
                   delay: index * 0.06,
