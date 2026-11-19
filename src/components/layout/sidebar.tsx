@@ -14,11 +14,9 @@ import {
   PackageCheck,
   Plus,
   Settings,
-  Target,
 } from "lucide-react";
 import { NAV_SECTIONS } from "@/lib/navigation";
-import { SPANCOP_MAP, SPANCOP_ORDER } from "@/lib/spancop";
-import { PIPELINE_STAGES } from "@/lib/pipeline";
+
 import {
   SAMPLE_OVERDUE_DAYS,
   effectiveSampleReturnStatus,
@@ -28,9 +26,8 @@ import { Logo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn, formatCurrency, initials } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 import { useData } from "@/components/providers/data-provider";
-import { isOpenDeal } from "@/lib/deals";
 import {
   Tooltip,
   TooltipContent,
@@ -65,32 +62,6 @@ function useTodayStats() {
     ).length;
     return { tasks, followUps };
   }, [activities, companies]);
-}
-
-/** Derive open-deal pipeline value and per-stage counts. */
-function useDealPipelineStats() {
-  const { deals } = useData();
-  return React.useMemo(() => {
-    const open = deals.filter(isOpenDeal);
-    const total = open.reduce((sum, d) => sum + d.value, 0);
-    const byStage: Record<string, number> = {};
-    PIPELINE_STAGES.forEach((s) => {
-      byStage[s.shortLabel] = open.filter((d) => d.stage === s.id).length;
-    });
-    return { count: open.length, total, byStage };
-  }, [deals]);
-}
-
-/** Derive per-SPANCOP-stage company counts. */
-function useSpancopStats() {
-  const { companies } = useData();
-  return React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    SPANCOP_ORDER.forEach((s) => {
-      counts[s] = companies.filter((c) => c.spancop === s).length;
-    });
-    return counts;
-  }, [companies]);
 }
 
 /** Count physical samples currently out with customers and overdue pickups (14d+). */
@@ -142,13 +113,11 @@ export function Sidebar({
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onNavigate?: () => void;
-  onOpenPopup?: (popup: "today" | "pipeline") => void;
+  onOpenPopup?: (popup: "today") => void;
   className?: string;
 }) {
   const pathname = usePathname();
   const today = useTodayStats();
-  const pipeline = useDealPipelineStats();
-  const spancop = useSpancopStats();
   const sampleStats = useSampleCustodyStats();
   const { user: currentUser } = useCurrentUser();
 
@@ -468,96 +437,7 @@ export function Sidebar({
           </div>
         </button>
 
-        {/* Pipeline Snapshot — clickable to open detail popup */}
-        <button
-          type="button"
-          onClick={() => onOpenPopup?.("pipeline")}
-          className="w-full cursor-pointer rounded-xl border border-border/40 bg-secondary/30 px-3 py-2.5 text-left transition-colors hover:bg-secondary/50"
-        >
-          <div className="flex items-center gap-1.5 pb-2">
-            <Target className="size-3.5 text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-              Pipeline
-            </span>
-          </div>
-          {/* Deal pipeline — open deals by stage */}
-          <div className="mb-2">
-            <div className="flex items-baseline justify-between pb-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Open deals
-              </span>
-              <span className="text-[11px] tabular-nums font-semibold text-foreground">
-                {pipeline.count} · {formatCurrency(pipeline.total)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 overflow-hidden">
-              {PIPELINE_STAGES.map((stage) => {
-                const count = pipeline.byStage[stage.shortLabel] ?? 0;
-                if (count === 0) return null;
-                return (
-                  <div
-                    key={stage.id}
-                    className={cn(
-                      "flex flex-col items-center rounded-lg px-2.5 py-1.5 min-w-0",
-                      stage.tint,
-                    )}
-                    title={`${stage.label}: ${count}`}
-                  >
-                    <span className="text-sm font-bold tabular-nums leading-none">
-                      {count}
-                    </span>
-                    <span className="mt-0.5 text-[10px] font-medium leading-none opacity-80 truncate max-w-[48px]">
-                      {stage.shortLabel}
-                    </span>
-                  </div>
-                );
-              })}
-              {pipeline.count === 0 && (
-                <span className="text-[11px] text-muted-foreground/60">
-                  No open deals
-                </span>
-              )}
-            </div>
-          </div>
-          {/* SPANCOP — customers by relationship stage */}
-          <div>
-            <div className="flex items-baseline justify-between pb-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Customers
-              </span>
-              <Link
-                href="/companies"
-                className="text-[11px] font-medium text-accent hover:underline"
-              >
-                All →
-              </Link>
-            </div>
-            <div className="flex items-center gap-1.5 overflow-hidden">
-              {SPANCOP_ORDER.map((stage) => {
-                const count = spancop[stage] ?? 0;
-                if (count === 0) return null;
-                const def = SPANCOP_MAP[stage];
-                return (
-                  <div
-                    key={stage}
-                    className={cn(
-                      "flex flex-col items-center rounded-lg px-2.5 py-1.5 min-w-0",
-                      def.tint,
-                    )}
-                    title={`${def.label}: ${count}`}
-                  >
-                    <span className="text-sm font-bold tabular-nums leading-none">
-                      {count}
-                    </span>
-                    <span className="mt-0.5 text-[10px] font-medium leading-none opacity-80">
-                      {def.letter}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </button>
+
       </div>
 
       {/* User profile card — anchored at the bottom */}
