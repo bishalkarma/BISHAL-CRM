@@ -74,6 +74,7 @@ export function PipelineBoard() {
   React.useEffect(() => {
     if (!requestedCompanyId) return;
     setFilters((current) => ({ ...current, companyId: requestedCompanyId }));
+    setView("list");
   }, [requestedCompanyId, setFilters]);
 
   const [view, setView] = React.useState<"board" | "list">("board");

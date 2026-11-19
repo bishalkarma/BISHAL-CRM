@@ -307,10 +307,12 @@ export function usePipeline() {
 
   /** Deals for the list view, filtered by line outcome when selected. */
   const visibleDeals = React.useMemo(
-    () => outcomeView === "open"
-      ? filtered.filter(isOpenDeal)
-      : filtered.filter((deal) => deal.lines.some((line) => lineCommercialStatus(line) === outcomeView)),
-    [filtered, outcomeView],
+    () => filters.companyId
+      ? filtered
+      : outcomeView === "open"
+        ? filtered.filter(isOpenDeal)
+        : filtered.filter((deal) => deal.lines.some((line) => lineCommercialStatus(line) === outcomeView)),
+    [filtered, outcomeView, filters.companyId],
   );
 
   const activeFilterCount =
@@ -328,7 +330,7 @@ export function usePipeline() {
     stats,
     filters,
     setFilters,
-    resetFilters: () => setFilters(EMPTY_FILTERS),
+    resetFilters: () => setFilters((current) => ({ ...EMPTY_FILTERS, companyId: current.companyId })),
     activeFilterCount,
     moveDeal,
     pendingLost,
