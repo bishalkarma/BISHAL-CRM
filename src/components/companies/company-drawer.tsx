@@ -69,6 +69,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, formatCurrency, initials, relativeTime } from "@/lib/utils";
 
 export type MobileCompanyTab = "activity" | "deals" | "history";
+type CustomerDealFilter = "all" | "ongoing" | "won" | "lost";
 export const DEFAULT_MOBILE_COMPANY_TAB: MobileCompanyTab = "activity";
 
 export function CompanyDrawer({
@@ -102,6 +103,7 @@ export function CompanyDrawer({
     DEFAULT_MOBILE_COMPANY_TAB,
   );
   const [selectedDealId, setSelectedDealId] = React.useState<string | null>(null);
+  const [dealFilter, setDealFilter] = React.useState<CustomerDealFilter>("all");
   const [pendingLostDeal, setPendingLostDeal] = React.useState<Deal | null>(null);
   const [transfers, setTransfers] = React.useState<TransferHistoryEntry[]>([]);
   const [transfersLoading, setTransfersLoading] = React.useState(false);
@@ -134,6 +136,30 @@ export function CompanyDrawer({
     () => companyDeals.find((deal) => deal.id === selectedDealId) ?? null,
     [companyDeals, selectedDealId],
   );
+  const dealFilterCounts = React.useMemo(() => {
+    const counts = { all: companyDeals.length, ongoing: 0, won: 0, lost: 0 };
+    for (const deal of companyDeals) {
+      if (!isClosedDeal(deal)) {
+        counts.ongoing += 1;
+        continue;
+      }
+      const won = deal.stage === "won" || wonValue(deal.lines) > 0;
+      const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
+      if (won) counts.won += 1;
+      if (lost) counts.lost += 1;
+    }
+    return counts;
+  }, [companyDeals]);
+  const filteredCompanyDeals = React.useMemo(
+    () => companyDeals.filter((deal) => {
+      if (dealFilter === "all") return true;
+      if (dealFilter === "ongoing") return !isClosedDeal(deal);
+      const won = deal.stage === "won" || wonValue(deal.lines) > 0;
+      const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
+      return dealFilter === "won" ? won : lost;
+    }),
+    [companyDeals, dealFilter],
+  );
   const openTasks = React.useMemo(
     () =>
       company ? openTasksForCompany(company.id, companyActivities) : [],
@@ -153,6 +179,7 @@ export function CompanyDrawer({
     setDeleteError(null);
     setMobileTab(DEFAULT_MOBILE_COMPANY_TAB);
     setSelectedDealId(null);
+    setDealFilter("all");
   }, [customerId]);
 
   React.useEffect(() => {
@@ -386,9 +413,34 @@ export function CompanyDrawer({
         </div>
         <Badge variant="outline" className="shrink-0">{companyDeals.length}</Badge>
       </div>
-      {companyDeals.length ? (
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter customer deals by status">
+        {(["all", "ongoing", "won", "lost"] as const).map((filter) => {
+          const label = filter === "all" ? "All" : filter === "ongoing" ? "Ongoing" : filter === "won" ? "Won" : "Lost";
+          const selected = dealFilter === filter;
+          return (
+            <button
+              key={filter}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setDealFilter(filter)}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors",
+                selected
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              <span>{label}</span>
+              <span className={cn("tabular-nums", selected ? "opacity-90" : "opacity-70")}>
+                {dealFilterCounts[filter]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {companyDeals.length && filteredCompanyDeals.length ? (
         <div className="space-y-2">
-          {companyDeals.map((deal) => {
+          {filteredCompanyDeals.map((deal) => {
             const closed = isClosedDeal(deal);
             const won = deal.stage === "won" || wonValue(deal.lines) > 0;
             const lost = deal.stage === "lost" || lostLineValue(deal.lines) > 0;
@@ -438,7 +490,9 @@ export function CompanyDrawer({
       ) : (
         <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
           <BriefcaseBusiness className="mx-auto mb-2 size-5 opacity-60" />
-          No deals linked to this customer yet.
+          {companyDeals.length === 0
+            ? "No deals linked to this customer yet."
+            : `No ${dealFilter} deals linked to this customer.`}
         </div>
       )}
       <Button variant="outline" size="sm" className="w-full" asChild>
