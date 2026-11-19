@@ -5,7 +5,7 @@ import Link from "next/link";
 import type {
   CashRow,
   ExpectedCloseRow,
-  WaitingSampleRow,
+  CustomerSampleOutRow,
 } from "@/lib/dashboard-metrics";
 import { AnimatedNumber } from "@/components/dashboard/animated-number";
 import { EmptyTile } from "@/components/dashboard/empty-tile";
@@ -164,13 +164,13 @@ export function ExpectedCloseSummary({
   );
 }
 
-/** Samples sent with no reply — a quiet deal-killer in HORECA. */
-export function SamplesAwaitingTile({
+/** Physical samples still with the customer; reply state remains independent. */
+export function SamplesWithCustomerTile({
   rows,
   formatMoney,
   periodLabel,
 }: {
-  rows: WaitingSampleRow[];
+  rows: CustomerSampleOutRow[];
   formatMoney: (value: number) => string;
   periodLabel?: string;
 }) {
@@ -183,8 +183,8 @@ export function SamplesAwaitingTile({
   if (rows.length === 0) {
     return (
       <EmptyTile
-        message="No samples waiting on feedback."
-        hint="Every sample sent has a reply."
+        message="No physical samples currently out."
+        hint="Returned and consumable samples are not listed here."
       />
     );
   }
@@ -194,17 +194,20 @@ export function SamplesAwaitingTile({
   return (
     <div>
       <ul className="space-y-1.5">
-        {visibleRows.map(({ deal, line, value, sentAt, daysWaiting }) => (
+        {visibleRows.map(({ deal, line, value, sentAt, daysWithCustomer, feedbackReceived }) => (
           <li
             key={`${deal.id}-${line.id}`}
             className="flex items-start justify-between gap-2 border-b border-border/60 pb-1.5 last:border-0 last:pb-0"
           >
             <div className="min-w-0 flex-1">
-              {/* The line item is the subject here, not the deal — a package
-                  can have one item out for sampling and seven that are not. */}
+              {/* Custody is per product line; feedback does not change whether
+                  the physical item is still with the customer. */}
               <p className="truncate text-sm font-medium">{line.product}</p>
               <p className="truncate text-[11px] text-muted-foreground">
                 {deal.company} · sent {shortDate(sentAt)}
+              </p>
+              <p className={cn("text-[10px] font-medium", feedbackReceived ? "text-success" : "text-warning")}>
+                {feedbackReceived ? "Feedback received · still out" : "Awaiting feedback · still out"}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -213,14 +216,14 @@ export function SamplesAwaitingTile({
               </p>
               <p
                 className={
-                  daysWaiting >= 31
+                  daysWithCustomer >= 31
                     ? "text-[11px] font-medium text-destructive tabular-nums"
-                    : daysWaiting >= 14
+                    : daysWithCustomer >= 14
                       ? "text-[11px] font-medium text-warning tabular-nums"
                       : "text-[11px] text-muted-foreground tabular-nums"
                 }
               >
-                {daysWaiting}d
+                {daysWithCustomer}d out
               </p>
             </div>
           </li>
