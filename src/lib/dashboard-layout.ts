@@ -31,30 +31,27 @@ export const COLUMNS = 12;
 export const ROW_HEIGHT = 40;
 
 export const DEFAULT_LAYOUT: WidgetBox[] = [
-  // BUILD 09 — proper square tiles + uncrushed donut: KPI min-h 88->96px makes tile 96px tall ~= square-ish, Types donut compact with p-3 and 100px donut
-  { i: "kpi", x: 0, y: 0, w: 8, h: 5, minW: 6, minH: 4 },
-  { i: "types", x: 8, y: 0, w: 4, h: 5, minW: 3, minH: 4 },
-  // Revenue + Pipeline now directly below KPI+Types (y5), no Team gap
-  { i: "revenue", x: 0, y: 5, w: 8, h: 7, minW: 4, minH: 6 },
-  { i: "pipeline", x: 8, y: 5, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "today", x: 0, y: 12, w: 12, h: 6, minW: 4, minH: 5 },
+  // Six compact KPIs in one full-width strip—no oversized three-across tiles.
+  { i: "kpi", x: 0, y: 0, w: 12, h: 3, minW: 8, minH: 3 },
+  { i: "revenue", x: 0, y: 3, w: 8, h: 7, minW: 4, minH: 6 },
+  { i: "pipeline", x: 8, y: 3, w: 4, h: 7, minW: 3, minH: 5 },
+  { i: "today", x: 0, y: 10, w: 12, h: 6, minW: 4, minH: 5 },
 
-  /* SPANCOP + Top products */
-  { i: "spancop", x: 0, y: 18, w: 6, h: 9, minW: 4, minH: 7 },
-  { i: "products", x: 6, y: 18, w: 6, h: 9, minW: 3, minH: 5 },
+  // Journey and product performance share a balanced row.
+  { i: "spancop", x: 0, y: 16, w: 6, h: 9, minW: 4, minH: 7 },
+  { i: "products", x: 6, y: 16, w: 6, h: 9, minW: 3, minH: 5 },
 
-  /* Activity mix + Why we lose */
-  { i: "mix", x: 0, y: 27, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "loss", x: 6, y: 27, w: 6, h: 8, minW: 3, minH: 5 },
-
-  { i: "expected", x: 0, y: 35, w: 6, h: 7, minW: 3, minH: 5 },
-  { i: "samples", x: 6, y: 35, w: 6, h: 7, minW: 3, minH: 5 },
-
-  { i: "cash", x: 0, y: 42, w: 12, h: 7, minW: 3, minH: 5 },
+  // Supporting distribution and outcome insights are paired evenly.
+  { i: "mix", x: 0, y: 25, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "types", x: 6, y: 25, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "loss", x: 0, y: 32, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "expected", x: 6, y: 32, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "samples", x: 0, y: 39, w: 6, h: 7, minW: 3, minH: 5 },
+  { i: "cash", x: 6, y: 39, w: 6, h: 7, minW: 3, minH: 5 },
 ];
 
 const KEY = "bishal-crm:dashboard-layout";
-const LAYOUT_VERSION = "build11-login-tile-mobile";
+const LAYOUT_VERSION = "build18.19-compact-kpi-row";
 
 function reconcile(saved: WidgetBox[]): WidgetBox[] {
   const byId = new Map(saved.map((b) => [b.i, b]));
@@ -76,19 +73,11 @@ export function readLayout(): WidgetBox[] {
   try {
     const version = window.localStorage.getItem(`${KEY}:version`);
     const raw = window.localStorage.getItem(KEY);
-    // BUILD 09: square 96px tiles + uncrushed 100px donut, h5 kept
+    // One-time reset so older saved arrangements don't preserve the overly-wide KPI row.
     if (version !== LAYOUT_VERSION) {
       window.localStorage.setItem(`${KEY}:version`, LAYOUT_VERSION);
-      if (raw) {
-        const parsed = JSON.parse(raw) as WidgetBox[];
-        const isOld = Array.isArray(parsed) && parsed.some((b) => b.i === "kpi" && b.h === 4);
-        if (isOld) {
-          window.localStorage.removeItem(KEY);
-          return DEFAULT_LAYOUT;
-        }
-      } else {
-        return DEFAULT_LAYOUT;
-      }
+      window.localStorage.removeItem(KEY);
+      return DEFAULT_LAYOUT;
     }
     if (!raw) return DEFAULT_LAYOUT;
     const parsed = JSON.parse(raw) as WidgetBox[];

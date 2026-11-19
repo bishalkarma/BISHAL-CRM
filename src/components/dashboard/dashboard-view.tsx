@@ -34,7 +34,7 @@ import {
   topProducts,
   productsByCustomer,
   expectedToClose,
-  samplesAwaiting,
+  samplesWithCustomer,
   cashToCollect,
   DASHBOARD_PERIODS,
   type DashboardPeriod,
@@ -53,7 +53,7 @@ import {
 import {
   ExpectedCloseTile,
   ExpectedCloseSummary,
-  SamplesAwaitingTile,
+  SamplesWithCustomerTile,
   CashToCollectTile,
   CashSummary,
 } from "@/components/dashboard/work-tiles";
@@ -225,7 +225,7 @@ export function DashboardView() {
     [deals, period, convert],
   );
   const samples = React.useMemo(
-    () => samplesAwaiting(deals, period, convert),
+    () => samplesWithCustomer(deals, period, convert),
     [deals, period, convert],
   );
   const cash = React.useMemo(
@@ -487,11 +487,11 @@ export function DashboardView() {
           samples: (
             <Card className="flex flex-col">
               <CardHeader className="pb-2">
-                <CardTitle>Samples awaiting feedback</CardTitle>
-                <CardDescription>Sent, no response yet</CardDescription>
+                <CardTitle>Samples with customer</CardTitle>
+                <CardDescription>Not returned · feedback shown separately</CardDescription>
               </CardHeader>
               <CardContent className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                <SamplesAwaitingTile
+                <SamplesWithCustomerTile
                   rows={samples}
                   formatMoney={money}
                   periodLabel={periodLabel}

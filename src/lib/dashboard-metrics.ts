@@ -548,54 +548,63 @@ export function expectedToClose(
     );
 }
 
-export type WaitingSampleRow = {
+export type CustomerSampleOutRow = {
   deal: Deal;
   line: LineItem;
   /** Line value in the display currency. */
   value: number;
   sentAt: string;
+  daysWithCustomer: number;
+  /** Backward-compatible alias used by existing dashboard fixture scripts. */
   daysWaiting: number;
+  feedbackReceived: boolean;
 };
 
 /**
- * Sampled lines still waiting on an answer.
- *
- * Per line, not per deal: a customer asks for one item out of a package, so
- * only that line is chased. Restricted to deals actually in Sampling — a
- * sample on a won or lost deal has already had its answer, one way or another.
+ * Per-line physical samples that are still with customers, in any deal stage.
+ * Feedback is shown as a separate attribute; it does not determine custody.
  */
-export function samplesAwaiting(
+export function samplesWithCustomer(
   deals: Deal[],
   period: DashboardPeriod,
   convert: (amount: number, from: CurrencyCode) => number = (a) => a,
   now = Date.now(),
-): WaitingSampleRow[] {
-  const rows: WaitingSampleRow[] = [];
+): CustomerSampleOutRow[] {
+  const rows: CustomerSampleOutRow[] = [];
 
   for (const deal of deals) {
-    if (deal.stage !== "sampling") continue;
-
     for (const line of deal.lines) {
       const sample = line.sample;
-      if (!sample || sample.feedbackAt) continue;
+      if (
+        !sample?.sentAt ||
+        sample.returnStatus === "returned" ||
+        sample.returnStatus === "consumable" ||
+        sample.returnedAt
+      ) continue;
       if (!withinPeriod(sample.sentAt, period, now)) continue;
 
+      const daysWithCustomer = Math.max(
+        0,
+        Math.floor((now - new Date(sample.sentAt).getTime()) / 86_400_000),
+      );
       rows.push({
         deal,
         line,
         value: convert(lineTotal(line), deal.currency),
         sentAt: sample.sentAt,
-        daysWaiting: Math.floor(
-          (now - new Date(sample.sentAt).getTime()) / 86_400_000,
-        ),
+        daysWithCustomer,
+        daysWaiting: daysWithCustomer,
+        feedbackReceived: Boolean(sample.feedbackAt),
       });
     }
   }
 
-  // Oldest first: the sample nobody has answered for three weeks is the one
-  // that needs chasing.
-  return rows.sort((a, b) => b.daysWaiting - a.daysWaiting);
+  return rows.sort((a, b) => b.daysWithCustomer - a.daysWithCustomer);
 }
+
+/** @deprecated Use samplesWithCustomer; retained for existing data scripts. */
+export const samplesAwaiting = samplesWithCustomer;
+export type WaitingSampleRow = CustomerSampleOutRow;
 
 export type CashRow = {
   company: Company;
