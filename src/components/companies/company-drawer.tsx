@@ -62,6 +62,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatementOfAccountTab } from "@/components/companies/statement-of-account-tab";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -1002,12 +1003,15 @@ export function CompanyDrawer({
           */}
           <div className="min-h-0 overflow-y-auto p-5">
             <Tabs defaultValue="activity" className="flex min-h-full flex-col">
-              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-secondary p-1">
+              <TabsList className="grid h-9 w-full grid-cols-3 rounded-xl bg-secondary p-1">
                 <TabsTrigger value="activity" className="gap-1.5 text-xs font-semibold">
                   Activity <span className="text-[11px] opacity-80">({companyActivities.length})</span>
                 </TabsTrigger>
                 <TabsTrigger value="deals" className="gap-1.5 text-xs font-semibold">
                   Deals <span className="text-[11px] opacity-80">({companyDeals.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="statement" className="gap-1.5 text-xs font-semibold">
+                  Statement
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="activity" className="mt-3 flex-1">
@@ -1019,6 +1023,13 @@ export function CompanyDrawer({
               </TabsContent>
               <TabsContent value="deals" className="mt-3 flex-1">
                 {renderDealsPanel()}
+              </TabsContent>
+              <TabsContent value="statement" className="mt-3 flex-1">
+                <StatementOfAccountTab
+                  companyId={company.id}
+                  companyName={company.name}
+                  deals={companyDeals}
+                />
               </TabsContent>
             </Tabs>
           </div>

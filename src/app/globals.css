@@ -495,3 +495,15 @@ svg.recharts-surface:focus-visible {
 .chart-axis path {
   stroke: hsl(var(--border));
 }
+
+@media print {
+  body > *:not(#soa-print-root) {
+    display: none !important;
+  }
+  #soa-print-root {
+    display: block !important;
+    background: #fff !important;
+    color: #111 !important;
+    padding: 24px !important;
+  }
+}

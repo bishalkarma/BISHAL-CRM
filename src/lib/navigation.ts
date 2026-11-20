@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpen,
   Building2,
   CalendarCheck,
   LayoutDashboard,
@@ -80,6 +81,12 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/reports",
         icon: BarChart3,
         shortcut: "G E",
+      },
+      {
+        label: "Statement of Ledger",
+        href: "/ledger",
+        icon: BookOpen,
+        shortcut: "G L",
       },
       { label: "Settings", href: "/settings", icon: Settings, shortcut: "G S" },
     ],
