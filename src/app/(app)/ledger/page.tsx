@@ -82,6 +82,7 @@ export default function LedgerPage() {
         <StatementOfAccountTab
           companyId={selected.company.id}
           companyName={selected.company.name}
+          companyAddress={[selected.company.area, selected.company.emirate].filter(Boolean).join(", ")}
           deals={deals.filter((d) => d.companyId === selected.company.id)}
         />
       </div>
