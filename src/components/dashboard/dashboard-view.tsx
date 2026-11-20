@@ -504,8 +504,10 @@ export function DashboardView() {
             <Card className="flex flex-col">
               <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
                 <div className="min-w-0">
-                  <CardTitle>Cash to collect</CardTitle>
-                  <CardDescription>Delivered · not fully paid</CardDescription>
+                  <Link href="/ledger" className="group inline-flex items-center gap-1 hover:text-accent">
+                    <CardTitle className="transition-colors group-hover:text-accent">Cash to collect</CardTitle>
+                  </Link>
+                  <CardDescription>Delivered · not fully paid · <Link href="/ledger" className="text-accent hover:underline">Statement of Ledger</Link></CardDescription>
                 </div>
                 <CashSummary rows={cash} formatMoney={money} />
               </CardHeader>
