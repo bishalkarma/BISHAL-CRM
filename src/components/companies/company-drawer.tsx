@@ -765,17 +765,14 @@ export function CompanyDrawer({
               }
               className="flex flex-1 flex-col pt-0.5"
             >
-              <TabsList className="grid h-9 w-full grid-cols-3 rounded-xl bg-secondary p-1">
+              <TabsList className="grid h-9 w-full grid-cols-4 rounded-xl bg-secondary p-1">
                 <TabsTrigger
                   value="activity"
-                  className="gap-1.5 px-2 text-xs font-semibold"
+                  className="gap-1 px-1.5 text-xs font-semibold"
                 >
                   <span>Activity</span>
                   <span className="text-[11px] opacity-80">
                     ({companyActivities.length})
-                    {openTasks.length > 0
-                      ? ` · ${openTasks.length} ${openTasks.length === 1 ? "task" : "tasks"}`
-                      : ""}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
@@ -787,10 +784,16 @@ export function CompanyDrawer({
                   <span className="text-[11px] opacity-80">({companyDeals.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="history"
-                  className="gap-1 px-2 text-xs font-semibold"
+                  value="statement"
+                  className="gap-1 px-1.5 text-xs font-semibold"
                 >
-                  <span className="truncate">Stage &amp; Owner History</span>
+                  <span>Statement</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="gap-1 px-1.5 text-xs font-semibold"
+                >
+                  <span className="truncate">History</span>
                   {totalHistoryCount > 0 && (
                     <span className="shrink-0 text-[11px] opacity-80">
                       ({totalHistoryCount})
@@ -812,6 +815,17 @@ export function CompanyDrawer({
               <TabsContent value="deals" className="mt-2.5 flex-1">
                 <div className="h-full overflow-y-auto rounded-xl border border-border bg-card/40 p-3">
                   {renderDealsPanel()}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="statement" className="mt-2.5 flex-1">
+                <div className="h-full overflow-y-auto rounded-xl border border-border bg-card/40 p-3">
+                  <StatementOfAccountTab
+                    companyId={company.id}
+                    companyName={company.name}
+                    companyAddress={[company.area, company.emirate].filter(Boolean).join(", ")}
+                    deals={companyDeals}
+                  />
                 </div>
               </TabsContent>
 
