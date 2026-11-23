@@ -32,6 +32,7 @@ export type LedgerPayment = {
 export type StatementEntry = {
   id: string;
   kind: "delivery" | "payment";
+  source?: "deal" | "manual";
   date: string;
   reference: string;
   description: string;
@@ -169,6 +170,16 @@ export async function persistLedgerPayment(companyId: string, payment: LedgerPay
     currency: payment.currency,
     delivery_id: payment.deliveryId ?? null,
   });
+}
+
+export async function deleteLedgerEntry(companyId: string, entryId: string): Promise<void> {
+  const extras = loadCustomerLedgerExtras(companyId);
+  saveCustomerLedgerExtras(companyId, {
+    deliveries: extras.deliveries.filter((d) => d.id !== entryId),
+    payments: extras.payments.filter((p) => p.id !== entryId),
+  });
+  if (!supabase) return;
+  await supabase.from("customer_ledger_entries").delete().eq("id", entryId);
 }
 
 function computeAging(
@@ -345,6 +356,7 @@ export function buildCustomerStatement(
     runningBalance += row.debit - row.credit;
     return {
       ...row,
+      source: row.id.startsWith("deal-") ? ("deal" as const) : ("manual" as const),
       runningBalance,
       currency: displayCurrency,
     };

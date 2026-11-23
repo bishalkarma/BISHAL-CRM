@@ -1,32 +1,38 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Printer, Receipt, Truck } from "lucide-react";
+import { Pencil, Plus, Printer, Receipt, Trash2, Truck } from "lucide-react";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Deal } from "@/lib/deals";
 import {
   buildCustomerStatement,
+  deleteLedgerEntry,
+  loadCustomerLedgerExtras,
   persistLedgerDelivery,
   persistLedgerPayment,
   syncCustomerLedgerFromSupabase,
   type LedgerDelivery,
   type LedgerPayment,
+  type StatementEntry,
 } from "@/lib/statement-of-account";
 
 export function StatementOfAccountTab({
   companyId,
   companyName,
+  companyAddress,
   deals,
 }: {
   companyId: string;
   companyName?: string;
+  companyAddress?: string;
   deals: Deal[];
 }) {
   const { display: currency, toDisplay: convert, format } = useCurrency();
   const [version, setVersion] = React.useState(0);
   const [mode, setMode] = React.useState<"none" | "delivery" | "payment">("none");
+  const [editingId, setEditingId] = React.useState<string | null>(null);
 
   const [delDate, setDelDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [delPo, setDelPo] = React.useState("");
@@ -58,7 +64,7 @@ export function StatementOfAccountTab({
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     const next: LedgerDelivery = {
-      id: `man-del-${Date.now()}`,
+      id: editingId ?? `man-del-${Date.now()}`,
       date: delDate,
       poNumber: delPo.trim() || "PO",
       invoiceNumber: delInv.trim() || "INV",
@@ -68,6 +74,7 @@ export function StatementOfAccountTab({
       source: "manual",
     };
     void persistLedgerDelivery(companyId, next).then(() => setVersion((v) => v + 1));
+    setEditingId(null);
     setDelPo("");
     setDelInv("");
     setDelDesc("");
@@ -81,7 +88,7 @@ export function StatementOfAccountTab({
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     const next: LedgerPayment = {
-      id: `man-pmt-${Date.now()}`,
+      id: editingId ?? `man-pmt-${Date.now()}`,
       date: pmtDate,
       method: pmtMethod,
       reference: pmtRef.trim() || pmtMethod,
@@ -90,10 +97,40 @@ export function StatementOfAccountTab({
       deliveryId: pmtDeliveryId || undefined,
     };
     void persistLedgerPayment(companyId, next).then(() => setVersion((v) => v + 1));
+    setEditingId(null);
     setPmtRef("");
     setPmtAmount("");
     setPmtDeliveryId("");
     setMode("none");
+  };
+
+  const handleEditEntry = (entry: StatementEntry) => {
+    const extras = loadCustomerLedgerExtras(companyId);
+    if (entry.kind === "delivery") {
+      const found = extras.deliveries.find((d) => d.id === entry.id);
+      if (!found) return;
+      setEditingId(found.id);
+      setDelDate(found.date);
+      setDelPo(found.poNumber);
+      setDelInv(found.invoiceNumber);
+      setDelDesc(found.description);
+      setDelAmount(String(found.amount));
+      setMode("delivery");
+    } else {
+      const found = extras.payments.find((p) => p.id === entry.id);
+      if (!found) return;
+      setEditingId(found.id);
+      setPmtDate(found.date);
+      setPmtMethod(found.method);
+      setPmtRef(found.reference);
+      setPmtAmount(String(found.amount));
+      setPmtDeliveryId(found.deliveryId ?? "");
+      setMode("payment");
+    }
+  };
+
+  const handleDeleteEntry = (entryId: string) => {
+    void deleteLedgerEntry(companyId, entryId).then(() => setVersion((v) => v + 1));
   };
 
   const handlePrint = () => {
@@ -114,22 +151,22 @@ export function StatementOfAccountTab({
 
     const bodyHtml = `
   <style>
-    #soa-print-root { font-family: system-ui, -apple-system, sans-serif; color: #111; }
+    #soa-print-root { font-family: system-ui, -apple-system, sans-serif; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     #soa-print-root .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
     #soa-print-root .brand { font-size: 20px; font-weight: 700; color: #0f294a; }
     #soa-print-root .doc-title { font-size: 24px; font-weight: 700; color: #0f294a; text-align: right; }
     #soa-print-root .meta { font-size: 11px; color: #555; text-align: right; margin-top: 4px; }
     #soa-print-root .boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-    #soa-print-root .box-head { background: #0f294a; color: #fff; font-size: 11px; font-weight: 600; padding: 5px 10px; }
+    #soa-print-root .box-head { background: #0f294a !important; color: #fff !important; font-size: 11px; font-weight: 700; padding: 6px 10px; }
     #soa-print-root .box-body { border: 1px solid #d1d5db; border-top: none; padding: 10px; font-size: 12px; line-height: 1.5; }
     #soa-print-root .sum-row { display: flex; justify-content: space-between; }
     #soa-print-root .sum-row.bold { font-weight: 700; border-top: 1px solid #e5e7eb; margin-top: 4px; padding-top: 4px; }
-    #soa-print-root table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    #soa-print-root th { background: #0f294a; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; }
-    #soa-print-root td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
-    #soa-print-root tr:nth-child(even) td { background: #f9fafb; }
-    #soa-print-root .total-bar { background: #0f294a; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: 700; text-align: right; margin-top: 2px; }
-    #soa-print-root .footer { text-align: center; font-size: 11px; color: #555; margin-top: 24px; }
+    #soa-print-root table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #d1d5db; }
+    #soa-print-root th { background: #0f294a !important; color: #fff !important; border: 1px solid #0f294a; padding: 8px 10px; text-align: left; font-weight: 700; }
+    #soa-print-root td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+    #soa-print-root tr:nth-child(even) td { background: #f3f4f6 !important; }
+    #soa-print-root .total-bar { background: #0f294a !important; color: #fff !important; padding: 8px 12px; font-size: 13px; font-weight: 700; text-align: right; margin-top: 2px; }
+    #soa-print-root .footer { text-align: center; font-size: 12px; font-weight: 600; color: #333; margin-top: 24px; }
   </style>
   <div class="top">
     <div class="brand">Bishal Sales CRM</div>
@@ -141,7 +178,10 @@ export function StatementOfAccountTab({
   <div class="boxes">
     <div>
       <div class="box-head">Bill To:</div>
-      <div class="box-body"><strong>${companyName || "Customer"}</strong></div>
+      <div class="box-body">
+        <strong>${companyName || "Customer"}</strong>
+        ${companyAddress ? `<div style="color:#4b5563;margin-top:2px">${companyAddress}</div>` : ""}
+      </div>
     </div>
     <div>
       <div class="box-head">Account Summary</div>
@@ -157,13 +197,13 @@ export function StatementOfAccountTab({
     <thead>
       <tr>
         <th>Date</th><th>PO / Invoice #</th><th>Description</th><th>Aging (45d)</th>
-        <th style="text-align:right">Charges</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th>
+        <th style="text-align:right">Debit</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th>
       </tr>
     </thead>
     <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#666;padding:24px">No deliveries or payments recorded.</td></tr>'}</tbody>
   </table>
   <div class="total-bar">Account Current Balance: ${format(summary.balanceDue)}</div>
-  <div class="footer">Thank you for your business! · 45-day credit terms per delivery</div>`;
+  <div class="footer">Thank you for your business!</div>`;
 
     let root = document.getElementById("soa-print-root");
     if (!root) {
@@ -420,6 +460,7 @@ export function StatementOfAccountTab({
                 <th className="px-3 py-2 text-right font-medium">Debit</th>
                 <th className="px-3 py-2 text-right font-medium">Credit</th>
                 <th className="px-3 py-2 text-right font-medium">Balance</th>
+                <th className="px-2 py-2 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -464,6 +505,30 @@ export function StatementOfAccountTab({
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">
                     {format(entry.runningBalance)}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2.5 text-right">
+                    {entry.source === "manual" ? (
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditEntry(entry)}
+                          title="Edit entry"
+                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEntry(entry.id)}
+                          title="Delete entry"
+                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/50">Deal</span>
+                    )}
                   </td>
                 </tr>
               ))}
