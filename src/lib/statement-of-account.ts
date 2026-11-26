@@ -125,6 +125,26 @@ export async function syncCustomerLedgerFromSupabase(companyId?: string): Promis
     }
   }
 
+  if (companyId) {
+    saveCustomerLedgerExtras(
+      companyId,
+      byCompany.get(companyId) ?? { deliveries: [], payments: [] },
+    );
+    return;
+  }
+
+  if (typeof window !== "undefined") {
+    for (let i = window.localStorage.length - 1; i >= 0; i--) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        const cid = key.slice(STORAGE_PREFIX.length);
+        if (!byCompany.has(cid)) {
+          window.localStorage.removeItem(key);
+        }
+      }
+    }
+  }
+
   for (const [cid, bucket] of byCompany.entries()) {
     saveCustomerLedgerExtras(cid, bucket);
   }
